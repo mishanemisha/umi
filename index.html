@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>日本語 Learner</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0d1117;
+  --bg2:      #161b22;
+  --bg3:      #21262d;
+  --text:     #e6edf3;
+  --text2:    #8b949e;
+  --accent:   #58a6ff;
+  --green:    #3fb950;
+  --yellow:   #d29922;
+  --red:      #f85149;
+  --border:   #30363d;
+  --r:        12px;
+  --r-sm:     8px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  max-width: 480px;
+  margin: 0 auto;
+  padding-bottom: 72px;
+  min-height: 100vh;
+}
+
+/* ── Header ─────────────────────────────── */
+.hdr {
+  position: sticky; top: 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 100;
+}
+.hdr-title { font-size: 17px; font-weight: 600; flex: 1; }
+.hdr-btn {
+  background: none; border: none;
+  color: var(--accent); font-size: 15px;
+  cursor: pointer; padding: 4px 8px;
+  border-radius: var(--r-sm);
+}
+
+/* ── Bottom nav ──────────────────────────── */
+.bnav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  display: flex; z-index: 100;
+}
+.bnav-btn {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 8px 0;
+  background: none; border: none;
+  color: var(--text2); font-size: 11px; cursor: pointer;
+  transition: color .15s;
+}
+.bnav-btn.active { color: var(--accent); }
+.bnav-icon { font-size: 20px; }
+
+/* ── Content ─────────────────────────────── */
+.content { padding: 14px 14px 0; }
+
+/* ── Cards / surfaces ───────────────────── */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 14px;
+  margin-bottom: 10px;
+}
+
+/* ── Buttons ─────────────────────────────── */
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 12px 18px; border-radius: var(--r); border: none;
+  font-size: 15px; font-weight: 500; cursor: pointer;
+  transition: opacity .15s, transform .1s;
+  width: 100%; text-align: center;
+}
+.btn:active { opacity: .75; transform: scale(.98); }
+.btn-primary  { background: var(--accent); color: #fff; }
+.btn-secondary{ background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+.btn-danger   { background: rgba(248,81,73,.15); color: var(--red); border: 1px solid var(--red); }
+.btn-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.btn-row .btn { flex: 1; }
+
+/* ── Stats grid ──────────────────────────── */
+.stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 10px; }
+.stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 12px; text-align: center; }
+.stat-num { font-size: 30px; font-weight: 700; line-height: 1; }
+.stat-lbl { font-size: 11px; color: var(--text2); margin-top: 3px; }
+.stat-know    .stat-num { color: var(--green); }
+.stat-learn   .stat-num { color: var(--yellow); }
+.stat-unknown .stat-num { color: var(--red); }
+
+/* ── Progress bar ────────────────────────── */
+.prog { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+.prog-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width .3s; }
+
+/* ── Flashcard ───────────────────────────── */
+.fc-wrap { perspective: 1000px; height: 250px; margin: 10px 0; }
+.fc {
+  width: 100%; height: 100%; position: relative;
+  transform-style: preserve-3d;
+  transition: transform .5s cubic-bezier(.4,0,.2,1);
+  cursor: pointer;
+}
+.fc.flipped { transform: rotateY(180deg); }
+.fc-face {
+  position: absolute; inset: 0;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 20px; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+}
+.fc-back { transform: rotateY(180deg); background: var(--bg3); }
+.fc-status { position: absolute; top: 0; left: 0; right: 0; height: 4px; border-radius: var(--r) var(--r) 0 0; }
+.fc-status.know    { background: var(--green); }
+.fc-status.learning{ background: var(--yellow); }
+.fc-status.unknown { background: var(--border); }
+.fc-label { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--text2); margin-bottom: 8px; }
+.fc-main  { font-size: 56px; line-height: 1.1; text-align: center; }
+.fc-main.sm { font-size: 22px; }
+.fc-hint  { font-size: 13px; color: var(--text2); margin-top: 6px; }
+.fc-back-body { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+.fc-field-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--text2); }
+.fc-field-val { font-size: 16px; word-break: break-word; }
+.fc-field-val.lg { font-size: 26px; }
+.fc-tap-hint { font-size: 12px; color: var(--text2); margin-top: 10px; }
+
+/* ── Mark buttons ────────────────────────── */
+.mark-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 10px; }
+.mbtn {
+  padding: 10px 6px; border-radius: var(--r); border: 2px solid transparent;
+  font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity .15s;
+}
+.mbtn:active { opacity: .7; }
+.mbtn.unknown { background: rgba(248,81,73,.12); color: var(--red);    border-color: var(--red);    }
+.mbtn.learning{ background: rgba(210,153,34,.12); color: var(--yellow); border-color: var(--yellow); }
+.mbtn.know    { background: rgba(63,185,80,.12);  color: var(--green);  border-color: var(--green);  }
+
+/* ── Quiz ────────────────────────────────── */
+.quiz-q {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r);
+  padding: 24px; text-align: center; margin-bottom: 14px;
+  min-height: 130px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 6px;
+}
+.quiz-q-lbl  { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--text2); }
+.quiz-q-main { font-size: 52px; line-height: 1.1; }
+.quiz-q-main.sm { font-size: 20px; }
+.quiz-q-hint { font-size: 15px; color: var(--text2); }
+.quiz-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.qopt {
+  background: var(--bg2); border: 2px solid var(--border);
+  border-radius: var(--r); padding: 14px 10px; font-size: 15px;
+  cursor: pointer; color: var(--text); min-height: 64px;
+  display: flex; align-items: center; justify-content: center;
+  text-align: center; word-break: break-word; transition: border-color .15s;
+}
+.qopt:hover:not(:disabled) { border-color: var(--accent); }
+.qopt.correct { background: rgba(63,185,80,.15);  border-color: var(--green);  color: var(--green);  }
+.qopt.wrong   { background: rgba(248,81,73,.15);  border-color: var(--red);    color: var(--red);    }
+.qopt:disabled { cursor: default; }
+.quiz-score { font-size: 14px; display: flex; gap: 12px; align-items: center; }
+.score-ok  { color: var(--green); font-weight: 600; }
+.score-bad { color: var(--red);   font-weight: 600; }
+
+/* ── Import / drop zone ──────────────────── */
+.dropzone {
+  border: 2px dashed var(--border); border-radius: var(--r);
+  padding: 36px 20px; text-align: center; cursor: pointer;
+  transition: border-color .2s, background .2s; margin-bottom: 10px;
+}
+.dropzone.over { border-color: var(--accent); background: rgba(88,166,255,.05); }
+.dz-icon { font-size: 38px; margin-bottom: 10px; }
+.dz-text { color: var(--text2); font-size: 15px; }
+.dz-hint { color: var(--text2); font-size: 13px; margin-top: 6px; }
+
+/* ── Preview table ───────────────────────── */
+.tbl-wrap { overflow-x: auto; border-radius: var(--r); border: 1px solid var(--border); margin-bottom: 10px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { background: var(--bg3); padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text2); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
+td { padding: 7px 10px; border-top: 1px solid var(--border); white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+tr:nth-child(even) td { background: rgba(255,255,255,.02); }
+
+/* ── Word list ───────────────────────────── */
+.witem { display: flex; align-items: center; padding: 9px 14px; border-bottom: 1px solid var(--border); gap: 10px; }
+.witem:last-child { border-bottom: none; }
+.wkanji { font-size: 22px; min-width: 48px; }
+.winfo  { flex: 1; min-width: 0; }
+.wreading    { font-size: 12px; color: var(--text2); }
+.wtranslate  { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wdot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+.wdot.know    { background: var(--green);  }
+.wdot.learning{ background: var(--yellow); }
+.wdot.unknown { background: var(--border); }
+
+/* ── Settings ────────────────────────────── */
+.sset-lbl { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--text2); margin-bottom: 6px; padding: 0 2px; }
+.sset-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; margin-bottom: 16px; }
+.sset-row { display: flex; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--border); gap: 10px; cursor: pointer; }
+.sset-row:last-child { border-bottom: none; }
+.sset-row-lbl { flex: 1; font-size: 15px; }
+.sset-row-val { color: var(--text2); font-size: 14px; }
+
+/* ── Chips ───────────────────────────────── */
+.chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.chip {
+  padding: 5px 12px; border-radius: 20px;
+  border: 2px solid var(--border); font-size: 13px;
+  cursor: pointer; background: transparent; color: var(--text2);
+  transition: all .15s;
+}
+.chip.active { border-color: var(--accent); background: rgba(88,166,255,.12); color: var(--accent); }
+
+/* ── Select ──────────────────────────────── */
+select {
+  background: var(--bg3); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  padding: 7px 10px; font-size: 14px; cursor: pointer; width: 100%;
+}
+
+/* ── Config panel ────────────────────────── */
+.cfg { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 12px; margin-bottom: 10px; }
+.cfg-lbl { font-size: 12px; color: var(--text2); margin-bottom: 8px; }
+
+/* ── Empty state ─────────────────────────── */
+.empty { text-align: center; padding: 52px 20px; color: var(--text2); }
+.empty-icon  { font-size: 60px; margin-bottom: 14px; }
+.empty-title { font-size: 19px; font-weight: 600; color: var(--text); margin-bottom: 7px; }
+.empty-body  { font-size: 14px; margin-bottom: 22px; }
+
+/* ── Session complete ────────────────────── */
+.done { text-align: center; padding: 36px 16px; }
+.done-icon { font-size: 60px; margin-bottom: 14px; }
+.res-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin: 18px 0; }
+.res-card  { border-radius: var(--r); padding: 12px; text-align: center; }
+.res-card.know    { background: rgba(63,185,80,.12);  color: var(--green);  }
+.res-card.learning{ background: rgba(210,153,34,.12); color: var(--yellow); }
+.res-card.unknown { background: rgba(248,81,73,.12);  color: var(--red);    }
+.res-num { font-size: 30px; font-weight: 700; }
+.res-lbl { font-size: 12px; margin-top: 3px; opacity: .8; }
+
+/* ── Toast ───────────────────────────────── */
+#toast {
+  position: fixed; bottom: 80px; left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r);
+  padding: 9px 18px; font-size: 14px; z-index: 200;
+  transition: transform .25s; white-space: nowrap; pointer-events: none;
+}
+#toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ── Monospace block ─────────────────────── */
+.mono { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; color: var(--text2); line-height: 1.7; }
+
+/* ── Quiz input mode ─────────────────────── */
+.quiz-input {
+  width: 100%; padding: 14px 16px; font-size: 18px;
+  background: var(--bg2); color: var(--text);
+  border: 2px solid var(--border); border-radius: var(--r);
+  outline: none; text-align: center; letter-spacing: .05em;
+  transition: border-color .15s; margin-bottom: 10px;
+  font-family: inherit;
+}
+.quiz-input:focus { border-color: var(--accent); }
+.quiz-input.correct { border-color: var(--green); background: rgba(63,185,80,.08); }
+.quiz-input.wrong   { border-color: var(--red);   background: rgba(248,81,73,.08); }
+.quiz-input:disabled { opacity: .8; cursor: default; }
+.quiz-answer-reveal {
+  text-align: center; padding: 10px 14px; border-radius: var(--r);
+  font-size: 16px; margin-bottom: 10px;
+}
+.quiz-answer-reveal.correct { background: rgba(63,185,80,.12); color: var(--green); }
+.quiz-answer-reveal.wrong   { background: rgba(248,81,73,.12); color: var(--red);   }
+.quiz-correct-text { font-size: 14px; color: var(--text2); margin-top: 6px; }
+
+/* ── Animations ──────────────────────────── */
+@keyframes fadeUp { from { opacity:0; transform: translateY(12px); } to { opacity:1; transform: translateY(0); } }
+.fade-up { animation: fadeUp .2s ease; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+// ─────────────────────────────────────────────────────────────
+//  Telegram WebApp bootstrap
+// ─────────────────────────────────────────────────────────────
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.expand(); tg.ready(); }
+
+function haptic(type = 'light') {
+  tg?.HapticFeedback?.impactOccurred(type);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Field definitions
+// ─────────────────────────────────────────────────────────────
+const FIELDS = {
+  kanji:       { label: 'Кандзи / Слово',  short: 'Кандзи'  },
+  reading:     { label: 'Чтение (кана)',    short: 'Кана'    },
+  on_reading:  { label: 'Он-чтение',        short: 'Он'      },
+  kun_reading: { label: 'Кун-чтение',       short: 'Кун'     },
+  meaning:     { label: 'Значение (eng)',   short: 'Eng'     },
+  translation: { label: 'Перевод',          short: 'Перевод' },
+  notes:       { label: 'Заметки',          short: 'Заметки' },
+};
+
+const FIELD_KEYS = Object.keys(FIELDS);
+
+// ─────────────────────────────────────────────────────────────
+//  State
+// ─────────────────────────────────────────────────────────────
+const S = {
+  tab: 'home',          // home | study | quiz | words | settings
+
+  words: [],            // imported word objects
+  progress: {},         // id -> 'know' | 'learning' | 'unknown'
+
+  // Study
+  studyQueue: [],
+  studyIdx: 0,
+  cardFlipped: false,
+  studyResults: null,   // { know, learning, unknown }
+  studyCfg: { front: 'kanji', back: ['translation','reading','on_reading','kun_reading'], filter: 'all' },
+
+  // Quiz
+  quizCfg:      { question: 'kanji', answer: 'reading', filter: 'all', mode: 'choice' },
+  quizQ:        null,     // current question
+  quizScore:    { ok: 0, bad: 0 },
+  quizDone:     false,    // answered current question
+  quizSel:      -1,       // selected option index (choice mode)
+  quizInputVal: '',       // user's typed answer (input mode)
+
+  // Inline confirmation (no dialogs)
+  confirmPending: null, // 'reset-progress' | 'clear-words' | null
+
+  // Import
+  screen: 'main',       // main | import
+  importStep: 'upload', // upload | map | preview
+  importRaw: null,      // { rawRows, colCount } — for headerless files
+  importMapping: [],    // fieldKey (or '') per column index
+  importPreview: null,
+  importErr: null,
+};
+
+// ─────────────────────────────────────────────────────────────
+//  Persistence
+// ─────────────────────────────────────────────────────────────
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem('jl2') || '{}');
+    S.words      = d.words      || [];
+    S.progress   = d.progress   || {};
+    S.studyCfg   = { ...S.studyCfg,  ...(d.studyCfg  || {}) };
+    S.quizCfg    = { ...S.quizCfg,   ...(d.quizCfg   || {}) };
+  } catch {}
+}
+function save() {
+  try {
+    localStorage.setItem('jl2', JSON.stringify({
+      words:    S.words,
+      progress: S.progress,
+      studyCfg: S.studyCfg,
+      quizCfg:  S.quizCfg,
+    }));
+  } catch {}
+}
+
+// ─────────────────────────────────────────────────────────────
+//  CSV / TSV parser
+// ─────────────────────────────────────────────────────────────
+const ALIAS = {
+  слово:'kanji', word:'kanji', кандзи:'kanji', kanji:'kanji',
+  чтение:'reading', кана:'reading', reading:'reading', kana:'reading',
+  'он':'on_reading', 'он-чтение':'on_reading', 'он_чтение':'on_reading',
+  on:'on_reading', on_reading:'on_reading', onyomi:'on_reading',
+  'кун':'kun_reading', 'кун-чтение':'kun_reading', 'кун_чтение':'kun_reading',
+  kun:'kun_reading', kun_reading:'kun_reading', kunyomi:'kun_reading',
+  значение:'meaning', meaning:'meaning', english:'meaning', eng:'meaning',
+  перевод:'translation', translation:'translation', russian:'translation', rus:'translation', рус:'translation',
+  заметки:'notes', notes:'notes', note:'notes', примечание:'notes', комментарий:'notes',
+};
+
+function parseLine(line, sep) {
+  const out = []; let cur = '', q = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { if (q && line[i+1]==='"') { cur+='"'; i++; } else q=!q; }
+    else if (c === sep && !q) { out.push(cur.trim()); cur=''; }
+    else cur += c;
+  }
+  out.push(cur.trim()); return out;
+}
+
+function detectSep(text) {
+  const row = text.split('\n')[0];
+  const t = (row.match(/\t/g)||[]).length;
+  const c = (row.match(/,/g)||[]).length;
+  const s = (row.match(/;/g)||[]).length;
+  if (t >= c && t >= s) return '\t';
+  if (s > c) return ';';
+  return ',';
+}
+
+function parseFile(text) {
+  // strip UTF-8 BOM
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const sep     = detectSep(text);
+  const rows    = text.split(/\r?\n/).filter(l => l.trim());
+  if (rows.length < 1) throw new Error('Файл пустой');
+
+  const firstCells = parseLine(rows[0], sep);
+
+  // Detect headers: at least one cell matches a known alias
+  const hasHeaders = firstCells.some(h => {
+    const k = h.toLowerCase().replace(/[\s\-]/g, '_');
+    return !!(ALIAS[k] || ALIAS[h.toLowerCase()]);
+  });
+
+  if (!hasHeaders) {
+    // No headers — return raw data for manual column mapping
+    const rawRows = rows.map(r => parseLine(r, sep));
+    return { rawRows, colCount: firstCells.length, hasHeaders: false };
+  }
+
+  // Resolve header names via ALIAS
+  const headers = firstCells.map(h => {
+    const k = h.toLowerCase().replace(/[\s\-]/g, '_');
+    return ALIAS[k] || ALIAS[h.toLowerCase()] || k;
+  });
+  if (!headers.includes('kanji')) {
+    throw new Error('Не найдена колонка кандзи/слова. Ожидалось: kanji, word, слово, кандзи');
+  }
+
+  const rawRows = rows.slice(1).map(r => parseLine(r, sep));
+  return { ...applyMapping(rawRows, headers), hasHeaders: true };
+}
+
+// Pick the best available answer field given current words
+function bestAnswerField(preferredField) {
+  const hasData = f => S.words.some(w => w[f]);
+  if (hasData(preferredField)) return preferredField;
+  for (const f of ['reading', 'meaning', 'translation', 'kanji', 'on_reading', 'kun_reading']) {
+    if (f !== preferredField && hasData(f)) return f;
+  }
+  return preferredField;
+}
+
+// Apply a column-to-field mapping to raw rows and return { words, headers }
+function applyMapping(rawRows, mapping) {
+  const words = [];
+  for (const vals of rawRows) {
+    if (vals.every(v => !v)) continue;
+    const w = { id: uid() };
+    mapping.forEach((fieldKey, j) => {
+      if (fieldKey) w[fieldKey] = (vals[j] || '').trim();
+    });
+    // Kana-only words: use first reading variant as display kanji
+    if (!w.kanji && w.reading) w.kanji = w.reading.split(',')[0].trim();
+    if (w.kanji) words.push(w);
+  }
+  if (!words.length) throw new Error('Не найдено ни одного слова с заполненным полем кандзи/чтения');
+  const foundFields = [...new Set(mapping.filter(h => h && FIELD_KEYS.includes(h)))];
+  return { words, headers: foundFields, hasHeaders: true };
+}
+
+// Default field mapping by column position
+function defaultMapping(colCount) {
+  const defaults = ['kanji', 'reading', 'meaning', 'translation', 'notes'];
+  return Array.from({ length: colCount }, (_, i) => defaults[i] || '');
+}
+
+function uid() { return Math.random().toString(36).slice(2,9) + Date.now().toString(36); }
+
+// ─────────────────────────────────────────────────────────────
+//  Study helpers
+// ─────────────────────────────────────────────────────────────
+function filteredWords(filter) {
+  if (filter === 'all') return [...S.words];
+  return S.words.filter(w => (S.progress[w.id] || 'unknown') === filter);
+}
+
+function shuffle(arr) { return [...arr].sort(() => Math.random() - .5); }
+
+function buildStudyQueue() {
+  return shuffle(filteredWords(S.studyCfg.filter));
+}
+
+function buildQuiz() {
+  const qf = S.quizCfg.question;
+  const af = S.quizCfg.answer;
+
+  const pool = filteredWords(S.quizCfg.filter).filter(w => w[qf] && w[af]);
+  if (pool.length < 2) return null;
+
+  // Need at least 3 other words with answer field for wrong options
+  const wrongPool = S.words.filter(w => w[af]);
+  if (wrongPool.length < 4) return null;
+
+  // Pick a random question word (try up to 10 times to avoid degenerate cases)
+  let qw = null;
+  const shuffledPool = shuffle(pool);
+  for (const candidate of shuffledPool.slice(0, 10)) {
+    if (candidate[qf] && candidate[af]) { qw = candidate; break; }
+  }
+  if (!qw) return null;
+
+  const wrongs  = shuffle(wrongPool.filter(w => w.id !== qw.id && w[af])).slice(0, 3).map(w => w[af]);
+  if (wrongs.length < 3) return null;
+
+  const options = shuffle([...wrongs, qw[af]]);
+  const correct = options.indexOf(qw[af]);
+
+  return {
+    word: qw,
+    qText:  qw[qf],
+    qField: qf,
+    qHint:  (qf === 'kanji') ? (qw.reading || '') : '',
+    options, correct,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Render
+// ─────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function render() {
+  document.getElementById('app').innerHTML = buildApp();
+  bindAll();
+}
+
+function buildApp() {
+  return `
+    ${buildHeader()}
+    <div class="content fade-up">${buildScreen()}</div>
+    ${buildNav()}
+  `;
+}
+
+// ── Header ────────────────────────────────────────────────────
+const TAB_TITLES = { home:'🇯🇵 Japanese', study:'Карточки', quiz:'Тест', words:'Слова', settings:'Настройки' };
+
+function buildHeader() {
+  if (S.screen === 'import') return `
+    <div class="hdr">
+      <button class="hdr-btn" data-a="back-import">← Назад</button>
+      <span class="hdr-title">Импорт слов</span>
+    </div>`;
+  return `
+    <div class="hdr">
+      <span class="hdr-title">${TAB_TITLES[S.tab]||''}</span>
+      ${S.tab === 'words' ? '<button class="hdr-btn" data-a="go-import">+ Импорт</button>' : ''}
+    </div>`;
+}
+
+// ── Nav ───────────────────────────────────────────────────────
+const TABS = [
+  { id:'home',     icon:'🏠', lbl:'Главная'  },
+  { id:'study',    icon:'📚', lbl:'Карточки' },
+  { id:'quiz',     icon:'🎯', lbl:'Тест'     },
+  { id:'words',    icon:'📋', lbl:'Слова'    },
+  { id:'settings', icon:'⚙️',  lbl:'Настройки'},
+];
+function buildNav() {
+  return `<nav class="bnav">${TABS.map(t=>`
+    <button class="bnav-btn${S.tab===t.id?' active':''}" data-a="tab:${t.id}">
+      <span class="bnav-icon">${t.icon}</span><span>${t.lbl}</span>
+    </button>`).join('')}</nav>`;
+}
+
+function buildScreen() {
+  if (S.screen === 'import') return buildImport();
+  switch (S.tab) {
+    case 'home':     return buildHome();
+    case 'study':    return buildStudy();
+    case 'quiz':     return buildQuiz_screen();
+    case 'words':    return buildWords();
+    case 'settings': return buildSettings();
+  }
+  return '';
+}
+
+// ─────────────────────────────────────────────────────────────
+//  HOME
+// ─────────────────────────────────────────────────────────────
+function buildHome() {
+  const total   = S.words.length;
+  const know    = S.words.filter(w => S.progress[w.id]==='know').length;
+  const learning= S.words.filter(w => S.progress[w.id]==='learning').length;
+  const unknown = total - know - learning;
+
+  if (!total) return `
+    <div class="empty">
+      <div class="empty-icon">🈳</div>
+      <div class="empty-title">Слов пока нет</div>
+      <div class="empty-body">Импортируйте свой CSV или TSV файл</div>
+      <button class="btn btn-primary" data-a="go-import">📂 Импортировать</button>
+    </div>`;
+
+  const pct = Math.round(know / total * 100);
+  return `
+    <div class="stats-grid">
+      <div class="stat-card stat-know">    <div class="stat-num">${know}</div>    <div class="stat-lbl">Знаю</div>   </div>
+      <div class="stat-card stat-learn">   <div class="stat-num">${learning}</div><div class="stat-lbl">Учу</div>    </div>
+      <div class="stat-card stat-unknown"> <div class="stat-num">${unknown}</div> <div class="stat-lbl">Не знаю</div></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+        <span style="font-size:14px;color:var(--text2)">Прогресс</span>
+        <span style="font-size:14px;font-weight:600">${pct}%</span>
+      </div>
+      <div class="prog"><div class="prog-fill" style="width:${pct}%"></div></div>
+      <div style="font-size:12px;color:var(--text2);text-align:center">${know} из ${total} слов изучено</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary"   data-a="tab:study">📚 Карточки</button>
+      <button class="btn btn-secondary" data-a="tab:quiz">🎯 Тест</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" data-a="go-import">📂 Импорт</button>
+      <button class="btn btn-secondary" data-a="tab:words">📋 Все слова</button>
+    </div>`;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  STUDY
+// ─────────────────────────────────────────────────────────────
+function buildStudy() {
+  if (!S.words.length) return noWordsBlock();
+  if (S.studyResults) return buildStudyDone();
+  if (!S.studyQueue.length) return buildStudyCfg();
+  return buildStudyCard();
+}
+
+function buildStudyCfg() {
+  const filterOpts = [
+    { v:'all',      l:'Все' },
+    { v:'unknown',  l:'Не знаю' },
+    { v:'learning', l:'Учу' },
+    { v:'know',     l:'Знаю' },
+  ];
+  const cnt = filteredWords(S.studyCfg.filter).length;
+  return `
+    <div class="cfg">
+      <div class="cfg-lbl">Лицевая сторона карточки</div>
+      <select id="sel-front">
+        ${FIELD_KEYS.map(k=>`<option value="${k}"${S.studyCfg.front===k?' selected':''}>${FIELDS[k].label}</option>`).join('')}
+      </select>
+    </div>
+    <div class="cfg">
+      <div class="cfg-lbl">Поля на обороте</div>
+      <div class="chips" id="chips-back">
+        ${FIELD_KEYS.map(k=>`<button class="chip${S.studyCfg.back.includes(k)?' active':''}" data-field="${k}">${FIELDS[k].short}</button>`).join('')}
+      </div>
+    </div>
+    <div class="cfg">
+      <div class="cfg-lbl">Фильтр карточек</div>
+      <div class="chips">
+        ${filterOpts.map(o=>`<button class="chip${S.studyCfg.filter===o.v?' active':''}" data-a="study-filter:${o.v}">${o.l}</button>`).join('')}
+      </div>
+    </div>
+    <button class="btn btn-primary" data-a="start-study">📚 Начать (${cnt} слов)</button>`;
+}
+
+function buildStudyCard() {
+  const word  = S.studyQueue[S.studyIdx];
+  if (!word) return buildStudyDone();
+
+  const total   = S.studyQueue.length;
+  const current = S.studyIdx + 1;
+  const pct     = Math.round(current / total * 100);
+  const status  = S.progress[word.id] || 'unknown';
+
+  const fv = word[S.studyCfg.front] || '—';
+  const fl = FIELDS[S.studyCfg.front]?.label || S.studyCfg.front;
+  const isBig = S.studyCfg.front === 'kanji';
+
+  const backRows = S.studyCfg.back
+    .filter(f => f !== S.studyCfg.front && word[f])
+    .map(f => `
+      <div>
+        <div class="fc-field-lbl">${FIELDS[f]?.short||f}</div>
+        <div class="fc-field-val${f==='kanji'?' lg':''}">${esc(word[f])}</div>
+      </div>`).join('');
+
+  return `
+    <div class="prog"><div class="prog-fill" style="width:${pct}%"></div></div>
+    <div style="font-size:12px;color:var(--text2);text-align:center;margin-bottom:12px">${current} / ${total}</div>
+
+    <div class="fc-wrap" data-a="flip">
+      <div class="fc${S.cardFlipped?' flipped':''}">
+        <div class="fc-face">
+          <div class="fc-status ${status}"></div>
+          <div class="fc-label">${fl}</div>
+          <div class="fc-main${isBig?'':' sm'}">${esc(fv)}</div>
+          ${!S.cardFlipped ? '<div class="fc-tap-hint">Нажмите чтобы перевернуть</div>' : ''}
+        </div>
+        <div class="fc-face fc-back">
+          <div class="fc-status ${status}"></div>
+          <div class="fc-back-body">
+            ${backRows || '<div style="color:var(--text2);text-align:center">Нет данных для отображения</div>'}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mark-row">
+      <button class="mbtn unknown" data-a="mark:unknown">✗ Не знаю</button>
+      <button class="mbtn learning" data-a="mark:learning">△ Учу</button>
+      <button class="mbtn know"    data-a="mark:know">✓ Знаю</button>
+    </div>
+
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn btn-secondary" data-a="stop-study">Стоп</button>
+      <button class="btn btn-secondary" data-a="skip-card">Пропустить →</button>
+    </div>`;
+}
+
+function buildStudyDone() {
+  const r = S.studyResults || { know:0, learning:0, unknown:0 };
+  const total = r.know + r.learning + r.unknown;
+  return `
+    <div class="done">
+      <div class="done-icon">🎉</div>
+      <h2>Сессия завершена!</h2>
+      <p style="color:var(--text2);margin-top:7px">Пройдено: ${total} карточек</p>
+      <div class="res-grid">
+        <div class="res-card know">    <div class="res-num">${r.know}</div>    <div class="res-lbl">Знаю</div>   </div>
+        <div class="res-card learning"><div class="res-num">${r.learning}</div><div class="res-lbl">Учу</div>    </div>
+        <div class="res-card unknown"> <div class="res-num">${r.unknown}</div> <div class="res-lbl">Не знаю</div></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary"   data-a="restart-study">🔄 Снова</button>
+        <button class="btn btn-secondary" data-a="stop-study">Завершить</button>
+      </div>
+    </div>`;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  QUIZ
+// ─────────────────────────────────────────────────────────────
+function buildQuiz_screen() {
+  if (S.words.length < 4) return `
+    <div class="empty">
+      <div class="empty-icon">🎯</div>
+      <div class="empty-title">Мало слов</div>
+      <div class="empty-body">Для теста нужно минимум 4 слова (сейчас ${S.words.length})</div>
+      <button class="btn btn-primary" data-a="go-import">Импортировать</button>
+    </div>`;
+  if (!S.quizQ) return buildQuizCfg();
+  return buildQuizQ();
+}
+
+function buildQuizCfg() {
+  const filterOpts = [
+    { v:'all',      l:'Все' },
+    { v:'unknown',  l:'Не знаю' },
+    { v:'learning', l:'Учу' },
+    { v:'know',     l:'Знаю' },
+  ];
+  return `
+    <div class="cfg">
+      <div class="cfg-lbl">Режим ответа</div>
+      <div class="chips">
+        <button class="chip${S.quizCfg.mode==='choice'?' active':''}" data-a="quiz-mode:choice">4 варианта</button>
+        <button class="chip${S.quizCfg.mode==='input'?' active':''}"  data-a="quiz-mode:input">Вписать ответ</button>
+      </div>
+    </div>
+    <div class="cfg">
+      <div class="cfg-lbl">Вопрос (что показываем)</div>
+      <select id="sel-qfield">
+        ${FIELD_KEYS.map(k=>`<option value="${k}"${S.quizCfg.question===k?' selected':''}>${FIELDS[k].label}</option>`).join('')}
+      </select>
+    </div>
+    <div class="cfg">
+      <div class="cfg-lbl">Ответ (что угадываем)</div>
+      <select id="sel-afield">
+        ${FIELD_KEYS.map(k=>`<option value="${k}"${S.quizCfg.answer===k?' selected':''}>${FIELDS[k].label}</option>`).join('')}
+      </select>
+    </div>
+    <div class="cfg">
+      <div class="cfg-lbl">Фильтр слов</div>
+      <div class="chips">
+        ${filterOpts.map(o=>`<button class="chip${S.quizCfg.filter===o.v?' active':''}" data-a="quiz-filter:${o.v}">${o.l}</button>`).join('')}
+      </div>
+    </div>
+    <button class="btn btn-primary" data-a="start-quiz">🎯 Начать тест</button>`;
+}
+
+// Check if user's input matches the correct answer (any comma/semicolon variant)
+function checkInputAnswer(userInput, correctAnswer) {
+  const norm = s => s.trim().toLowerCase().replace(/\s+/g,' ');
+  const u = norm(userInput);
+  if (!u) return false;
+  const variants = correctAnswer.split(/[,;、。・\n]/).map(v => norm(v)).filter(Boolean);
+  return variants.some(v => v === u);
+}
+
+function buildQuizQ() {
+  const q = S.quizQ;
+  const isBig    = q.qField === 'kanji';
+  const aLabel   = FIELDS[S.quizCfg.answer]?.label || '';
+  const { ok, bad } = S.quizScore;
+  const isInput  = S.quizCfg.mode === 'input';
+
+  const header = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="quiz-score">
+        <span class="score-ok">✓ ${ok}</span>
+        <span class="score-bad">✗ ${bad}</span>
+        <span style="color:var(--text2)">итого ${ok+bad}</span>
+      </div>
+      <button class="btn btn-secondary" style="width:auto;padding:6px 12px;font-size:13px" data-a="stop-quiz">Стоп</button>
+    </div>`;
+
+  const questionBlock = `
+    <div class="quiz-q">
+      <div class="quiz-q-lbl">${FIELDS[q.qField]?.short||q.qField}</div>
+      <div class="quiz-q-main${isBig?'':' sm'}">${esc(q.qText)}</div>
+      ${q.qHint ? `<div class="quiz-q-hint">${esc(q.qHint)}</div>` : ''}
+    </div>`;
+
+  if (isInput) {
+    const isCorrect = S.quizDone ? checkInputAnswer(S.quizInputVal, q.options[q.correct]) : null;
+    const inputCls  = S.quizDone ? (isCorrect ? 'correct' : 'wrong') : '';
+    const resultBlock = S.quizDone ? `
+      <div class="quiz-answer-reveal ${inputCls}">
+        ${isCorrect
+          ? '✓ Правильно!'
+          : `✗ Неверно — правильный ответ: <strong>${esc(q.options[q.correct])}</strong>`}
+      </div>` : '';
+
+    return header + questionBlock + `
+      <div style="font-size:12px;color:var(--text2);text-align:center;margin-bottom:8px">
+        Впишите: ${aLabel.toLowerCase()}
+      </div>
+      <input id="quiz-input" class="quiz-input ${inputCls}" type="text"
+             placeholder="Ваш ответ..."
+             value="${S.quizDone ? esc(S.quizInputVal) : ''}"
+             ${S.quizDone ? 'disabled' : ''}
+             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      ${resultBlock}
+      ${S.quizDone
+        ? `<button class="btn btn-primary" data-a="next-q">Следующий →</button>`
+        : `<button class="btn btn-primary" data-a="quiz-check">Проверить</button>`}`;
+  }
+
+  // choice mode
+  return header + questionBlock + `
+    <div style="font-size:12px;color:var(--text2);text-align:center;margin-bottom:10px">
+      Выберите: ${aLabel.toLowerCase()}
+    </div>
+    <div class="quiz-opts">
+      ${q.options.map((opt, i) => {
+        let cls = '';
+        if (S.quizDone) cls = (i === q.correct) ? 'correct' : (i === S.quizSel ? 'wrong' : '');
+        return `<button class="qopt ${cls}" ${S.quizDone?'disabled':''} data-a="quiz-ans:${i}">${esc(opt)}</button>`;
+      }).join('')}
+    </div>
+    ${S.quizDone ? `<button class="btn btn-primary" style="margin-top:14px" data-a="next-q">Следующий →</button>` : ''}`;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  WORDS LIST
+// ─────────────────────────────────────────────────────────────
+function buildWords() {
+  if (!S.words.length) return `
+    <div class="empty">
+      <div class="empty-icon">📋</div>
+      <div class="empty-title">Нет слов</div>
+      <div class="empty-body">Импортируйте CSV или TSV файл</div>
+      <button class="btn btn-primary" data-a="go-import">Импортировать</button>
+    </div>`;
+
+  const items = S.words.map(w => {
+    const s = S.progress[w.id] || 'unknown';
+    const r = w.reading || w.on_reading || w.kun_reading || '';
+    const t = w.translation || w.meaning || '';
+    return `<div class="witem">
+      <div class="wkanji">${esc(w.kanji)}</div>
+      <div class="winfo">
+        <div class="wreading">${esc(r)}</div>
+        <div class="wtranslate">${esc(t)}</div>
+      </div>
+      <div class="wdot ${s}" title="${s}"></div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="card" style="padding:0;overflow:hidden">${items}</div>
+    <div style="margin-top:10px">
+      ${S.confirmPending === 'clear-words'
+        ? `<div style="display:flex;gap:8px;align-items:center">
+             <span style="flex:1;font-size:14px;color:var(--red)">Удалить все слова?</span>
+             <button class="btn btn-secondary" style="width:auto;padding:8px 16px" data-a="confirm-no">Нет</button>
+             <button class="btn btn-danger"    style="width:auto;padding:8px 16px" data-a="confirm-yes">Да</button>
+           </div>`
+        : `<button class="btn btn-danger" data-a="clear-words">🗑️ Удалить все слова</button>`}
+    </div>`;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  SETTINGS
+// ─────────────────────────────────────────────────────────────
+function buildSettings() {
+  const total    = S.words.length;
+  const know     = S.words.filter(w => S.progress[w.id]==='know').length;
+  const learning = S.words.filter(w => S.progress[w.id]==='learning').length;
+  return `
+    <div class="sset-lbl">Статистика</div>
+    <div class="sset-card" style="margin-bottom:16px">
+      <div class="sset-row"><span class="sset-row-lbl">Всего слов</span><span class="sset-row-val">${total}</span></div>
+      <div class="sset-row"><span class="sset-row-lbl">Знаю</span><span class="sset-row-val" style="color:var(--green)">${know}</span></div>
+      <div class="sset-row"><span class="sset-row-lbl">Учу</span><span class="sset-row-val" style="color:var(--yellow)">${learning}</span></div>
+      <div class="sset-row"><span class="sset-row-lbl">Не знаю</span><span class="sset-row-val" style="color:var(--red)">${total-know-learning}</span></div>
+    </div>
+
+    <div class="sset-lbl">Данные</div>
+    <div class="sset-card" style="margin-bottom:16px">
+      <div class="sset-row" data-a="go-import">
+        <span class="sset-row-lbl">📂 Импортировать слова</span><span class="sset-row-val">›</span>
+      </div>
+      ${S.confirmPending === 'reset-progress'
+        ? `<div class="sset-row" style="gap:8px">
+             <span style="flex:1;font-size:14px;color:var(--yellow)">Сбросить прогресс?</span>
+             <button class="btn btn-secondary" style="width:auto;padding:5px 14px;font-size:13px" data-a="confirm-no">Нет</button>
+             <button class="btn btn-danger"    style="width:auto;padding:5px 14px;font-size:13px" data-a="confirm-yes">Да</button>
+           </div>`
+        : `<div class="sset-row" data-a="reset-progress">
+             <span class="sset-row-lbl" style="color:var(--yellow)">🔄 Сбросить прогресс</span><span class="sset-row-val">›</span>
+           </div>`}
+      ${S.confirmPending === 'clear-words'
+        ? `<div class="sset-row" style="gap:8px">
+             <span style="flex:1;font-size:14px;color:var(--red)">Удалить все слова?</span>
+             <button class="btn btn-secondary" style="width:auto;padding:5px 14px;font-size:13px" data-a="confirm-no">Нет</button>
+             <button class="btn btn-danger"    style="width:auto;padding:5px 14px;font-size:13px" data-a="confirm-yes">Да</button>
+           </div>`
+        : `<div class="sset-row" data-a="clear-words">
+             <span class="sset-row-lbl" style="color:var(--red)">🗑️ Удалить все слова</span><span class="sset-row-val">›</span>
+           </div>`}
+    </div>
+
+    <div class="sset-lbl">Формат CSV файла</div>
+    <div class="card mono">
+      kanji,reading,on_reading,kun_reading,translation,meaning,notes<br>
+      日本語,にほんご,にち・じつ,ひ・か,японский язык,Japanese,N5<br>
+      学校,がっこう,がく,まなぶ,школа,school,N5
+    </div>
+    <p style="font-size:12px;color:var(--text2);margin:6px 2px 14px">
+      Разделитель: запятая, точка с запятой или TAB. Первая строка — заголовки.
+    </p>`;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  IMPORT
+// ─────────────────────────────────────────────────────────────
+function buildImport() {
+  if (S.importStep === 'map' && S.importRaw)     return buildColMap();
+  if (S.importStep === 'preview' && S.importPreview) return buildUploadZone() + buildPreview();
+  return buildUploadZone();
+}
+
+function buildUploadZone() {
+  return `
+    <div class="dropzone" id="dropzone">
+      <div class="dz-icon">📂</div>
+      <div class="dz-text">Нажмите или перетащите файл</div>
+      <div class="dz-hint">CSV и TSV — с заголовками и без</div>
+      <input type="file" id="file-in" accept=".csv,.tsv,.txt" style="display:none">
+    </div>
+
+    ${S.importErr ? `
+      <div class="card" style="border-color:var(--red);background:rgba(248,81,73,.08);margin-bottom:10px">
+        <span style="color:var(--red)">⚠️ ${esc(S.importErr)}</span>
+      </div>` : ''}
+
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;margin-bottom:8px">Поддерживаемые поля</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.7">
+        <b>kanji / word / слово</b> — кандзи или слово<br>
+        <b>reading / кана</b> — чтение каной<br>
+        <b>on / on_reading</b> — он-чтение<br>
+        <b>kun / kun_reading</b> — кун-чтение<br>
+        <b>translation / перевод</b> — перевод<br>
+        <b>meaning / значение</b> — значение (eng)<br>
+        <b>notes / заметки</b> — заметки
+      </div>
+      <p style="font-size:12px;color:var(--text2);margin-top:8px">
+        Если в файле нет заголовков — вы назначите поля вручную.
+      </p>
+    </div>`;
+}
+
+// Column-mapping step (for headerless files)
+function buildColMap() {
+  const { rawRows, colCount } = S.importRaw;
+  const preview = rawRows.slice(0, 5);
+
+  const colHeads = Array.from({ length: colCount }, (_, i) => {
+    const cur = S.importMapping[i] || '';
+    const opts = [
+      `<option value="">— пропустить —</option>`,
+      ...FIELD_KEYS.map(k =>
+        `<option value="${k}"${cur === k ? ' selected' : ''}>${FIELDS[k].label}</option>`),
+    ].join('');
+    return `<th style="min-width:120px;padding:6px 8px">
+      <select id="map-col-${i}" style="width:100%;font-size:12px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 6px">${opts}</select>
+    </th>`;
+  }).join('');
+
+  const dataRows = preview.map(row =>
+    `<tr>${Array.from({ length: colCount }, (_, i) =>
+      `<td style="font-size:13px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(row[i]||'')}">${esc(row[i]||'')}</td>`
+    ).join('')}</tr>`
+  ).join('');
+
+  return `
+    <div class="card" style="margin-bottom:10px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px">Назначьте колонки</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:10px">
+        Заголовков не найдено. Выберите, какое поле содержит каждая колонка.
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>${colHeads}</tr></thead>
+          <tbody>${dataRows}</tbody>
+        </table>
+      </div>
+      ${rawRows.length > 5 ? `<div style="font-size:12px;color:var(--text2);margin-top:6px">...всего ${rawRows.length} строк</div>` : ''}
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" data-a="back-import">← Назад</button>
+      <button class="btn btn-primary"   data-a="apply-map">Применить →</button>
+    </div>`;
+}
+
+function buildPreview() {
+  const { words, headers } = S.importPreview;
+  const show = words.slice(0, 6);
+  return `
+    <div class="card" style="margin-bottom:10px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:8px">Предпросмотр — ${words.length} слов</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>${headers.map(h=>`<th>${FIELDS[h]?.short||h}</th>`).join('')}</tr></thead>
+          <tbody>${show.map(w=>`<tr>${headers.map(h=>`<td>${esc(w[h]||'')}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>
+      ${words.length > 6 ? `<div style="font-size:12px;color:var(--text2);margin-top:7px">...и ещё ${words.length-6} слов</div>` : ''}
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" data-a="cancel-import">← Назад</button>
+      <button class="btn btn-primary"   data-a="confirm-import">✓ Импортировать ${words.length}</button>
+    </div>`;
+}
+
+
+// ─────────────────────────────────────────────────────────────
+//  Helpers
+// ─────────────────────────────────────────────────────────────
+function noWordsBlock() {
+  return `
+    <div class="empty">
+      <div class="empty-icon">📭</div>
+      <div class="empty-title">Нет слов</div>
+      <div class="empty-body">Сначала импортируйте слова</div>
+      <button class="btn btn-primary" data-a="go-import">Импортировать</button>
+    </div>`;
+}
+
+let _toastT;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(_toastT);
+  _toastT = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+function studySessionEnd() {
+  const res = { know:0, learning:0, unknown:0 };
+  S.studyQueue.forEach(w => {
+    const s = S.progress[w.id] || 'unknown';
+    res[s] = (res[s]||0) + 1;
+  });
+  S.studyResults = res;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Actions
+// ─────────────────────────────────────────────────────────────
+function act(action) {
+  const colon = action.indexOf(':');
+  const type  = colon > -1 ? action.slice(0, colon) : action;
+  const val   = colon > -1 ? action.slice(colon+1)  : '';
+
+  switch (type) {
+    // ── Navigation ──────────────────────────────────────────
+    case 'tab':
+      S.tab = val; S.screen = 'main';
+      S.confirmPending = null;
+      if (val !== 'study') { S.studyQueue = []; S.studyResults = null; }
+      if (val !== 'quiz')  { S.quizQ = null; S.quizDone = false; }
+      break;
+
+    case 'go-import':
+      S.screen = 'import'; S.importStep = 'upload';
+      S.importPreview = null; S.importErr = null; S.importRaw = null;
+      break;
+
+    case 'back-import':
+      if (S.importStep === 'map') {
+        S.importStep = 'upload'; S.importRaw = null; S.importMapping = [];
+      } else if (S.importStep === 'preview') {
+        // If came from map step, go back there
+        if (S.importRaw) { S.importStep = 'map'; S.importPreview = null; }
+        else { S.importStep = 'upload'; S.importPreview = null; }
+      } else {
+        S.screen = 'main'; S.importStep = 'upload';
+        S.importPreview = null; S.importErr = null; S.importRaw = null;
+      }
+      break;
+
+    case 'cancel-import':
+      S.importPreview = null;
+      S.importStep = S.importRaw ? 'map' : 'upload';
+      break;
+
+    case 'apply-map': {
+      if (!S.importRaw) break;
+      // Read current select values from DOM
+      const mapping = Array.from({ length: S.importRaw.colCount }, (_, i) => {
+        const el = document.getElementById(`map-col-${i}`);
+        return el ? el.value : (S.importMapping[i] || '');
+      });
+      // Need at least kanji or reading mapped
+      if (!mapping.includes('kanji') && !mapping.includes('reading')) {
+        toast('Назначьте хотя бы колонку кандзи или чтения');
+        return;
+      }
+      try {
+        S.importPreview = applyMapping(S.importRaw.rawRows, mapping);
+        S.importStep    = 'preview';
+        S.importErr     = null;
+      } catch (err) {
+        S.importErr = err.message;
+      }
+      break;
+    }
+
+    // ── Import ──────────────────────────────────────────────
+    case 'confirm-import':
+      if (S.importPreview) {
+        const newWords = S.importPreview.words;
+        // Build lookup by kanji to preserve progress and avoid dupes
+        const existingByKanji = {};
+        S.words.forEach(w => { existingByKanji[w.kanji] = w; });
+
+        newWords.forEach(w => {
+          const old = existingByKanji[w.kanji];
+          if (old) {
+            // Copy over progress from existing word
+            if (S.progress[old.id]) {
+              S.progress[w.id] = S.progress[old.id];
+              delete S.progress[old.id];
+            }
+          }
+        });
+
+        // Merge: replace existing words that match by kanji, append truly new ones
+        const newKanjiSet = new Set(newWords.map(w => w.kanji));
+        const kept = S.words.filter(w => !newKanjiSet.has(w.kanji));
+        S.words = [...kept, ...newWords];
+
+        S.importPreview = null; S.importRaw = null;
+        S.importStep = 'upload'; S.screen = 'main';
+        save();
+        toast(`Импортировано ${newWords.length} слов, всего ${S.words.length}`);
+      }
+      break;
+
+    // ── Study ────────────────────────────────────────────────
+    case 'start-study':
+      S.studyQueue = buildStudyQueue();
+      if (!S.studyQueue.length) { toast('Нет слов для этого фильтра'); return; }
+      S.studyIdx   = 0;
+      S.cardFlipped = false;
+      S.studyResults = null;
+      break;
+
+    case 'study-filter':
+      S.studyCfg.filter = val;
+      break;
+
+    case 'flip':
+      S.cardFlipped = !S.cardFlipped;
+      haptic('light');
+      break;
+
+    case 'mark':
+      if (S.studyQueue[S.studyIdx]) {
+        S.progress[S.studyQueue[S.studyIdx].id] = val;
+        save(); haptic();
+        S.studyIdx++;
+        S.cardFlipped = false;
+        if (S.studyIdx >= S.studyQueue.length) studySessionEnd();
+      }
+      break;
+
+    case 'skip-card':
+      S.studyIdx++;
+      S.cardFlipped = false;
+      if (S.studyIdx >= S.studyQueue.length) studySessionEnd();
+      break;
+
+    case 'stop-study':
+      S.studyQueue = []; S.studyResults = null;
+      break;
+
+    case 'restart-study':
+      S.studyQueue = buildStudyQueue();
+      S.studyIdx   = 0;
+      S.cardFlipped = false;
+      S.studyResults = null;
+      break;
+
+    // ── Quiz ─────────────────────────────────────────────────
+    case 'start-quiz':
+      // Auto-fix answer field if it has no data in the current word set
+      S.quizCfg.answer = bestAnswerField(S.quizCfg.answer);
+      S.quizScore = { ok:0, bad:0 };
+      S.quizQ    = buildQuiz();
+      S.quizDone = false; S.quizSel = -1;
+      if (!S.quizQ) toast('Недостаточно слов с заполненными полями (нужно ≥4)');
+      break;
+
+    case 'quiz-filter':
+      S.quizCfg.filter = val;
+      break;
+
+    case 'quiz-mode':
+      S.quizCfg.mode = val;
+      break;
+
+    case 'quiz-check': {
+      if (!S.quizDone && S.quizQ) {
+        const input = document.getElementById('quiz-input');
+        const userVal = input ? input.value : '';
+        S.quizInputVal = userVal;
+        S.quizDone = true;
+        const correct = checkInputAnswer(userVal, S.quizQ.options[S.quizQ.correct]);
+        if (correct) {
+          S.quizScore.ok++;
+          haptic('light');
+          const w = S.quizQ.word;
+          if (!S.progress[w.id] || S.progress[w.id] === 'unknown') {
+            S.progress[w.id] = 'learning'; save();
+          }
+        } else {
+          S.quizScore.bad++;
+          haptic('medium');
+        }
+      }
+      break;
+    }
+
+    case 'quiz-ans':
+      if (!S.quizDone && S.quizQ) {
+        const idx = parseInt(val);
+        S.quizSel  = idx;
+        S.quizDone = true;
+        const correct = idx === S.quizQ.correct;
+        if (correct) {
+          S.quizScore.ok++;
+          haptic('light');
+          // Auto-advance progress from unknown → learning on correct answer
+          const w = S.quizQ.word;
+          if (!S.progress[w.id] || S.progress[w.id] === 'unknown') {
+            S.progress[w.id] = 'learning';
+            save();
+          }
+        } else {
+          S.quizScore.bad++;
+          haptic('medium');
+        }
+      }
+      break;
+
+    case 'next-q':
+      S.quizQ = buildQuiz();
+      S.quizDone = false; S.quizSel = -1; S.quizInputVal = '';
+      if (!S.quizQ) toast('Нет вопросов — проверьте фильтр');
+      break;
+
+    case 'stop-quiz':
+      S.quizQ = null; S.quizDone = false; S.quizInputVal = '';
+      break;
+
+    // ── Data management ──────────────────────────────────────
+    case 'reset-progress':
+      S.confirmPending = 'reset-progress';
+      break;
+
+    case 'clear-words':
+      S.confirmPending = 'clear-words';
+      break;
+
+    case 'confirm-yes':
+      if (S.confirmPending === 'reset-progress') {
+        S.progress = {}; save(); toast('Прогресс сброшен');
+      } else if (S.confirmPending === 'clear-words') {
+        S.words = []; S.progress = {}; S.studyQueue = []; S.quizQ = null;
+        save(); toast('Данные удалены');
+      }
+      S.confirmPending = null;
+      break;
+
+    case 'confirm-no':
+      S.confirmPending = null;
+      break;
+
+  }
+  render();
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Event binding
+// ─────────────────────────────────────────────────────────────
+
+// Set up ONE permanent click-delegation on document (called once at boot).
+// bindAll() must NOT add delegation listeners — they would accumulate on every render.
+function setupDelegation() {
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-a]');
+    if (el) act(el.dataset.a);
+  });
+}
+
+function bindAll() {
+  // Study: front field select
+  const selFront = document.getElementById('sel-front');
+  if (selFront) selFront.onchange = e => { S.studyCfg.front = e.target.value; render(); };
+
+  // Study: back-field chips
+  const chipsBack = document.getElementById('chips-back');
+  if (chipsBack) chipsBack.addEventListener('click', e => {
+    const chip = e.target.closest('[data-field]');
+    if (!chip) return;
+    const f = chip.dataset.field;
+    const i = S.studyCfg.back.indexOf(f);
+    if (i >= 0) S.studyCfg.back = S.studyCfg.back.filter(x=>x!==f);
+    else S.studyCfg.back = [...S.studyCfg.back, f];
+    chip.classList.toggle('active');
+  });
+
+  // Quiz: field selects
+  const selQ = document.getElementById('sel-qfield');
+  if (selQ) selQ.onchange = e => { S.quizCfg.question = e.target.value; };
+  const selA = document.getElementById('sel-afield');
+  if (selA) selA.onchange = e => { S.quizCfg.answer   = e.target.value; };
+
+  // File input + drop zone
+  const dz  = document.getElementById('dropzone');
+  const fin = document.getElementById('file-in');
+  if (dz && fin) {
+    dz.onclick   = () => fin.click();
+    fin.onchange = e => { const f = e.target.files[0]; if (f) readFile(f); };
+    dz.ondragover  = e => { e.preventDefault(); dz.classList.add('over'); };
+    dz.ondragleave = ()  => dz.classList.remove('over');
+    dz.ondrop      = e  => {
+      e.preventDefault(); dz.classList.remove('over');
+      const f = e.dataTransfer.files[0]; if (f) readFile(f);
+    };
+  }
+
+  // Quiz input: Enter key triggers check
+  const qi = document.getElementById('quiz-input');
+  if (qi) {
+    qi.addEventListener('keydown', e => { if (e.key === 'Enter') act('quiz-check'); });
+    if (!S.quizDone) qi.focus();
+  }
+}
+
+function readFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const result = parseFile(e.target.result);
+      if (!result.hasHeaders) {
+        // Headerless file — go to column mapping step
+        S.importRaw     = result;
+        S.importMapping = defaultMapping(result.colCount);
+        S.importStep    = 'map';
+        S.importPreview = null;
+        S.importErr     = null;
+      } else {
+        S.importPreview = result;
+        S.importStep    = 'preview';
+        S.importRaw     = null;
+        S.importErr     = null;
+      }
+    } catch (err) {
+      S.importErr     = err.message;
+      S.importPreview = null;
+      S.importRaw     = null;
+      S.importStep    = 'upload';
+    }
+    render();
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Boot
+// ─────────────────────────────────────────────────────────────
+load();
+setupDelegation();
+render();
+</script>
+</body>
+</html>
