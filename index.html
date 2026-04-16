@@ -3,1446 +3,1269 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>日本語 Learner</title>
+<title>日本語</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-  --bg:       #0d1117;
-  --bg2:      #161b22;
-  --bg3:      #21262d;
-  --text:     #e6edf3;
-  --text2:    #8b949e;
-  --accent:   #58a6ff;
-  --green:    #3fb950;
-  --yellow:   #d29922;
-  --red:      #f85149;
-  --border:   #30363d;
-  --r:        12px;
-  --r-sm:     8px;
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#000;
+  --c:#1c1c1c;        /* card surface */
+  --c2:#272727;       /* darker surface / progress bg */
+  --nav:#161616;      /* tab bar bg */
+  --a:#8384c7;        /* accent */
+  --al:#868fbe;       /* accent-light / section labels */
+  --t:#fff;           /* text */
+  --t2:#868fbe;       /* secondary text */
+  --ic:#434343;       /* inactive icon */
+  --g:#7aff78;        /* green / знаю */
+  --y:#fff285;        /* yellow / учу */
+  --r:#ff3c3c;        /* red / не знаю */
 }
+html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+#app{max-width:480px;margin:0 auto;padding-bottom:110px;min-height:100vh}
+@keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.pg{animation:up .16s ease;padding:0 16px}
 
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  font-size: 16px;
-  line-height: 1.5;
-  min-height: 100vh;
-  overflow-x: hidden;
-  -webkit-font-smoothing: antialiased;
+/* ─── Tab bar ─── */
+.bnav{
+  position:fixed;bottom:12px;left:50%;transform:translateX(-50%);
+  width:calc(100% - 24px);max-width:456px;
+  background:var(--nav);border-radius:300px;
+  display:flex;align-items:center;justify-content:space-around;
+  padding:10px 8px;z-index:200;
 }
-
-#app {
-  max-width: 480px;
-  margin: 0 auto;
-  padding-bottom: 72px;
-  min-height: 100vh;
+.bnav-btn{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  background:none;border:none;cursor:pointer;
+  color:var(--ic);font-size:11px;font-weight:500;
+  padding:4px 12px;border-radius:300px;transition:color .15s;
+  min-width:52px;
 }
-
-/* ── Header ─────────────────────────────── */
-.hdr {
-  position: sticky; top: 0;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  z-index: 100;
+.bnav-btn.active{color:var(--a)}
+.bnav-icon{
+  width:28px;height:28px;display:flex;align-items:center;justify-content:center;
 }
-.hdr-title { font-size: 17px; font-weight: 600; flex: 1; }
-.hdr-btn {
-  background: none; border: none;
-  color: var(--accent); font-size: 15px;
-  cursor: pointer; padding: 4px 8px;
-  border-radius: var(--r-sm);
-}
+.bnav-icon svg{width:28px;height:28px;stroke:currentColor;fill:none;stroke-linecap:round;stroke-linejoin:round}
 
-/* ── Bottom nav ──────────────────────────── */
-.bnav {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  background: var(--bg2);
-  border-top: 1px solid var(--border);
-  display: flex; z-index: 100;
-}
-.bnav-btn {
-  flex: 1;
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: 8px 0;
-  background: none; border: none;
-  color: var(--text2); font-size: 11px; cursor: pointer;
-  transition: color .15s;
-}
-.bnav-btn.active { color: var(--accent); }
-.bnav-icon { font-size: 20px; }
+/* ─── top_icon ─── */
+.top-icon{width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--a);line-height:1;flex-shrink:0}
 
-/* ── Content ─────────────────────────────── */
-.content { padding: 14px 14px 0; }
+/* ─── Page header ─── */
+.phdr{padding:16px 16px 8px;display:flex;align-items:center;gap:12px}
+.phdr-title{font-size:20px;font-weight:700;flex:1}
+.phdr-back{background:var(--c);border:none;color:var(--t);font-size:13px;cursor:pointer;padding:7px 14px;border-radius:300px}
 
-/* ── Cards / surfaces ───────────────────── */
-.card {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  padding: 14px;
-  margin-bottom: 10px;
-}
+/* ─── Type tabs (Слова | Кандзи) ─── */
+.ttabs{display:flex;gap:8px;padding:4px 16px 12px}
+.ttab{padding:7px 16px;border-radius:300px;border:none;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;background:var(--c);color:var(--t)}
+.ttab.on{background:var(--a);color:#fff}
 
-/* ── Buttons ─────────────────────────────── */
-.btn {
-  display: flex; align-items: center; justify-content: center; gap: 7px;
-  padding: 12px 18px; border-radius: var(--r); border: none;
-  font-size: 15px; font-weight: 500; cursor: pointer;
-  transition: opacity .15s, transform .1s;
-  width: 100%; text-align: center;
-}
-.btn:active { opacity: .75; transform: scale(.98); }
-.btn-primary  { background: var(--accent); color: #fff; }
-.btn-secondary{ background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
-.btn-danger   { background: rgba(248,81,73,.15); color: var(--red); border: 1px solid var(--red); }
-.btn-row { display: flex; gap: 8px; margin-bottom: 8px; }
-.btn-row .btn { flex: 1; }
+/* ─── Stats row ─── */
+.stats{display:flex;gap:8px;padding:0 16px 12px}
+.sbox{flex:1;background:var(--c);border-radius:16px;padding:14px 10px;text-align:center}
+.snum{font-size:36px;font-weight:400;line-height:1}
+.slbl{font-size:12px;color:var(--t);margin-top:4px}
+.sbox.g .snum{color:var(--g)}
+.sbox.y .snum{color:var(--y)}
+.sbox.r .snum{color:var(--r)}
 
-/* ── Stats grid ──────────────────────────── */
-.stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 10px; }
-.stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 12px; text-align: center; }
-.stat-num { font-size: 30px; font-weight: 700; line-height: 1; }
-.stat-lbl { font-size: 11px; color: var(--text2); margin-top: 3px; }
-.stat-know    .stat-num { color: var(--green); }
-.stat-learn   .stat-num { color: var(--yellow); }
-.stat-unknown .stat-num { color: var(--red); }
+/* ─── Progress card ─── */
+.prog-card{margin:0 16px 12px;background:var(--c);border-radius:16px;padding:14px 16px}
+.prog-bar-wrap{height:6px;background:var(--c2);border-radius:300px;overflow:hidden;margin-bottom:8px}
+.prog-bar{height:100%;background:var(--al);border-radius:300px;transition:width .4s}
+.prog-info{display:flex;justify-content:space-between;font-size:12px;color:var(--al)}
 
-/* ── Progress bar ────────────────────────── */
-.prog { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
-.prog-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width .3s; }
+/* ─── Action grid (Главная) ─── */
+.act-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px 12px}
+.act-btn{background:var(--c);border:none;color:var(--t);border-radius:16px;padding:14px;cursor:pointer;text-align:left;transition:background .15s;min-height:58px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500}
+.act-btn:active{background:var(--c2)}
+.act-btn.primary{background:var(--a)}
+.act-btn.primary:active{background:#7374b5}
 
-/* ── Flashcard ───────────────────────────── */
-.fc-wrap { perspective: 1000px; height: 250px; margin: 10px 0; }
-.fc {
-  width: 100%; height: 100%; position: relative;
-  transform-style: preserve-3d;
-  transition: transform .5s cubic-bezier(.4,0,.2,1);
-  cursor: pointer;
-}
-.fc.flipped { transform: rotateY(180deg); }
-.fc-face {
-  position: absolute; inset: 0;
-  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 20px; backface-visibility: hidden; -webkit-backface-visibility: hidden;
-}
-.fc-back { transform: rotateY(180deg); background: var(--bg3); }
-.fc-status { position: absolute; top: 0; left: 0; right: 0; height: 4px; border-radius: var(--r) var(--r) 0 0; }
-.fc-status.know    { background: var(--green); }
-.fc-status.learning{ background: var(--yellow); }
-.fc-status.unknown { background: var(--border); }
-.fc-label { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--text2); margin-bottom: 8px; }
-.fc-main  { font-size: 56px; line-height: 1.1; text-align: center; }
-.fc-main.sm { font-size: 22px; }
-.fc-hint  { font-size: 13px; color: var(--text2); margin-top: 6px; }
-.fc-back-body { width: 100%; display: flex; flex-direction: column; gap: 10px; }
-.fc-field-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--text2); }
-.fc-field-val { font-size: 16px; word-break: break-word; }
-.fc-field-val.lg { font-size: 26px; }
-.fc-tap-hint { font-size: 12px; color: var(--text2); margin-top: 10px; }
+/* ─── Config card ─── */
+.cfg-card{background:var(--c);border-radius:16px;padding:14px 16px;margin:0 16px 8px}
+.cfg-lbl{font-size:12px;color:var(--al);margin-bottom:10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:5px 12px;height:27px;border-radius:16px;border:none;font-size:12px;cursor:pointer;background:var(--c2);color:var(--t);transition:all .15s;font-weight:400;display:flex;align-items:center}
+.chip.on{background:var(--a);color:#fff}
+/* side-by-side config (filter + count) */
+.cfg-row{display:flex;gap:8px;padding:0 16px 8px}
+.cfg-row .cfg-card{flex:1;margin:0}
 
-/* ── Mark buttons ────────────────────────── */
-.mark-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 10px; }
-.mbtn {
-  padding: 10px 6px; border-radius: var(--r); border: 2px solid transparent;
-  font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity .15s;
-}
-.mbtn:active { opacity: .7; }
-.mbtn.unknown { background: rgba(248,81,73,.12); color: var(--red);    border-color: var(--red);    }
-.mbtn.learning{ background: rgba(210,153,34,.12); color: var(--yellow); border-color: var(--yellow); }
-.mbtn.know    { background: rgba(63,185,80,.12);  color: var(--green);  border-color: var(--green);  }
+/* ─── Start button ─── */
+.start-row{padding:8px 16px 0;display:flex;justify-content:flex-end}
+.start-btn{background:var(--a);border:none;color:#fff;border-radius:16px;padding:7px 24px;font-size:13px;cursor:pointer;transition:opacity .15s}
+.start-btn:active{opacity:.8}
 
-/* ── Quiz ────────────────────────────────── */
-.quiz-q {
-  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r);
-  padding: 24px; text-align: center; margin-bottom: 14px;
-  min-height: 130px; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 6px;
-}
-.quiz-q-lbl  { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--text2); }
-.quiz-q-main { font-size: 52px; line-height: 1.1; }
-.quiz-q-main.sm { font-size: 20px; }
-.quiz-q-hint { font-size: 15px; color: var(--text2); }
-.quiz-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.qopt {
-  background: var(--bg2); border: 2px solid var(--border);
-  border-radius: var(--r); padding: 14px 10px; font-size: 15px;
-  cursor: pointer; color: var(--text); min-height: 64px;
-  display: flex; align-items: center; justify-content: center;
-  text-align: center; word-break: break-word; transition: border-color .15s;
-}
-.qopt:hover:not(:disabled) { border-color: var(--accent); }
-.qopt.correct { background: rgba(63,185,80,.15);  border-color: var(--green);  color: var(--green);  }
-.qopt.wrong   { background: rgba(248,81,73,.15);  border-color: var(--red);    color: var(--red);    }
-.qopt:disabled { cursor: default; }
-.quiz-score { font-size: 14px; display: flex; gap: 12px; align-items: center; }
-.score-ok  { color: var(--green); font-weight: 600; }
-.score-bad { color: var(--red);   font-weight: 600; }
+/* ─── Full-width button ─── */
+.btn{display:flex;align-items:center;justify-content:center;padding:14px;border-radius:300px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s;width:100%}
+.btn:active{opacity:.75}
+.btn-p{background:var(--a);color:#fff}
+.btn-s{background:var(--c);color:var(--t)}
+.btn-d{background:rgba(255,60,60,.15);color:var(--r)}
+.btn-row{display:flex;gap:8px;margin-top:8px}
+.btn-row .btn{flex:1}
 
-/* ── Import / drop zone ──────────────────── */
-.dropzone {
-  border: 2px dashed var(--border); border-radius: var(--r);
-  padding: 36px 20px; text-align: center; cursor: pointer;
-  transition: border-color .2s, background .2s; margin-bottom: 10px;
-}
-.dropzone.over { border-color: var(--accent); background: rgba(88,166,255,.05); }
-.dz-icon { font-size: 38px; margin-bottom: 10px; }
-.dz-text { color: var(--text2); font-size: 15px; }
-.dz-hint { color: var(--text2); font-size: 13px; margin-top: 6px; }
+/* ─── Flashcard ─── */
+.fc-counter{font-size:18px;text-align:center;padding:8px 16px 12px}
+.fc-wrap{perspective:1000px;height:260px;margin:0 16px 14px;cursor:pointer}
+.fc{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform .45s cubic-bezier(.4,0,.2,1)}
+.fc.flipped{transform:rotateY(180deg)}
+.fc-face{position:absolute;inset:0;background:var(--c);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden}
+.fc-back{transform:rotateY(180deg);background:var(--c2)}
+.fc-sbar{position:absolute;top:0;left:0;right:0;height:4px;border-radius:16px 16px 0 0}
+.fc-sbar.g{background:var(--g)}.fc-sbar.y{background:var(--y)}.fc-sbar.r{background:var(--c2)}
+/* Kanji card face */
+.fc-kanji{font-size:76px;font-weight:400;color:var(--a);line-height:1}
+.fc-kana{font-size:36px;font-weight:400;color:var(--a);line-height:1;margin-top:4px}
+.fc-meanings{margin-top:12px;text-align:center}
+.fc-mn{font-size:12px;color:var(--t);line-height:1.6}
+.fc-tap{font-size:12px;color:var(--t2);margin-top:12px}
+/* Word card face (non-kanji) */
+.fc-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--t2);margin-bottom:8px}
+.fc-main{font-size:60px;line-height:1;color:var(--t);text-align:center}
+.fc-main.sm{font-size:22px}
+/* Back side rows */
+.fc-back-body{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
+/* On/kun label (legacy, kept for compat) */
+.fc-onkun{display:flex;flex-direction:column;gap:4px;align-items:center;margin-top:6px}
+.fc-okrow{font-size:12px;color:var(--t)}
+.fc-okrow span{color:var(--a);font-size:16px;margin-left:4px}
 
-/* ── Preview table ───────────────────────── */
-.tbl-wrap { overflow-x: auto; border-radius: var(--r); border: 1px solid var(--border); margin-bottom: 10px; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th { background: var(--bg3); padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text2); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
-td { padding: 7px 10px; border-top: 1px solid var(--border); white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
-tr:nth-child(even) td { background: rgba(255,255,255,.02); }
+/* ─── Card Variant System ─── */
+/* Shared wrapper */
+.cv-root{width:100%;display:flex;flex-direction:column;align-items:center;gap:8px}
+/* Kanji variant */
+.cv-kanji-main{display:flex;align-items:flex-start;justify-content:center;gap:18px;width:100%}
+.cv-kanji-char{font-size:68px;color:var(--t);line-height:1;font-weight:300;flex-shrink:0}
+.cv-readings{display:flex;flex-direction:column;gap:6px;justify-content:center;padding-top:10px}
+.cv-rrow{display:flex;align-items:baseline;gap:6px}
+.cv-rl{font-size:11px;color:var(--t2);font-weight:600;letter-spacing:.05em;min-width:14px;text-align:right}
+.cv-rv{font-size:17px;color:var(--a);line-height:1.3;word-break:break-word}
+/* Readings-only variant */
+.cv-rrow-lg{display:flex;align-items:baseline;gap:10px}
+.cv-rv-lg{font-size:26px;color:var(--a);line-height:1.3}
+/* Word variant */
+.cv-word{font-size:52px;color:var(--t);line-height:1;font-weight:300}
+.cv-kana{font-size:20px;color:var(--a);margin-top:2px}
+/* Single reading (front or back) */
+.cv-kana-lg{font-size:36px;color:var(--a);line-height:1}
+/* Separator */
+.cv-sep{width:56px;height:1px;background:rgba(255,255,255,.12);margin:6px 0}
+/* Meanings list */
+.cv-meanings{width:100%;text-align:left;padding:0 2px}
+.cv-mn{font-size:12px;color:var(--t);line-height:1.9;display:flex;gap:6px;align-items:baseline}
+.cv-mi{color:var(--t2);font-size:10px;min-width:14px;text-align:right;flex-shrink:0}
 
-/* ── Word list ───────────────────────────── */
-.witem { display: flex; align-items: center; padding: 9px 14px; border-bottom: 1px solid var(--border); gap: 10px; }
-.witem:last-child { border-bottom: none; }
-.wkanji { font-size: 22px; min-width: 48px; }
-.winfo  { flex: 1; min-width: 0; }
-.wreading    { font-size: 12px; color: var(--text2); }
-.wtranslate  { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wdot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
-.wdot.know    { background: var(--green);  }
-.wdot.learning{ background: var(--yellow); }
-.wdot.unknown { background: var(--border); }
+/* ─── Mark buttons ─── */
+.mark-row{display:flex;gap:8px;padding:0 16px;margin-bottom:8px}
+.mbtn{flex:1;height:36px;border-radius:300px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500;transition:opacity .15s}
+.mbtn:active{opacity:.7}
+.mbtn.r{background:rgba(255,60,60,.15);color:var(--r)}
+.mbtn.y{background:rgba(255,242,133,.15);color:var(--y)}
+.mbtn.g{background:rgba(122,255,120,.15);color:var(--g)}
 
-/* ── Settings ────────────────────────────── */
-.sset-lbl { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--text2); margin-bottom: 6px; padding: 0 2px; }
-.sset-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; margin-bottom: 16px; }
-.sset-row { display: flex; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--border); gap: 10px; cursor: pointer; }
-.sset-row:last-child { border-bottom: none; }
-.sset-row-lbl { flex: 1; font-size: 15px; }
-.sset-row-val { color: var(--text2); font-size: 14px; }
+/* ─── Stop/Skip row ─── */
+.stop-row{display:flex;gap:8px;padding:0 16px}
+.stop-btn{flex:1;height:27px;background:var(--c);border:none;color:var(--t);border-radius:16px;font-size:12px;cursor:pointer;transition:opacity .15s}
+.stop-btn:active{opacity:.7}
 
-/* ── Chips ───────────────────────────────── */
-.chips { display: flex; flex-wrap: wrap; gap: 7px; }
-.chip {
-  padding: 5px 12px; border-radius: 20px;
-  border: 2px solid var(--border); font-size: 13px;
-  cursor: pointer; background: transparent; color: var(--text2);
-  transition: all .15s;
-}
-.chip.active { border-color: var(--accent); background: rgba(88,166,255,.12); color: var(--accent); }
+/* ─── Quiz score bar ─── */
+.qscore{display:flex;align-items:center;gap:10px;padding:0 16px;margin-bottom:12px}
+.qscore-item{display:flex;align-items:center;gap:5px;font-size:13px;font-weight:500}
+.qscore-bad{color:var(--t)}
+.qscore-ok{color:var(--t)}
+.qscore-total{color:var(--t);margin-right:auto}
+.qscore .stop-btn{margin-left:auto;width:auto;flex:none;padding:0 14px}
 
-/* ── Select ──────────────────────────────── */
-select {
-  background: var(--bg3); color: var(--text);
-  border: 1px solid var(--border); border-radius: var(--r-sm);
-  padding: 7px 10px; font-size: 14px; cursor: pointer; width: 100%;
-}
+/* ─── Quiz question card ─── */
+.quiz-q{background:var(--c);border-radius:16px;padding:20px;margin:0 16px 12px;min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center}
+.quiz-ql{font-size:12px;color:var(--al)}
+.quiz-qm{font-size:52px;line-height:1}
+.quiz-qm.sm{font-size:20px}
+.quiz-qh{font-size:14px;color:var(--t2)}
 
-/* ── Config panel ────────────────────────── */
-.cfg { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 12px; margin-bottom: 10px; }
-.cfg-lbl { font-size: 12px; color: var(--text2); margin-bottom: 8px; }
+/* ─── Quiz options grid (3×2) ─── */
+.quiz-opts{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:0 16px;margin-bottom:10px}
+.qopt{background:var(--c);border:none;color:var(--t);border-radius:4px;padding:0 8px;height:27px;font-size:13px;cursor:pointer;transition:background .15s;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qopt.sel{background:var(--a);color:#fff}
+.qopt.ok{background:rgba(122,255,120,.25);color:var(--g)}
+.qopt.bad{background:rgba(255,60,60,.2);color:var(--r)}
+.qopt:disabled{cursor:default}
 
-/* ── Empty state ─────────────────────────── */
-.empty { text-align: center; padding: 52px 20px; color: var(--text2); }
-.empty-icon  { font-size: 60px; margin-bottom: 14px; }
-.empty-title { font-size: 19px; font-weight: 600; color: var(--text); margin-bottom: 7px; }
-.empty-body  { font-size: 14px; margin-bottom: 22px; }
+/* ─── Quiz input ─── */
+.quiz-inp-wrap{background:var(--c);border-radius:16px;padding:10px 16px;margin:0 16px 10px}
+.quiz-inp-lbl{font-size:12px;color:var(--al);margin-bottom:8px}
+.quiz-inp{width:100%;background:var(--c2);border:none;border-radius:4px;color:var(--t);font-size:15px;padding:5px 10px;height:27px;outline:none;font-family:inherit;text-align:center;transition:box-shadow .15s}
+.quiz-inp:focus{box-shadow:0 0 0 2px var(--a)}
+.quiz-inp.ok{box-shadow:0 0 0 2px var(--g)}
+.quiz-inp.bad{box-shadow:0 0 0 2px var(--r)}
+.quiz-inp:disabled{opacity:.8;cursor:default}
+.quiz-result{font-size:13px;margin-top:8px;text-align:center}
+.quiz-result.ok{color:var(--g)}
+.quiz-result.bad{color:var(--r)}
 
-/* ── Session complete ────────────────────── */
-.done { text-align: center; padding: 36px 16px; }
-.done-icon { font-size: 60px; margin-bottom: 14px; }
-.res-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin: 18px 0; }
-.res-card  { border-radius: var(--r); padding: 12px; text-align: center; }
-.res-card.know    { background: rgba(63,185,80,.12);  color: var(--green);  }
-.res-card.learning{ background: rgba(210,153,34,.12); color: var(--yellow); }
-.res-card.unknown { background: rgba(248,81,73,.12);  color: var(--red);    }
-.res-num { font-size: 30px; font-weight: 700; }
-.res-lbl { font-size: 12px; margin-top: 3px; opacity: .8; }
+/* ─── Next button (quiz) ─── */
+.next-btn{margin:0 16px 10px;background:var(--a);border:none;color:#fff;border-radius:16px;padding:10px;font-size:13px;font-weight:500;width:calc(100% - 32px);cursor:pointer;transition:opacity .15s}
+.next-btn:active{opacity:.8}
 
-/* ── Toast ───────────────────────────────── */
-#toast {
-  position: fixed; bottom: 80px; left: 50%;
-  transform: translateX(-50%) translateY(80px);
-  background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r);
-  padding: 9px 18px; font-size: 14px; z-index: 200;
-  transition: transform .25s; white-space: nowrap; pointer-events: none;
-}
-#toast.show { transform: translateX(-50%) translateY(0); }
+/* ─── Words list ─── */
+.wfilter{display:flex;gap:6px;padding:0 16px 10px;align-items:center}
+.wf-tab{padding:7px 14px;border-radius:300px;border:none;font-size:12px;background:var(--c);color:var(--t);cursor:pointer}
+.wf-tab.on{background:var(--a);color:#fff}
+.wf-import{padding:7px 12px;border-radius:4px;border:none;font-size:12px;background:var(--c);color:var(--t);cursor:pointer;display:flex;align-items:center;gap:5px;margin-left:auto}
+.wf-search{padding:7px 12px;border-radius:4px;border:none;font-size:12px;background:var(--c);color:var(--t);cursor:pointer;display:flex;align-items:center;gap:5px}
+.wsearch-wrap{padding:0 16px 10px;position:relative}
+.wsearch{width:100%;background:var(--c);border:none;border-radius:300px;color:var(--t);font-size:13px;padding:9px 16px 9px 36px;outline:none;font-family:inherit}
+.wsearch::placeholder{color:var(--t2)}
+.wsearch-icon{position:absolute;left:28px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none}
+.wlist{background:var(--c);border-radius:16px;margin:0 16px 10px;overflow:hidden}
+.witem{display:flex;align-items:center;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.05);gap:12px}
+.witem:last-child{border-bottom:none}
+.wkanji{font-size:24px;min-width:40px;text-align:center}
+.winfo{flex:1;min-width:0}
+.wreading{font-size:12px;color:var(--al)}
+.wtrans{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wdot{width:9px;height:9px;border-radius:50%;background:var(--c2);flex-shrink:0}
+.wdot.g{background:var(--g)}.wdot.y{background:var(--y)}.wdot.r{background:var(--r)}
+.wok{font-size:11px;color:var(--al)}
 
-/* ── Monospace block ─────────────────────── */
-.mono { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; color: var(--text2); line-height: 1.7; }
+/* ─── Settings ─── */
+.sset{background:var(--c);border-radius:16px;overflow:hidden;margin:0 16px 12px}
+.sset-lbl{font-size:12px;color:var(--al);padding:0 16px;margin-bottom:6px}
+.srow{display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer}
+.srow:last-child{border-bottom:none}
+.srow-l{flex:1;font-size:14px}
+.srow-r{font-size:13px;color:var(--al)}
+.confirm-row{display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.05);gap:8px}
+.confirm-row:last-child{border-bottom:none}
+.confirm-text{flex:1;font-size:13px}
+.confirm-no,.confirm-yes{border:none;border-radius:300px;padding:6px 16px;font-size:12px;cursor:pointer}
+.confirm-no{background:var(--c2);color:var(--t)}
+.confirm-yes{background:rgba(255,60,60,.15);color:var(--r)}
 
-/* ── Quiz input mode ─────────────────────── */
-.quiz-input {
-  width: 100%; padding: 14px 16px; font-size: 18px;
-  background: var(--bg2); color: var(--text);
-  border: 2px solid var(--border); border-radius: var(--r);
-  outline: none; text-align: center; letter-spacing: .05em;
-  transition: border-color .15s; margin-bottom: 10px;
-  font-family: inherit;
-}
-.quiz-input:focus { border-color: var(--accent); }
-.quiz-input.correct { border-color: var(--green); background: rgba(63,185,80,.08); }
-.quiz-input.wrong   { border-color: var(--red);   background: rgba(248,81,73,.08); }
-.quiz-input:disabled { opacity: .8; cursor: default; }
-.quiz-answer-reveal {
-  text-align: center; padding: 10px 14px; border-radius: var(--r);
-  font-size: 16px; margin-bottom: 10px;
-}
-.quiz-answer-reveal.correct { background: rgba(63,185,80,.12); color: var(--green); }
-.quiz-answer-reveal.wrong   { background: rgba(248,81,73,.12); color: var(--red);   }
-.quiz-correct-text { font-size: 14px; color: var(--text2); margin-top: 6px; }
+/* ─── Import ─── */
+.dropzone{border:2px dashed var(--c2);border-radius:16px;padding:40px 20px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;margin:0 16px 10px}
+.dropzone.over{border-color:var(--a);background:rgba(131,132,199,.07)}
+.dz-icon{font-size:36px;margin-bottom:8px}
+.dz-text{font-size:14px;font-weight:500;color:var(--t)}
+.dz-hint{font-size:12px;color:var(--t2);margin-top:4px}
+.tbl-wrap{overflow-x:auto;border-radius:12px;overflow:hidden;margin:0 16px 10px}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--c)}
+th{background:var(--c2);padding:8px 10px;text-align:left;font-weight:600;color:var(--al);font-size:11px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+td{padding:7px 10px;border-top:1px solid rgba(255,255,255,.05);white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis}
 
-/* ── Animations ──────────────────────────── */
-@keyframes fadeUp { from { opacity:0; transform: translateY(12px); } to { opacity:1; transform: translateY(0); } }
-.fade-up { animation: fadeUp .2s ease; }
+/* ─── Empty ─── */
+.empty{text-align:center;padding:60px 20px;color:var(--t2)}
+.ei{font-size:56px;margin-bottom:14px}
+.et{font-size:18px;font-weight:700;color:var(--t);margin-bottom:6px}
+.eb{font-size:13px;margin-bottom:20px}
+
+/* ─── Done ─── */
+.done{text-align:center;padding:40px 16px}
+.done-i{font-size:56px;margin-bottom:12px}
+.res-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0}
+.rc{border-radius:16px;padding:14px;text-align:center}
+.rc.g{background:rgba(122,255,120,.12);color:var(--g)}
+.rc.y{background:rgba(255,242,133,.12);color:var(--y)}
+.rc.r{background:rgba(255,60,60,.12);color:var(--r)}
+.rn{font-size:32px;font-weight:700}.rl{font-size:12px;margin-top:3px;opacity:.8}
+
+/* ─── Sub-tabs (Карточки / Квиз) ─── */
+.sub-tabs{display:flex;background:var(--c);border-radius:300px;padding:4px;gap:4px;margin:0 16px 14px}
+.stab{flex:1;padding:8px;border-radius:300px;border:none;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;background:none;color:var(--t2)}
+.stab.on{background:var(--c2);color:var(--t)}
+
+/* ─── Toast ─── */
+#toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--c2);border-radius:12px;padding:9px 18px;font-size:13px;z-index:300;transition:transform .2s;white-space:nowrap;pointer-events:none}
+#toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ─── Error box ─── */
+.err-box{background:rgba(255,60,60,.1);border:1px solid var(--r);border-radius:12px;padding:11px 14px;color:var(--r);font-size:13px;margin:0 16px 10px}
+
+/* ─── Mono ─── */
+.mono{font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;color:var(--al);line-height:1.7}
 </style>
 </head>
 <body>
 <div id="app"></div>
 <div id="toast"></div>
-
 <script>
 'use strict';
+const tg=window.Telegram?.WebApp;
+if(tg){tg.expand();tg.ready();}
+function haptic(t='light'){tg?.HapticFeedback?.impactOccurred(t);}
 
-// ─────────────────────────────────────────────────────────────
-//  Telegram WebApp bootstrap
-// ─────────────────────────────────────────────────────────────
-const tg = window.Telegram?.WebApp;
-if (tg) { tg.expand(); tg.ready(); }
-
-function haptic(type = 'light') {
-  tg?.HapticFeedback?.impactOccurred(type);
-}
-
-// ─────────────────────────────────────────────────────────────
-//  Field definitions
-// ─────────────────────────────────────────────────────────────
-const FIELDS = {
-  kanji:       { label: 'Кандзи / Слово',  short: 'Кандзи'  },
-  reading:     { label: 'Чтение (кана)',    short: 'Кана'    },
-  on_reading:  { label: 'Он-чтение',        short: 'Он'      },
-  kun_reading: { label: 'Кун-чтение',       short: 'Кун'     },
-  meaning:     { label: 'Значение (eng)',   short: 'Eng'     },
-  translation: { label: 'Перевод',          short: 'Перевод' },
-  notes:       { label: 'Заметки',          short: 'Заметки' },
+/* ── SVG icons ── */
+const ICONS={
+  home:`<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5V21H15v-6H9v6H3V10.5z"/></svg>`,
+  tests:`<svg viewBox="0 0 22 21" fill="none"><path d="M4.16252 1C4.12958 1 3.62611 1.08353 2.75281 1.44511C0.523028 2.36833 0.993287 6.04958 1.15231 7.42299C1.22556 8.05563 1.73605 8.46344 2.4233 8.69793C4.00537 9.23773 5.56812 8.83433 6.60663 8.45619C7.75705 8.03729 8.57162 7.22281 9.02891 6.01434C9.20031 5.1859 9.24855 3.92054 9.07192 3.12839C8.89529 2.33623 8.49233 2.05563 6.87032 1.5544M11.5804 1.89198C11.5805 1.99155 11.6009 2.14256 11.6401 2.33195M11.6401 2.33195C11.8384 3.29137 12.5164 5.23583 13.4586 6.46876C14.4488 7.76441 12.12 3.70978 11.6401 2.33195ZM11.6401 2.33195C11.6067 2.23625 11.5823 2.15346 11.5685 2.08628C11.2624 0.591962 15.4764 1.42493 17.622 1.62347C18.4759 1.70249 18.774 2.21909 19.0441 3.14456C19.3142 4.07004 19.5271 5.51188 19.5051 6.46847C19.483 7.42507 19.2195 7.85274 18.2134 8.07306C17.2073 8.29337 15.4666 8.29337 13.6732 8.29337M2.77481 14.2165C2.73599 15.2585 2.53245 17.9183 2.55438 18.7294C2.57491 19.4885 5.63984 19.4092 8.413 18.8883C9.1037 18.3674 8.33955 17.3256 7.73794 16.5812C7.13633 15.8369 6.72043 15.4216 5.23839 14.2129M15.4973 12.4357C15.4303 12.4357 14.8851 12.6887 13.9664 13.2678C13.1193 13.8019 12.8272 14.9013 12.6115 15.9073C12.5068 16.3959 12.5382 16.8628 12.7367 17.3265C13.1668 18.3311 14.2209 18.9429 15.4138 19.3091C16.1074 19.522 17.0603 19.4641 17.875 19.2401C18.6898 19.016 19.3581 18.5442 19.7123 17.6899C20.0666 16.8357 20.0866 15.6133 19.9536 14.7982C19.8207 13.9832 19.5342 13.6126 19.1319 13.3037C18.7296 12.9949 18.2202 12.759 16.4457 12.2129" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+  words:`<svg viewBox="0 0 32 27" fill="none"><path d="M3.39095 1.29794C4.13282 1.3099 5.90109 1.49999 6.43618 1.88101C6.91114 2.21922 6.8622 3.11409 6.73473 4.00268C6.5333 5.40687 5.22824 6.30957 3.94002 7.08208C3.6393 7.26242 3.328 7.22169 3.06053 7.12084C2.54889 6.79722 2.14001 6.16434 1.87836 5.37839C1.77403 4.99581 1.72747 4.64624 1.67949 4.28608M11.0565 3.909H28.8289M1.29797 15.3342C2.68488 15.423 6.18775 15.3494 7.18721 14.6956C7.43121 14.536 7.51279 14.2312 7.54108 13.9594C7.56937 13.6876 7.48882 13.3969 7.28796 13.2095C6.76837 12.947 5.4476 12.8613 3.76716 12.9216C3.07911 12.9901 2.72545 13.1354 2.36108 13.2852M13.3481 13.2023H29.5779M3.0053 23.2353C3.0053 23.2522 3.0053 23.7075 3.15868 24.4994C3.46528 26.0824 6.86812 25.6894 8.50861 25.5753C9.77141 25.4875 10.4517 24.204 11.0105 22.8134C11.2895 22.1191 11.0824 21.4611 10.8478 21.0411C9.32486 20.6638 7.20036 20.7877 6.18428 21.3582C5.8645 21.6177 5.44571 22.011 5.01423 22.4162M15.7386 22.9344C15.7581 22.9344 19.4665 22.913 25.4519 22.826C27.7391 22.7604 28.503 22.6512 29.1219 22.595C29.7407 22.5387 30.1913 22.5387 30.6555 22.5387" stroke="currentColor" stroke-width="2.58187" stroke-linecap="round"/></svg>`,
+  settings:`<svg viewBox="0 0 32 24" fill="none"><path d="M10.9763 9.50197C11.1341 9.19152 13.3512 7.83459 17.6244 6.84313C20.2 6.24555 22.0888 6.84265 22.8008 7.27868C23.5404 7.73165 23.7841 8.70167 23.9506 9.78388C24.188 11.3273 23.7319 12.7383 23.2491 13.5737C22.5014 14.8677 21.023 15.5829 19.4472 16.3453L19.4257 16.3557C16.13 17.9501 12.1326 16.8445 10.0966 15.9571C9.21102 15.5711 8.67361 14.8114 8.24419 14.1359C8.03424 13.8057 7.96256 13.4308 8.03883 13.1021C8.37272 12.4845 10.0406 11.4675 12.3345 10.3193C13.226 9.89015 13.5642 9.7729 14.1039 9.61957M11.8488 7.27491C11.8488 7.25096 11.8488 6.12684 12.0505 4.41837C12.6555 3.7738 14.8087 3.22368 17.5311 2.59806C18.5159 2.47323 18.6951 2.73951 19.0798 3.48551M23.4505 5.28713C23.4984 5.28713 25.2599 5.28713 27.9127 5.48963C28.8481 5.56103 28.8713 6.09713 28.8932 6.8821C28.9151 7.66706 28.9151 8.81972 28.5974 9.54005C28.2797 10.2604 27.6443 10.5134 26.5756 10.9894M24.2891 15.5747C24.2891 16.6265 24.3477 18.945 23.8938 19.6049C22.9123 21.0321 20.8388 20.6312 20.1324 20.5526C19.3794 20.2617 18.5759 19.9292 17.7757 19.6956C17.3816 19.5901 17.0121 19.5108 16.6315 19.4291M12.8625 19.2689C12.6326 19.6808 11.9147 20.7545 11.3835 21.273C9.25244 20.957 6.40924 19.2908 6.02753 18.9532C5.97527 18.7564 6.21018 18.5079 6.70867 18.208M5.14402 14.7389C4.71261 14.5812 3.62365 14.1573 3.17249 13.6835C1.78003 12.2209 3.17877 9.29449 3.51651 8.55953C4.86893 8.19682 6.09067 8.12809 6.8307 8.04427C7.24334 8.01577 7.73132 8.01577 8.23409 8.01577M5.72445 12.9411C5.72445 12.9283 5.72445 12.9155 5.78162 12.7336C5.8388 12.5518 5.95316 12.2013 6.1095 11.8826C6.26585 11.564 6.46071 11.2878 6.89041 10.6842" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
 };
 
-const FIELD_KEYS = Object.keys(FIELDS);
+/* ── Field defs ── */
+const FIELDS={
+  kanji:{label:'Кандзи / Слово',short:'Кандзи'},
+  reading:{label:'Чтение (кана)',short:'Кана'},
+  on_reading:{label:'Он-чтение',short:'Он'},
+  kun_reading:{label:'Кун-чтение',short:'Кун'},
+  meaning:{label:'Значение',short:'Значение'},
+  translation:{label:'Перевод',short:'Перевод'},
+  notes:{label:'Заметки',short:'Заметки'},
+};
+const FK=Object.keys(FIELDS);
+const WF=['kanji','reading','meaning','translation','notes'];
+const KF=['kanji','on_reading','kun_reading','meaning','translation','notes'];
 
-// ─────────────────────────────────────────────────────────────
-//  State
-// ─────────────────────────────────────────────────────────────
-const S = {
-  tab: 'home',          // home | study | quiz | words | settings
-
-  words: [],            // imported word objects
-  progress: {},         // id -> 'know' | 'learning' | 'unknown'
-
-  // Study
-  studyQueue: [],
-  studyIdx: 0,
-  cardFlipped: false,
-  studyResults: null,   // { know, learning, unknown }
-  studyCfg: { front: 'kanji', back: ['translation','reading','on_reading','kun_reading'], filter: 'all' },
-
-  // Quiz
-  quizCfg:      { question: 'kanji', answer: 'reading', filter: 'all', mode: 'choice' },
-  quizQ:        null,     // current question
-  quizScore:    { ok: 0, bad: 0 },
-  quizDone:     false,    // answered current question
-  quizSel:      -1,       // selected option index (choice mode)
-  quizInputVal: '',       // user's typed answer (input mode)
-
-  // Inline confirmation (no dialogs)
-  confirmPending: null, // 'reset-progress' | 'clear-words' | null
-
-  // Import
-  screen: 'main',       // main | import
-  importStep: 'upload', // upload | map | preview
-  importRaw: null,      // { rawRows, colCount } — for headerless files
-  importMapping: [],    // fieldKey (or '') per column index
-  importPreview: null,
-  importErr: null,
+/* ── State ── */
+const S={
+  tab:'home', homeTab:'words', testsSubTab:'cards',
+  wordsTab:'words', wordsSearch:'',
+  words:[], progress:{},
+  kanjiItems:[], kanjiProgress:{},
+  studyQueue:[], studyIdx:0, cardFlipped:false, studyResults:null,
+  studyCfg:{type:'words',front:'kanji',back:['reading','translation'],filter:'all',count:'all'},
+  quizCfg:{type:'words',mode:'choice6',question:['kanji'],answer:'reading',filter:'all',count:'all'},
+  quizQ:null, quizScore:{ok:0,bad:0}, quizDone:false, quizSel:-1, quizInputVal:'',
+  confirmPending:null,
+  screen:'main', importType:'words', importStep:'type',
+  importRaw:null, importMapping:[], importPreview:null, importErr:null,
 };
 
-// ─────────────────────────────────────────────────────────────
-//  Persistence
-// ─────────────────────────────────────────────────────────────
-function load() {
-  try {
-    const d = JSON.parse(localStorage.getItem('jl2') || '{}');
-    S.words      = d.words      || [];
-    S.progress   = d.progress   || {};
-    S.studyCfg   = { ...S.studyCfg,  ...(d.studyCfg  || {}) };
-    S.quizCfg    = { ...S.quizCfg,   ...(d.quizCfg   || {}) };
-  } catch {}
-}
-function save() {
-  try {
-    localStorage.setItem('jl2', JSON.stringify({
-      words:    S.words,
-      progress: S.progress,
-      studyCfg: S.studyCfg,
-      quizCfg:  S.quizCfg,
-    }));
-  } catch {}
-}
-
-// ─────────────────────────────────────────────────────────────
-//  CSV / TSV parser
-// ─────────────────────────────────────────────────────────────
-const ALIAS = {
-  слово:'kanji', word:'kanji', кандзи:'kanji', kanji:'kanji',
-  чтение:'reading', кана:'reading', reading:'reading', kana:'reading',
-  'он':'on_reading', 'он-чтение':'on_reading', 'он_чтение':'on_reading',
-  on:'on_reading', on_reading:'on_reading', onyomi:'on_reading',
-  'кун':'kun_reading', 'кун-чтение':'kun_reading', 'кун_чтение':'kun_reading',
-  kun:'kun_reading', kun_reading:'kun_reading', kunyomi:'kun_reading',
-  значение:'meaning', meaning:'meaning', english:'meaning', eng:'meaning',
-  перевод:'translation', translation:'translation', russian:'translation', rus:'translation', рус:'translation',
-  заметки:'notes', notes:'notes', note:'notes', примечание:'notes', комментарий:'notes',
-};
-
-function parseLine(line, sep) {
-  const out = []; let cur = '', q = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (c === '"') { if (q && line[i+1]==='"') { cur+='"'; i++; } else q=!q; }
-    else if (c === sep && !q) { out.push(cur.trim()); cur=''; }
-    else cur += c;
-  }
-  out.push(cur.trim()); return out;
-}
-
-function detectSep(text) {
-  const row = text.split('\n')[0];
-  const t = (row.match(/\t/g)||[]).length;
-  const c = (row.match(/,/g)||[]).length;
-  const s = (row.match(/;/g)||[]).length;
-  if (t >= c && t >= s) return '\t';
-  if (s > c) return ';';
-  return ',';
-}
-
-function parseFile(text) {
-  // strip UTF-8 BOM
-  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-  const sep     = detectSep(text);
-  const rows    = text.split(/\r?\n/).filter(l => l.trim());
-  if (rows.length < 1) throw new Error('Файл пустой');
-
-  const firstCells = parseLine(rows[0], sep);
-
-  // Detect headers: at least one cell matches a known alias
-  const hasHeaders = firstCells.some(h => {
-    const k = h.toLowerCase().replace(/[\s\-]/g, '_');
-    return !!(ALIAS[k] || ALIAS[h.toLowerCase()]);
-  });
-
-  if (!hasHeaders) {
-    // No headers — return raw data for manual column mapping
-    const rawRows = rows.map(r => parseLine(r, sep));
-    return { rawRows, colCount: firstCells.length, hasHeaders: false };
-  }
-
-  // Resolve header names via ALIAS
-  const headers = firstCells.map(h => {
-    const k = h.toLowerCase().replace(/[\s\-]/g, '_');
-    return ALIAS[k] || ALIAS[h.toLowerCase()] || k;
-  });
-  if (!headers.includes('kanji')) {
-    throw new Error('Не найдена колонка кандзи/слова. Ожидалось: kanji, word, слово, кандзи');
-  }
-
-  const rawRows = rows.slice(1).map(r => parseLine(r, sep));
-  return { ...applyMapping(rawRows, headers), hasHeaders: true };
-}
-
-// Pick the best available answer field given current words
-function bestAnswerField(preferredField) {
-  const hasData = f => S.words.some(w => w[f]);
-  if (hasData(preferredField)) return preferredField;
-  for (const f of ['reading', 'meaning', 'translation', 'kanji', 'on_reading', 'kun_reading']) {
-    if (f !== preferredField && hasData(f)) return f;
-  }
-  return preferredField;
-}
-
-// Apply a column-to-field mapping to raw rows and return { words, headers }
-function applyMapping(rawRows, mapping) {
-  const words = [];
-  for (const vals of rawRows) {
-    if (vals.every(v => !v)) continue;
-    const w = { id: uid() };
-    mapping.forEach((fieldKey, j) => {
-      if (fieldKey) w[fieldKey] = (vals[j] || '').trim();
+/* ── Persist ── */
+function load(){
+  try{
+    const d=JSON.parse(localStorage.getItem('jl4')||'{}');
+    S.words=d.words||[]; S.progress=d.progress||{};
+    S.kanjiItems=d.kanjiItems||[]; S.kanjiProgress=d.kanjiProgress||{};
+    S.studyCfg={...S.studyCfg,...(d.studyCfg||{})};
+    S.quizCfg={...S.quizCfg,...(d.quizCfg||{})};
+    if(typeof S.quizCfg.question==='string')S.quizCfg.question=[S.quizCfg.question];
+    // Миграция: исправляем кандзи с неспличенными on/kun чтениями
+    let migrated=false;
+    S.kanjiItems.forEach(w=>{
+      const src=w.reading
+        ||(w.on_reading&&!w.kun_reading&&isHira(w.on_reading)?w.on_reading:null)
+        ||(w.kun_reading&&!w.on_reading&&isKata(w.kun_reading)?w.kun_reading:null)
+        ||'';
+      if(src){
+        const{on_reading,kun_reading}=splitOnKun(src);
+        w.on_reading=on_reading||'';
+        w.kun_reading=kun_reading||'';
+        delete w.reading;
+        migrated=true;
+      }
     });
-    // Kana-only words: use first reading variant as display kanji
-    if (!w.kanji && w.reading) w.kanji = w.reading.split(',')[0].trim();
-    if (w.kanji) words.push(w);
+    if(migrated)save();
+  }catch{}
+}
+function save(){
+  try{
+    localStorage.setItem('jl4',JSON.stringify({
+      words:S.words,progress:S.progress,
+      kanjiItems:S.kanjiItems,kanjiProgress:S.kanjiProgress,
+      studyCfg:S.studyCfg,quizCfg:S.quizCfg,
+    }));
+  }catch{}
+}
+
+/* ── CSV parser ── */
+const ALIAS={
+  слово:'kanji',word:'kanji',кандзи:'kanji',kanji:'kanji',
+  чтение:'reading',кана:'reading',reading:'reading',kana:'reading',
+  'он':'on_reading','он-чтение':'on_reading',on:'on_reading',on_reading:'on_reading',onyomi:'on_reading',
+  'кун':'kun_reading','кун-чтение':'kun_reading',kun:'kun_reading',kun_reading:'kun_reading',kunyomi:'kun_reading',
+  значение:'meaning',meaning:'meaning',english:'meaning',eng:'meaning',
+  перевод:'translation',translation:'translation',russian:'translation',rus:'translation',
+  заметки:'notes',notes:'notes',note:'notes',
+};
+function parseLine(line,sep){
+  const out=[];let cur='',q=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(c==='"'){if(q&&line[i+1]==='"'){cur+='"';i++;}else q=!q;}
+    else if(c===sep&&!q){out.push(cur.trim());cur='';}
+    else cur+=c;
   }
-  if (!words.length) throw new Error('Не найдено ни одного слова с заполненным полем кандзи/чтения');
-  const foundFields = [...new Set(mapping.filter(h => h && FIELD_KEYS.includes(h)))];
-  return { words, headers: foundFields, hasHeaders: true };
+  out.push(cur.trim());return out;
 }
-
-// Default field mapping by column position
-function defaultMapping(colCount) {
-  const defaults = ['kanji', 'reading', 'meaning', 'translation', 'notes'];
-  return Array.from({ length: colCount }, (_, i) => defaults[i] || '');
+function detectSep(text){
+  const row=text.split('\n')[0];
+  const t=(row.match(/\t/g)||[]).length;
+  // TAB имеет приоритет: табы никогда не встречаются внутри ячеек
+  if(t>0)return'\t';
+  const c=(row.match(/,/g)||[]).length,s=(row.match(/;/g)||[]).length;
+  if(s>c)return';';return',';
 }
-
-function uid() { return Math.random().toString(36).slice(2,9) + Date.now().toString(36); }
-
-// ─────────────────────────────────────────────────────────────
-//  Study helpers
-// ─────────────────────────────────────────────────────────────
-function filteredWords(filter) {
-  if (filter === 'all') return [...S.words];
-  return S.words.filter(w => (S.progress[w.id] || 'unknown') === filter);
+function parseFile(text){
+  if(text.charCodeAt(0)===0xFEFF)text=text.slice(1);
+  const sep=detectSep(text);
+  const rows=text.split(/\r?\n/).filter(l=>l.trim());
+  if(rows.length<1)throw new Error('Файл пустой');
+  const first=parseLine(rows[0],sep);
+  const hasH=first.some(h=>{const k=h.toLowerCase().replace(/[\s\-]/g,'_');return!!(ALIAS[k]||ALIAS[h.toLowerCase()]);});
+  if(!hasH){const rawRows=rows.map(r=>parseLine(r,sep));return{rawRows,colCount:first.length,hasHeaders:false};}
+  const headers=first.map(h=>{const k=h.toLowerCase().replace(/[\s\-]/g,'_');return ALIAS[k]||ALIAS[h.toLowerCase()]||k;});
+  const rawRows=rows.slice(1).map(r=>parseLine(r,sep));
+  return{...applyMapping(rawRows,headers,S.importType==='kanji'),hasHeaders:true};
 }
-
-function shuffle(arr) { return [...arr].sort(() => Math.random() - .5); }
-
-function buildStudyQueue() {
-  return shuffle(filteredWords(S.studyCfg.filter));
-}
-
-function buildQuiz() {
-  const qf = S.quizCfg.question;
-  const af = S.quizCfg.answer;
-
-  const pool = filteredWords(S.quizCfg.filter).filter(w => w[qf] && w[af]);
-  if (pool.length < 2) return null;
-
-  // Need at least 3 other words with answer field for wrong options
-  const wrongPool = S.words.filter(w => w[af]);
-  if (wrongPool.length < 4) return null;
-
-  // Pick a random question word (try up to 10 times to avoid degenerate cases)
-  let qw = null;
-  const shuffledPool = shuffle(pool);
-  for (const candidate of shuffledPool.slice(0, 10)) {
-    if (candidate[qf] && candidate[af]) { qw = candidate; break; }
+function uid(){return Math.random().toString(36).slice(2,9)+Date.now().toString(36);}
+/* ── Katakana / Hiragana sets (explicit, from user spec) ── */
+const KATA_SET=new Set([...'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヰヱヲンガギグゲゴザジズゼゾダヂヅデドバビブベボパピプペポァィゥェォッャュョヴ']);
+const HIRA_SET=new Set([...'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわゐゑをんがぎぐげござじずぜぞだぢづでどばびぶべぼぱぴぷぺぽぁぃぅぇぉっゃゅょゔ']);
+// ー (U+30FC) — нейтральный знак: определяем по предыдущему токену
+function isHira(s){return[...s].some(c=>HIRA_SET.has(c));}
+function isKata(s){return[...s].some(c=>KATA_SET.has(c));}
+function splitOnKun(str){
+  // Разбиваем по запятой, японской запятой, средней точке (・) и пробелам
+  const parts=str.split(/[,、・\s]+/).filter(Boolean);
+  const on=[],kun=[];
+  for(let i=0;i<parts.length;i++){
+    const p=parts[i];
+    // Убираем ー и прочие нейтральные знаки для классификации
+    const s=p.replace(/[ーー・～\u30FC\u30FE]/g,'');
+    if(!s){
+      // Токен состоит только из нейтральных знаков (напр. "ー")
+      // Определяем по предыдущему классифицированному токену
+      if(kun.length>0&&on.length===0)kun.push(p);
+      else on.push(p);
+      continue;
+    }
+    if(isKata(s)&&!isHira(s))on.push(p);
+    else if(isHira(s)&&!isKata(s))kun.push(p);
+    else on.push(p); // смешанный или неизвестный → он
   }
-  if (!qw) return null;
-
-  const wrongs  = shuffle(wrongPool.filter(w => w.id !== qw.id && w[af])).slice(0, 3).map(w => w[af]);
-  if (wrongs.length < 3) return null;
-
-  const options = shuffle([...wrongs, qw[af]]);
-  const correct = options.indexOf(qw[af]);
-
-  return {
-    word: qw,
-    qText:  qw[qf],
-    qField: qf,
-    qHint:  (qf === 'kanji') ? (qw.reading || '') : '',
-    options, correct,
-  };
+  return{on_reading:on.join('・'),kun_reading:kun.join('・')};
+}
+function applyMapping(rawRows,mapping,isKanji=false){
+  const words=[];
+  for(const vals of rawRows){
+    if(vals.every(v=>!v))continue;
+    const w={id:uid()};
+    mapping.forEach((fk,j)=>{if(fk)w[fk]=(vals[j]||'').trim();});
+    if(isKanji){
+      // Находим поле с «сырыми» чтениями — это может быть reading, on_reading или kun_reading
+      // (пользователь мог назначить не ту колонку)
+      const combined=w.reading
+        ||(w.on_reading&&!w.kun_reading&&isHira(w.on_reading)?w.on_reading:null)
+        ||(w.kun_reading&&!w.on_reading&&isKata(w.kun_reading)?w.kun_reading:null)
+        ||'';
+      if(combined){
+        const{on_reading,kun_reading}=splitOnKun(combined);
+        w.on_reading=on_reading||'';
+        w.kun_reading=kun_reading||'';
+        delete w.reading;
+      }
+    }
+    if(!w.kanji&&w.reading)w.kanji=w.reading.split(',')[0].trim();
+    if(w.kanji)words.push(w);
+  }
+  if(!words.length)throw new Error('Нет записей с полем кандзи');
+  const foundFields=[...new Set(mapping.filter(h=>h&&FK.includes(h)))];
+  return{words,headers:foundFields,hasHeaders:true};
+}
+function defaultMapping(colCount,isKanji=false){
+  const d=isKanji?['kanji','reading','meaning','translation','notes']:['kanji','reading','meaning','translation','notes'];
+  return Array.from({length:colCount},(_,i)=>d[i]||'');
 }
 
-// ─────────────────────────────────────────────────────────────
-//  Render
-// ─────────────────────────────────────────────────────────────
-function esc(s) {
-  return String(s||'')
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+/* ── Data helpers ── */
+function ds(type){return type==='kanji'?S.kanjiItems:S.words;}
+function pr(type){return type==='kanji'?S.kanjiProgress:S.progress;}
+function filtered(type,filter,count){
+  const p=pr(type);
+  let arr=filter==='all'?[...ds(type)]:ds(type).filter(w=>(p[w.id]||'unknown')===filter);
+  if(count&&count!=='all')arr=shuffle(arr).slice(0,parseInt(count));
+  return arr;
+}
+function shuffle(arr){return[...arr].sort(()=>Math.random()-.5);}
+function buildStudyQueue(){return shuffle(filtered(S.studyCfg.type,S.studyCfg.filter,S.studyCfg.count));}
+function buildQuizQ(){
+  const{type,mode,answer:af,filter,count}=S.quizCfg;
+  const qFields=Array.isArray(S.quizCfg.question)?S.quizCfg.question:[S.quizCfg.question];
+  const optN=(mode==='choice4'?4:6);
+  const pool=filtered(type,filter,count).filter(w=>w[af]&&qFields.some(f=>w[f]));
+  if(pool.length<2)return null;
+  const all=ds(type).filter(w=>w[af]);
+  if(all.length<optN)return null;
+  let qw=null;
+  for(const c of shuffle(pool).slice(0,10)){if(qFields.some(f=>c[f])&&c[af]){qw=c;break;}}
+  if(!qw)return null;
+  const wrongs=shuffle(all.filter(w=>w.id!==qw.id&&w[af])).slice(0,optN-1).map(w=>w[af]);
+  if(wrongs.length<optN-1)return null;
+  const options=shuffle([...wrongs,qw[af]]);
+  return{word:qw,qFields,aField:af,options,correct:options.indexOf(qw[af])};
+}
+function checkAns(user,correct){
+  const n=s=>s.trim().toLowerCase().replace(/\s+/g,' ');
+  const u=n(user);if(!u)return false;
+  return correct.split(/[,;、。・\n]/).map(v=>n(v)).filter(Boolean).some(v=>v===u);
+}
+function bestAF(pref){
+  const d=ds(S.quizCfg.type),has=f=>d.some(w=>w[f]);
+  if(has(pref))return pref;
+  for(const f of['reading','meaning','translation','kanji','on_reading','kun_reading'])
+    if(f!==pref&&has(f))return f;
+  return pref;
+}
+function sessionEnd(){
+  const p=pr(S.studyCfg.type),res={know:0,learning:0,unknown:0};
+  S.studyQueue.forEach(w=>{const s=p[w.id]||'unknown';res[s]=(res[s]||0)+1;});
+  S.studyResults=res;
 }
 
-function render() {
-  document.getElementById('app').innerHTML = buildApp();
-  bindAll();
+/* ── Card Variant Builder ── */
+function cvMeanings(word,showFields){
+  const has=f=>showFields.includes(f)&&word[f];
+  const g=[];
+  ['meaning','translation'].forEach(f=>{
+    if(has(f))word[f].split(/;/).forEach(s=>{const t=s.trim();if(t)g.push(t);});
+  });
+  if(!g.length)return'';
+  return`<div class="cv-meanings">${g.slice(0,7).map((s,i)=>`<div class="cv-mn"><span class="cv-mi">${i+1}</span>${esc(s)}</div>`).join('')}</div>`;
 }
 
-function buildApp() {
-  return `
-    ${buildHeader()}
-    <div class="content fade-up">${buildScreen()}</div>
-    ${buildNav()}
-  `;
+// Variant A: Kanji type + kanji field present
+function cvKanjiCard(word,showFields){
+  const has=f=>showFields.includes(f)&&word[f];
+  const hasOn=has('on_reading'),hasKun=has('kun_reading');
+  const readHtml=hasOn||hasKun?`<div class="cv-readings">
+    ${hasOn?`<div class="cv-rrow"><span class="cv-rl">音</span><span class="cv-rv">${esc(word.on_reading)}</span></div>`:''}
+    ${hasKun?`<div class="cv-rrow"><span class="cv-rl">訓</span><span class="cv-rv">${esc(word.kun_reading)}</span></div>`:''}
+  </div>`:'';
+  const mHtml=cvMeanings(word,showFields);
+  return`<div class="cv-root">
+    <div class="cv-kanji-main">
+      <div class="cv-kanji-char">${esc(word.kanji)}</div>
+      ${readHtml}
+    </div>
+    ${mHtml?'<div class="cv-sep"></div>'+mHtml:''}
+  </div>`;
 }
 
-// ── Header ────────────────────────────────────────────────────
-const TAB_TITLES = { home:'🇯🇵 Japanese', study:'Карточки', quiz:'Тест', words:'Слова', settings:'Настройки' };
-
-function buildHeader() {
-  if (S.screen === 'import') return `
-    <div class="hdr">
-      <button class="hdr-btn" data-a="back-import">← Назад</button>
-      <span class="hdr-title">Импорт слов</span>
-    </div>`;
-  return `
-    <div class="hdr">
-      <span class="hdr-title">${TAB_TITLES[S.tab]||''}</span>
-      ${S.tab === 'words' ? '<button class="hdr-btn" data-a="go-import">+ Импорт</button>' : ''}
-    </div>`;
+// Variant B: Word type + kanji (word) field present
+function cvWordCard(word,showFields){
+  const has=f=>showFields.includes(f)&&word[f];
+  const mHtml=cvMeanings(word,showFields);
+  return`<div class="cv-root">
+    <div class="cv-word">${esc(word.kanji)}</div>
+    ${has('reading')?`<div class="cv-kana">${esc(word.reading)}</div>`:''}
+    ${mHtml?'<div class="cv-sep"></div>'+mHtml:''}
+  </div>`;
 }
 
-// ── Nav ───────────────────────────────────────────────────────
-const TABS = [
-  { id:'home',     icon:'🏠', lbl:'Главная'  },
-  { id:'study',    icon:'📚', lbl:'Карточки' },
-  { id:'quiz',     icon:'🎯', lbl:'Тест'     },
-  { id:'words',    icon:'📋', lbl:'Слова'    },
-  { id:'settings', icon:'⚙️',  lbl:'Настройки'},
+// Variant C: Readings only (kanji type, no kanji field)
+function cvReadingsCard(word,showFields){
+  const has=f=>showFields.includes(f)&&word[f];
+  const mHtml=cvMeanings(word,showFields);
+  return`<div class="cv-root">
+    ${has('on_reading')?`<div class="cv-rrow-lg"><span class="cv-rl">音</span><span class="cv-rv-lg">${esc(word.on_reading)}</span></div>`:''}
+    ${has('kun_reading')?`<div class="cv-rrow-lg"><span class="cv-rl">訓</span><span class="cv-rv-lg">${esc(word.kun_reading)}</span></div>`:''}
+    ${mHtml?'<div class="cv-sep"></div>'+mHtml:''}
+  </div>`;
+}
+
+// Variant D: Kana reading only (word type, no kanji field)
+function cvKanaCard(word,showFields){
+  const mHtml=cvMeanings(word,showFields);
+  return`<div class="cv-root">
+    <div class="cv-kana-lg">${esc(word.reading)}</div>
+    ${mHtml?'<div class="cv-sep"></div>'+mHtml:''}
+  </div>`;
+}
+
+// Variant E: Meaning only
+function cvMeaningOnlyCard(word,showFields){
+  return`<div class="cv-root">${cvMeanings(word,showFields)||'<div style="color:var(--t2)">—</div>'}</div>`;
+}
+
+function buildCardVariant(word,showFields,dataType){
+  if(!word||!showFields||!showFields.length)return'<div style="color:var(--t2);text-align:center">—</div>';
+  const has=f=>showFields.includes(f)&&word[f];
+  const isKanjiType=dataType==='kanji';
+
+  if(has('kanji')){
+    return isKanjiType?cvKanjiCard(word,showFields):cvWordCard(word,showFields);
+  }
+  if(isKanjiType&&(has('on_reading')||has('kun_reading'))){
+    return cvReadingsCard(word,showFields);
+  }
+  if(!isKanjiType&&has('reading')){
+    return cvKanaCard(word,showFields);
+  }
+  const mHtml=cvMeanings(word,showFields);
+  if(mHtml)return`<div class="cv-root">${mHtml}</div>`;
+  if(has('notes'))return`<div class="cv-root"><div style="font-size:12px;color:var(--t2);font-style:italic">${esc(word.notes)}</div></div>`;
+  return'<div style="color:var(--t2);text-align:center">—</div>';
+}
+
+/* ── Card Front Builder ── */
+function buildCardFront(word,frontField,dataType){
+  const isKanjiType=dataType==='kanji';
+  const val=word[frontField]||'—';
+  if(frontField==='kanji'){
+    return isKanjiType
+      ?`<div class="fc-kanji">${esc(val)}</div>`
+      :`<div class="fc-main">${esc(val)}</div>`;
+  }
+  if(frontField==='on_reading'){
+    return`<div class="fc-lbl">音読み</div><div class="cv-kana-lg">${esc(val)}</div>`;
+  }
+  if(frontField==='kun_reading'){
+    return`<div class="fc-lbl">訓読み</div><div class="cv-kana-lg">${esc(val)}</div>`;
+  }
+  if(frontField==='reading'){
+    return`<div class="cv-kana-lg">${esc(val)}</div>`;
+  }
+  if(frontField==='meaning'||frontField==='translation'){
+    const g=[];val.split(/;/).forEach(s=>{const t=s.trim();if(t)g.push(t);});
+    if(g.length)return`<div class="fc-lbl">Значение</div><div class="cv-meanings">${
+      g.slice(0,4).map((s,i)=>`<div class="cv-mn"><span class="cv-mi">${i+1}</span>${esc(s)}</div>`).join('')
+    }</div>`;
+  }
+  return`<div class="fc-lbl">${FIELDS[frontField]?.label||frontField}</div><div class="fc-main sm">${esc(val)}</div>`;
+}
+
+/* ── Render ── */
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function render(){document.getElementById('app').innerHTML=buildApp();bindAll();}
+
+function buildApp(){
+  if(S.screen==='import')return buildImport();
+  if(S.studyQueue.length&&!S.studyResults)return buildStudyActive()+nav();
+  if(S.quizQ)return buildQuizActive()+nav();
+  switch(S.tab){
+    case'home':    return buildHome()+nav();
+    case'tests':   return buildTests()+nav();
+    case'words':   return buildWords()+nav();
+    case'settings':return buildSettings()+nav();
+  }
+  return nav();
+}
+
+/* ── NAV ── */
+const TABS=[
+  {id:'home',   icon:'home',   lbl:'Главная'  },
+  {id:'tests',  icon:'tests',  lbl:'Тесты'    },
+  {id:'words',  icon:'words',  lbl:'Слова'    },
+  {id:'settings',icon:'settings',lbl:'Настройки'},
 ];
-function buildNav() {
-  return `<nav class="bnav">${TABS.map(t=>`
+function nav(){
+  return`<nav class="bnav">${TABS.map(t=>`
     <button class="bnav-btn${S.tab===t.id?' active':''}" data-a="tab:${t.id}">
-      <span class="bnav-icon">${t.icon}</span><span>${t.lbl}</span>
+      <span class="bnav-icon">${ICONS[t.icon]}</span>
+      <span>${t.lbl}</span>
     </button>`).join('')}</nav>`;
 }
 
-function buildScreen() {
-  if (S.screen === 'import') return buildImport();
-  switch (S.tab) {
-    case 'home':     return buildHome();
-    case 'study':    return buildStudy();
-    case 'quiz':     return buildQuiz_screen();
-    case 'words':    return buildWords();
-    case 'settings': return buildSettings();
-  }
-  return '';
-}
-
-// ─────────────────────────────────────────────────────────────
-//  HOME
-// ─────────────────────────────────────────────────────────────
-function buildHome() {
-  const total   = S.words.length;
-  const know    = S.words.filter(w => S.progress[w.id]==='know').length;
-  const learning= S.words.filter(w => S.progress[w.id]==='learning').length;
-  const unknown = total - know - learning;
-
-  if (!total) return `
-    <div class="empty">
-      <div class="empty-icon">🈳</div>
-      <div class="empty-title">Слов пока нет</div>
-      <div class="empty-body">Импортируйте свой CSV или TSV файл</div>
-      <button class="btn btn-primary" data-a="go-import">📂 Импортировать</button>
-    </div>`;
-
-  const pct = Math.round(know / total * 100);
-  return `
-    <div class="stats-grid">
-      <div class="stat-card stat-know">    <div class="stat-num">${know}</div>    <div class="stat-lbl">Знаю</div>   </div>
-      <div class="stat-card stat-learn">   <div class="stat-num">${learning}</div><div class="stat-lbl">Учу</div>    </div>
-      <div class="stat-card stat-unknown"> <div class="stat-num">${unknown}</div> <div class="stat-lbl">Не знаю</div></div>
+/* ── HOME ── */
+function buildHome(){
+  const type=S.homeTab,d=ds(type),p=pr(type);
+  const total=d.length,know=d.filter(w=>p[w.id]==='know').length;
+  const learning=d.filter(w=>p[w.id]==='learning').length,unk=total-know-learning;
+  const pct=total?Math.round(know/total*100):0;
+  return`
+    <div class="phdr"><div class="top-icon">語</div><span class="phdr-title">日本語</span></div>
+    <div class="ttabs">
+      <button class="ttab${type==='words'?' on':''}" data-a="home-tab:words">Слова</button>
+      <button class="ttab${type==='kanji'?' on':''}" data-a="home-tab:kanji">Кандзи</button>
     </div>
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
-        <span style="font-size:14px;color:var(--text2)">Прогресс</span>
-        <span style="font-size:14px;font-weight:600">${pct}%</span>
-      </div>
-      <div class="prog"><div class="prog-fill" style="width:${pct}%"></div></div>
-      <div style="font-size:12px;color:var(--text2);text-align:center">${know} из ${total} слов изучено</div>
+    <div class="stats">
+      <div class="sbox g"><div class="snum">${know}</div><div class="slbl">Знаю</div></div>
+      <div class="sbox y"><div class="snum">${learning}</div><div class="slbl">Учу</div></div>
+      <div class="sbox r"><div class="snum">${unk}</div><div class="slbl">Не знаю</div></div>
     </div>
-    <div class="btn-row">
-      <button class="btn btn-primary"   data-a="tab:study">📚 Карточки</button>
-      <button class="btn btn-secondary" data-a="tab:quiz">🎯 Тест</button>
+    <div class="prog-card">
+      <div class="prog-bar-wrap"><div class="prog-bar" style="width:${pct}%"></div></div>
+      <div class="prog-info"><span>${pct}%</span><span>${know} из ${total} изучено</span></div>
     </div>
-    <div class="btn-row">
-      <button class="btn btn-secondary" data-a="go-import">📂 Импорт</button>
-      <button class="btn btn-secondary" data-a="tab:words">📋 Все слова</button>
+    <div class="act-grid">
+      <button class="act-btn primary" data-a="go-cards">Карточки</button>
+      <button class="act-btn"         data-a="go-quiz">Квиз</button>
+      <button class="act-btn"         data-a="go-import-home">Импортировать</button>
+      <button class="act-btn"         data-a="tab:words">Словарь</button>
     </div>`;
 }
 
-// ─────────────────────────────────────────────────────────────
-//  STUDY
-// ─────────────────────────────────────────────────────────────
-function buildStudy() {
-  if (!S.words.length) return noWordsBlock();
-  if (S.studyResults) return buildStudyDone();
-  if (!S.studyQueue.length) return buildStudyCfg();
-  return buildStudyCard();
+/* ── TESTS ── */
+function buildTests(){
+  if(S.studyResults)return buildStudyDone();
+  return`
+    <div class="phdr"><div class="top-icon">試</div><span class="phdr-title">Тесты</span></div>
+    <div class="sub-tabs">
+      <button class="stab${S.testsSubTab==='cards'?' on':''}" data-a="tests-sub:cards">📚 Карточки</button>
+      <button class="stab${S.testsSubTab==='quiz'?' on':''}"  data-a="tests-sub:quiz">🎯 Квиз</button>
+    </div>
+    ${S.testsSubTab==='cards'?buildCardsCfg():buildQuizCfg()}`;
 }
 
-function buildStudyCfg() {
-  const filterOpts = [
-    { v:'all',      l:'Все' },
-    { v:'unknown',  l:'Не знаю' },
-    { v:'learning', l:'Учу' },
-    { v:'know',     l:'Знаю' },
-  ];
-  const cnt = filteredWords(S.studyCfg.filter).length;
-  return `
-    <div class="cfg">
-      <div class="cfg-lbl">Лицевая сторона карточки</div>
-      <select id="sel-front">
-        ${FIELD_KEYS.map(k=>`<option value="${k}"${S.studyCfg.front===k?' selected':''}>${FIELDS[k].label}</option>`).join('')}
-      </select>
-    </div>
-    <div class="cfg">
-      <div class="cfg-lbl">Поля на обороте</div>
-      <div class="chips" id="chips-back">
-        ${FIELD_KEYS.map(k=>`<button class="chip${S.studyCfg.back.includes(k)?' active':''}" data-field="${k}">${FIELDS[k].short}</button>`).join('')}
-      </div>
-    </div>
-    <div class="cfg">
-      <div class="cfg-lbl">Фильтр карточек</div>
-      <div class="chips">
-        ${filterOpts.map(o=>`<button class="chip${S.studyCfg.filter===o.v?' active':''}" data-a="study-filter:${o.v}">${o.l}</button>`).join('')}
-      </div>
-    </div>
-    <button class="btn btn-primary" data-a="start-study">📚 Начать (${cnt} слов)</button>`;
+function cfgCard(lbl,content){
+  return`<div class="cfg-card"><div class="cfg-lbl">${lbl}</div>${content}</div>`;
+}
+function chips(items,activeVal,actionPrefix){
+  return`<div class="chips">${items.map(it=>`<button class="chip${it.v===activeVal?' on':''}" data-a="${actionPrefix}:${it.v}">${it.l}</button>`).join('')}</div>`;
 }
 
-function buildStudyCard() {
-  const word  = S.studyQueue[S.studyIdx];
-  if (!word) return buildStudyDone();
+function buildCardsCfg(){
+  const type=S.studyCfg.type;
+  const d=ds(type);
+  if(!d.length)return noData(type);
+  const flds=type==='kanji'?KF:WF;
+  const cnt=filtered(type,S.studyCfg.filter,S.studyCfg.count).length;
+  const filterOpts=[{v:'all',l:'Все'},{v:'unknown',l:'Не знаю'},{v:'learning',l:'Учу'},{v:'know',l:'Знаю'}];
+  const counts=[{v:'50',l:'50'},{v:'100',l:'100'},{v:'150',l:'150'},{v:'all',l:'Все'}];
+  return`
+    ${cfgCard('Что тренируем',chips([{v:'words',l:'Слова'},{v:'kanji',l:'Кандзи'}],type,'study-type'))}
+    ${cfgCard('Лицевая сторона',`<div class="chips">${flds.map(k=>`<button class="chip${S.studyCfg.front===k?' on':''}" data-a="study-front:${k}">${FIELDS[k].short}</button>`).join('')}</div>`)}
+    ${cfgCard('Оборотная сторона',`<div class="chips" id="chips-back">${flds.map(k=>`<button class="chip${S.studyCfg.back.includes(k)?' on':''}" data-field="${k}">${FIELDS[k].short}</button>`).join('')}</div>`)}
+    <div class="cfg-row">
+      ${cfgCard('Фильтр',chips(filterOpts,S.studyCfg.filter,'study-filter'))}
+      ${cfgCard('Количество',chips(counts,S.studyCfg.count,'study-count'))}
+    </div>
+    <div class="start-row"><button class="start-btn" data-a="start-study">Начать (${cnt})</button></div>`;
+}
 
-  const total   = S.studyQueue.length;
-  const current = S.studyIdx + 1;
-  const pct     = Math.round(current / total * 100);
-  const status  = S.progress[word.id] || 'unknown';
+function buildQuizCfg(){
+  const type=S.quizCfg.type;
+  const d=ds(type);
+  if(d.length<4)return`<div class="empty"><div class="ei">🎯</div><div class="et">Мало данных</div><div class="eb">Нужно минимум 4 записи (сейчас ${d.length})</div><button class="btn btn-p" style="margin:0 16px;width:calc(100%-32px)" data-a="go-import-home">Импорт</button></div>`;
+  const flds=type==='kanji'?KF:WF;
+  const filterOpts=[{v:'all',l:'Все'},{v:'unknown',l:'Не знаю'},{v:'learning',l:'Учу'},{v:'know',l:'Знаю'}];
+  const counts=[{v:'50',l:'50'},{v:'100',l:'100'},{v:'150',l:'150'},{v:'all',l:'Все'}];
+  const modes=[{v:'choice4',l:'4 варианта'},{v:'choice6',l:'6 вариантов'},{v:'input',l:'Вписать'},{v:'mix',l:'Микс'}];
+  return`
+    ${cfgCard('Что тренируем',chips([{v:'words',l:'Слова'},{v:'kanji',l:'Кандзи'}],type,'quiz-type'))}
+    ${cfgCard('Режим ответа',chips(modes,S.quizCfg.mode,'quiz-mode'))}
+    ${cfgCard('Что в вопросе (несколько)',`<div class="chips" id="chips-q">${flds.map(k=>`<button class="chip${S.quizCfg.question.includes(k)?' on':''}" data-qfield="${k}">${FIELDS[k].short}</button>`).join('')}</div>`)}
+    ${cfgCard('Что отгадываем (одно)',`<div class="chips">${flds.map(k=>`<button class="chip${S.quizCfg.answer===k?' on':''}" data-a="quiz-afield:${k}">${FIELDS[k].short}</button>`).join('')}</div>`)}
+    <div class="cfg-row">
+      ${cfgCard('Фильтр',chips(filterOpts,S.quizCfg.filter,'quiz-filter'))}
+      ${cfgCard('Количество',chips(counts,S.quizCfg.count,'quiz-count'))}
+    </div>
+    <div class="start-row"><button class="start-btn" data-a="start-quiz">Начать</button></div>`;
+}
 
-  const fv = word[S.studyCfg.front] || '—';
-  const fl = FIELDS[S.studyCfg.front]?.label || S.studyCfg.front;
-  const isBig = S.studyCfg.front === 'kanji';
+/* ── STUDY ACTIVE ── */
+function buildStudyActive(){
+  if(S.studyResults)return buildStudyDone();
+  const w=S.studyQueue[S.studyIdx];
+  if(!w){sessionEnd();return buildStudyDone();}
+  const total=S.studyQueue.length,curr=S.studyIdx+1,pct=Math.round(curr/total*100);
+  const p=pr(S.studyCfg.type),status=p[w.id]||'unknown';
+  const sClass=status==='know'?'g':status==='learning'?'y':'r';
+  const front=S.studyCfg.front,isKanji=S.studyCfg.type==='kanji';
 
-  const backRows = S.studyCfg.back
-    .filter(f => f !== S.studyCfg.front && word[f])
-    .map(f => `
-      <div>
-        <div class="fc-field-lbl">${FIELDS[f]?.short||f}</div>
-        <div class="fc-field-val${f==='kanji'?' lg':''}">${esc(word[f])}</div>
-      </div>`).join('');
+  // Build front face content using buildCardFront
+  const frontBody=buildCardFront(w,front,S.studyCfg.type)
+    +(!S.cardFlipped?`<div class="fc-tap">нажмите чтобы перевернуть</div>`:``);
 
-  return `
-    <div class="prog"><div class="prog-fill" style="width:${pct}%"></div></div>
-    <div style="font-size:12px;color:var(--text2);text-align:center;margin-bottom:12px">${current} / ${total}</div>
 
+  // Build back face using card variant
+  const backVariant=buildCardVariant(w,S.studyCfg.back,S.studyCfg.type);
+
+  return`
+    <div class="fc-counter">${curr}/${total}</div>
     <div class="fc-wrap" data-a="flip">
       <div class="fc${S.cardFlipped?' flipped':''}">
         <div class="fc-face">
-          <div class="fc-status ${status}"></div>
-          <div class="fc-label">${fl}</div>
-          <div class="fc-main${isBig?'':' sm'}">${esc(fv)}</div>
-          ${!S.cardFlipped ? '<div class="fc-tap-hint">Нажмите чтобы перевернуть</div>' : ''}
+          <div class="fc-sbar ${sClass}"></div>
+          ${frontBody}
         </div>
         <div class="fc-face fc-back">
-          <div class="fc-status ${status}"></div>
-          <div class="fc-back-body">
-            ${backRows || '<div style="color:var(--text2);text-align:center">Нет данных для отображения</div>'}
-          </div>
+          <div class="fc-sbar ${sClass}"></div>
+          <div class="fc-back-body">${backVariant}</div>
         </div>
       </div>
     </div>
-
     <div class="mark-row">
-      <button class="mbtn unknown" data-a="mark:unknown">✗ Не знаю</button>
-      <button class="mbtn learning" data-a="mark:learning">△ Учу</button>
-      <button class="mbtn know"    data-a="mark:know">✓ Знаю</button>
+      <button class="mbtn r" data-a="mark:unknown">✕ Не знаю</button>
+      <button class="mbtn y" data-a="mark:learning">∼ Учу</button>
+      <button class="mbtn g" data-a="mark:know">✓ Знаю</button>
     </div>
-
-    <div class="btn-row" style="margin-top:10px">
-      <button class="btn btn-secondary" data-a="stop-study">Стоп</button>
-      <button class="btn btn-secondary" data-a="skip-card">Пропустить →</button>
+    <div class="stop-row">
+      <button class="stop-btn" data-a="stop-study">Стоп</button>
+      <button class="stop-btn" data-a="skip-card">Пропустить</button>
     </div>`;
 }
 
-function buildStudyDone() {
-  const r = S.studyResults || { know:0, learning:0, unknown:0 };
-  const total = r.know + r.learning + r.unknown;
-  return `
+function buildStudyDone(){
+  const r=S.studyResults||{know:0,learning:0,unknown:0};
+  const total=r.know+r.learning+r.unknown;
+  return`
     <div class="done">
-      <div class="done-icon">🎉</div>
+      <div class="done-i">🎉</div>
       <h2>Сессия завершена!</h2>
-      <p style="color:var(--text2);margin-top:7px">Пройдено: ${total} карточек</p>
+      <p style="color:var(--t2);margin-top:6px;font-size:13px">Пройдено: ${total} карточек</p>
       <div class="res-grid">
-        <div class="res-card know">    <div class="res-num">${r.know}</div>    <div class="res-lbl">Знаю</div>   </div>
-        <div class="res-card learning"><div class="res-num">${r.learning}</div><div class="res-lbl">Учу</div>    </div>
-        <div class="res-card unknown"> <div class="res-num">${r.unknown}</div> <div class="res-lbl">Не знаю</div></div>
+        <div class="rc g"><div class="rn">${r.know}</div><div class="rl">Знаю</div></div>
+        <div class="rc y"><div class="rn">${r.learning}</div><div class="rl">Учу</div></div>
+        <div class="rc r"><div class="rn">${r.unknown}</div><div class="rl">Не знаю</div></div>
       </div>
-      <div class="btn-row">
-        <button class="btn btn-primary"   data-a="restart-study">🔄 Снова</button>
-        <button class="btn btn-secondary" data-a="stop-study">Завершить</button>
+      <div style="padding:0 16px">
+        <div class="btn-row">
+          <button class="btn btn-p" data-a="restart-study">🔄 Снова</button>
+          <button class="btn btn-s" data-a="stop-study">Завершить</button>
+        </div>
       </div>
     </div>`;
 }
 
-// ─────────────────────────────────────────────────────────────
-//  QUIZ
-// ─────────────────────────────────────────────────────────────
-function buildQuiz_screen() {
-  if (S.words.length < 4) return `
-    <div class="empty">
-      <div class="empty-icon">🎯</div>
-      <div class="empty-title">Мало слов</div>
-      <div class="empty-body">Для теста нужно минимум 4 слова (сейчас ${S.words.length})</div>
-      <button class="btn btn-primary" data-a="go-import">Импортировать</button>
-    </div>`;
-  if (!S.quizQ) return buildQuizCfg();
-  return buildQuizQ();
-}
+/* ── QUIZ ACTIVE ── */
+function buildQuizActive(){
+  const q=S.quizQ;if(!q)return'';
+  const{ok,bad}=S.quizScore;
+  const mode=S.quizCfg.mode;
+  const showChoice=mode==='choice4'||mode==='choice6'||mode==='mix';
+  const showInput=mode==='input'||mode==='mix';
+  const optN=mode==='choice4'?4:6;
 
-function buildQuizCfg() {
-  const filterOpts = [
-    { v:'all',      l:'Все' },
-    { v:'unknown',  l:'Не знаю' },
-    { v:'learning', l:'Учу' },
-    { v:'know',     l:'Знаю' },
-  ];
-  return `
-    <div class="cfg">
-      <div class="cfg-lbl">Режим ответа</div>
-      <div class="chips">
-        <button class="chip${S.quizCfg.mode==='choice'?' active':''}" data-a="quiz-mode:choice">4 варианта</button>
-        <button class="chip${S.quizCfg.mode==='input'?' active':''}"  data-a="quiz-mode:input">Вписать ответ</button>
+  const scoreBar=`
+    <div class="qscore">
+      <div class="qscore-item qscore-bad">
+        <svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 1l10 8M11 1L1 9" stroke="#ff3c3c" stroke-width="1.8" stroke-linecap="round"/></svg>
+        ${bad}
       </div>
-    </div>
-    <div class="cfg">
-      <div class="cfg-lbl">Вопрос (что показываем)</div>
-      <select id="sel-qfield">
-        ${FIELD_KEYS.map(k=>`<option value="${k}"${S.quizCfg.question===k?' selected':''}>${FIELDS[k].label}</option>`).join('')}
-      </select>
-    </div>
-    <div class="cfg">
-      <div class="cfg-lbl">Ответ (что угадываем)</div>
-      <select id="sel-afield">
-        ${FIELD_KEYS.map(k=>`<option value="${k}"${S.quizCfg.answer===k?' selected':''}>${FIELDS[k].label}</option>`).join('')}
-      </select>
-    </div>
-    <div class="cfg">
-      <div class="cfg-lbl">Фильтр слов</div>
-      <div class="chips">
-        ${filterOpts.map(o=>`<button class="chip${S.quizCfg.filter===o.v?' active':''}" data-a="quiz-filter:${o.v}">${o.l}</button>`).join('')}
+      <div class="qscore-item qscore-ok">
+        <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5l4 4L13 1" stroke="#7aff78" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        ${ok}
       </div>
-    </div>
-    <button class="btn btn-primary" data-a="start-quiz">🎯 Начать тест</button>`;
-}
-
-// Check if user's input matches the correct answer (any comma/semicolon variant)
-function checkInputAnswer(userInput, correctAnswer) {
-  const norm = s => s.trim().toLowerCase().replace(/\s+/g,' ');
-  const u = norm(userInput);
-  if (!u) return false;
-  const variants = correctAnswer.split(/[,;、。・\n]/).map(v => norm(v)).filter(Boolean);
-  return variants.some(v => v === u);
-}
-
-function buildQuizQ() {
-  const q = S.quizQ;
-  const isBig    = q.qField === 'kanji';
-  const aLabel   = FIELDS[S.quizCfg.answer]?.label || '';
-  const { ok, bad } = S.quizScore;
-  const isInput  = S.quizCfg.mode === 'input';
-
-  const header = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <div class="quiz-score">
-        <span class="score-ok">✓ ${ok}</span>
-        <span class="score-bad">✗ ${bad}</span>
-        <span style="color:var(--text2)">итого ${ok+bad}</span>
-      </div>
-      <button class="btn btn-secondary" style="width:auto;padding:6px 12px;font-size:13px" data-a="stop-quiz">Стоп</button>
+      <div class="qscore-item qscore-total" style="color:var(--al)">итого ${ok+bad}</div>
+      <button class="stop-btn" style="padding:0 14px;height:27px;width:auto;border-radius:16px" data-a="stop-quiz">Стоп</button>
     </div>`;
 
-  const questionBlock = `
+  const qCard=`
     <div class="quiz-q">
-      <div class="quiz-q-lbl">${FIELDS[q.qField]?.short||q.qField}</div>
-      <div class="quiz-q-main${isBig?'':' sm'}">${esc(q.qText)}</div>
-      ${q.qHint ? `<div class="quiz-q-hint">${esc(q.qHint)}</div>` : ''}
+      ${buildCardVariant(q.word,q.qFields,S.quizCfg.type)}
     </div>`;
 
-  if (isInput) {
-    const isCorrect = S.quizDone ? checkInputAnswer(S.quizInputVal, q.options[q.correct]) : null;
-    const inputCls  = S.quizDone ? (isCorrect ? 'correct' : 'wrong') : '';
-    const resultBlock = S.quizDone ? `
-      <div class="quiz-answer-reveal ${inputCls}">
-        ${isCorrect
-          ? '✓ Правильно!'
-          : `✗ Неверно — правильный ответ: <strong>${esc(q.options[q.correct])}</strong>`}
-      </div>` : '';
-
-    return header + questionBlock + `
-      <div style="font-size:12px;color:var(--text2);text-align:center;margin-bottom:8px">
-        Впишите: ${aLabel.toLowerCase()}
-      </div>
-      <input id="quiz-input" class="quiz-input ${inputCls}" type="text"
-             placeholder="Ваш ответ..."
-             value="${S.quizDone ? esc(S.quizInputVal) : ''}"
-             ${S.quizDone ? 'disabled' : ''}
-             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-      ${resultBlock}
-      ${S.quizDone
-        ? `<button class="btn btn-primary" data-a="next-q">Следующий →</button>`
-        : `<button class="btn btn-primary" data-a="quiz-check">Проверить</button>`}`;
+  let choiceHtml='';
+  if(showChoice&&q.options){
+    choiceHtml=`<div class="quiz-opts">
+      ${q.options.slice(0,optN).map((opt,i)=>{
+        let cls='';
+        if(S.quizDone)cls=i===q.correct?'ok':i===S.quizSel?'bad':'';
+        return`<button class="qopt ${cls}" ${S.quizDone?'disabled':''} data-a="quiz-ans:${i}">${esc(opt)}</button>`;
+      }).join('')}
+    </div>`;
   }
 
-  // choice mode
-  return header + questionBlock + `
-    <div style="font-size:12px;color:var(--text2);text-align:center;margin-bottom:10px">
-      Выберите: ${aLabel.toLowerCase()}
-    </div>
-    <div class="quiz-opts">
-      ${q.options.map((opt, i) => {
-        let cls = '';
-        if (S.quizDone) cls = (i === q.correct) ? 'correct' : (i === S.quizSel ? 'wrong' : '');
-        return `<button class="qopt ${cls}" ${S.quizDone?'disabled':''} data-a="quiz-ans:${i}">${esc(opt)}</button>`;
-      }).join('')}
-    </div>
-    ${S.quizDone ? `<button class="btn btn-primary" style="margin-top:14px" data-a="next-q">Следующий →</button>` : ''}`;
+  let inputHtml='';
+  if(showInput){
+    const isOk=S.quizDone?checkAns(S.quizInputVal,q.options[q.correct]):null;
+    const iCls=S.quizDone?(isOk?'ok':'bad'):'';
+    inputHtml=`
+      <div class="quiz-inp-wrap">
+        <div class="quiz-inp-lbl">Впишите вариант:</div>
+        <input id="quiz-input" class="quiz-inp ${iCls}" type="text"
+          placeholder="Ваш ответ..."
+          value="${S.quizDone?esc(S.quizInputVal):''}"
+          ${S.quizDone?'disabled':''}
+          autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        ${S.quizDone&&mode==='input'?`<div class="quiz-result ${isOk?'ok':'bad'}">${isOk?'✓ Правильно!':'✗ Правильно: '+esc(q.options[q.correct])}</div>`:''}
+      </div>`;
+  }
+
+  const nextBtn=S.quizDone
+    ?`<button class="next-btn" data-a="next-q">Следующий →</button>`
+    :(showInput&&!showChoice?`<button class="next-btn" data-a="quiz-check">Проверить</button>`:'');
+
+  return`<div class="pg">${scoreBar}${qCard}${choiceHtml}${inputHtml}${nextBtn}</div>`;
 }
 
-// ─────────────────────────────────────────────────────────────
-//  WORDS LIST
-// ─────────────────────────────────────────────────────────────
-function buildWords() {
-  if (!S.words.length) return `
-    <div class="empty">
-      <div class="empty-icon">📋</div>
-      <div class="empty-title">Нет слов</div>
-      <div class="empty-body">Импортируйте CSV или TSV файл</div>
-      <button class="btn btn-primary" data-a="go-import">Импортировать</button>
+/* ── WORDS ── */
+function buildWords(){
+  const type=S.wordsTab,d=ds(type),p=pr(type);
+  const list=S.wordsSearch
+    ?d.filter(w=>{const q=S.wordsSearch.toLowerCase();
+        return(w.kanji||'').toLowerCase().includes(q)||
+               (w.reading||w.on_reading||w.kun_reading||'').toLowerCase().includes(q)||
+               (w.meaning||w.translation||'').toLowerCase().includes(q);})
+    :d;
+  return`
+    <div class="phdr"><div class="top-icon">語</div><span class="phdr-title">Слова</span></div>
+    <div class="wfilter">
+      <button class="wf-tab${type==='words'?' on':''}" data-a="words-tab:words">Слова</button>
+      <button class="wf-tab${type==='kanji'?' on':''}" data-a="words-tab:kanji">Кандзи</button>
+      <button class="wf-import" data-a="words-import">Импорт ↑</button>
+      <button class="wf-search" data-a="words-search-toggle">🔍 Поиск</button>
+    </div>
+    <div class="wsearch-wrap">
+      <span class="wsearch-icon">🔍</span>
+      <input id="words-search" class="wsearch" type="text"
+        placeholder="Поиск..."
+        value="${esc(S.wordsSearch)}"
+        autocomplete="off" autocorrect="off">
+    </div>
+    ${!d.length
+      ?`<div class="empty"><div class="ei">${type==='kanji'?'㊙️':'📖'}</div><div class="et">Нет ${type==='kanji'?'кандзи':'слов'}</div><div class="eb">Импортируйте CSV/TSV файл</div><button class="btn btn-p" style="margin:0 16px;width:calc(100% - 32px)" data-a="words-import">Импортировать</button></div>`
+      :`<div class="wlist">
+          ${list.map(w=>{
+            const s=p[w.id]||'unknown';
+            const dc=s==='know'?'g':s==='learning'?'y':'';
+            if(type==='kanji'){
+              return`<div class="witem">
+                <div class="wkanji">${esc(w.kanji)}</div>
+                <div class="winfo">
+                  ${w.on_reading?`<div class="wok">он: ${esc(w.on_reading)}</div>`:''}
+                  ${w.kun_reading?`<div class="wok">кун: ${esc(w.kun_reading)}</div>`:''}
+                  <div class="wtrans">${esc(w.meaning||w.translation||'')}</div>
+                </div>
+                <div class="wdot ${dc}"></div>
+              </div>`;
+            }
+            return`<div class="witem">
+              <div class="wkanji">${esc(w.kanji)}</div>
+              <div class="winfo">
+                <div class="wreading">${esc(w.reading||'')}</div>
+                <div class="wtrans">${esc(w.translation||w.meaning||'')}</div>
+              </div>
+              <div class="wdot ${dc}"></div>
+            </div>`;
+          }).join('')}
+        </div>
+        ${list.length!==d.length?`<div style="font-size:12px;color:var(--al);text-align:center;padding:4px">Найдено: ${list.length} из ${d.length}</div>`:''}`
+    }`;
+}
+
+/* ── SETTINGS ── */
+function buildSettings(){
+  const total=S.words.length,kt=S.kanjiItems.length;
+  const know=S.words.filter(w=>S.progress[w.id]==='know').length;
+  const kknow=S.kanjiItems.filter(w=>S.kanjiProgress[w.id]==='know').length;
+  const cBlock=(key,lbl,isRed)=>S.confirmPending===key
+    ?`<div class="confirm-row">
+        <span class="confirm-text" style="color:${isRed?'var(--r)':'var(--y)'}">${lbl}?</span>
+        <button class="confirm-no" data-a="confirm-no">Нет</button>
+        <button class="confirm-yes" data-a="confirm-yes">Да</button>
+      </div>`
+    :`<div class="srow" data-a="${key}">
+        <span class="srow-l" style="color:${isRed?'var(--r)':'var(--y)'}">${lbl}</span>
+        <span class="srow-r">›</span>
+      </div>`;
+  return`
+    <div class="phdr"><div class="top-icon">設</div><span class="phdr-title">Настройки</span></div>
+    <div style="margin-bottom:6px;padding:0 16px"><div class="sset-lbl">Статистика</div></div>
+    <div class="sset">
+      <div class="srow"><span class="srow-l">Слов всего</span><span class="srow-r">${total}</span></div>
+      <div class="srow"><span class="srow-l">Слов изучено</span><span class="srow-r" style="color:var(--g)">${know}</span></div>
+      <div class="srow"><span class="srow-l">Кандзи всего</span><span class="srow-r">${kt}</span></div>
+      <div class="srow"><span class="srow-l">Кандзи изучено</span><span class="srow-r" style="color:var(--g)">${kknow}</span></div>
+    </div>
+    <div style="margin-bottom:6px;padding:0 16px"><div class="sset-lbl">Данные</div></div>
+    <div class="sset">
+      <div class="srow" data-a="go-import-home"><span class="srow-l">Импортировать</span><span class="srow-r">›</span></div>
+      ${cBlock('reset-progress','Сбросить прогресс',false)}
+      ${cBlock('clear-words','Удалить все данные',true)}
+    </div>
+    <div style="margin:0 16px"><div class="sset-lbl">Формат CSV</div></div>
+    <div class="cfg-card mono" style="margin-bottom:0">
+      Слова: kanji, reading, translation<br>
+      Кандзи: kanji, on_reading, kun_reading, meaning<br>
+      Разделитель: запятая, TAB, точка с запятой
     </div>`;
-
-  const items = S.words.map(w => {
-    const s = S.progress[w.id] || 'unknown';
-    const r = w.reading || w.on_reading || w.kun_reading || '';
-    const t = w.translation || w.meaning || '';
-    return `<div class="witem">
-      <div class="wkanji">${esc(w.kanji)}</div>
-      <div class="winfo">
-        <div class="wreading">${esc(r)}</div>
-        <div class="wtranslate">${esc(t)}</div>
-      </div>
-      <div class="wdot ${s}" title="${s}"></div>
-    </div>`;
-  }).join('');
-
-  return `
-    <div class="card" style="padding:0;overflow:hidden">${items}</div>
-    <div style="margin-top:10px">
-      ${S.confirmPending === 'clear-words'
-        ? `<div style="display:flex;gap:8px;align-items:center">
-             <span style="flex:1;font-size:14px;color:var(--red)">Удалить все слова?</span>
-             <button class="btn btn-secondary" style="width:auto;padding:8px 16px" data-a="confirm-no">Нет</button>
-             <button class="btn btn-danger"    style="width:auto;padding:8px 16px" data-a="confirm-yes">Да</button>
-           </div>`
-        : `<button class="btn btn-danger" data-a="clear-words">🗑️ Удалить все слова</button>`}
-    </div>`;
 }
 
-// ─────────────────────────────────────────────────────────────
-//  SETTINGS
-// ─────────────────────────────────────────────────────────────
-function buildSettings() {
-  const total    = S.words.length;
-  const know     = S.words.filter(w => S.progress[w.id]==='know').length;
-  const learning = S.words.filter(w => S.progress[w.id]==='learning').length;
-  return `
-    <div class="sset-lbl">Статистика</div>
-    <div class="sset-card" style="margin-bottom:16px">
-      <div class="sset-row"><span class="sset-row-lbl">Всего слов</span><span class="sset-row-val">${total}</span></div>
-      <div class="sset-row"><span class="sset-row-lbl">Знаю</span><span class="sset-row-val" style="color:var(--green)">${know}</span></div>
-      <div class="sset-row"><span class="sset-row-lbl">Учу</span><span class="sset-row-val" style="color:var(--yellow)">${learning}</span></div>
-      <div class="sset-row"><span class="sset-row-lbl">Не знаю</span><span class="sset-row-val" style="color:var(--red)">${total-know-learning}</span></div>
+/* ── IMPORT ── */
+function buildImport(){
+  return`
+    <div class="phdr">
+      <button class="phdr-back" data-a="back-import">← Назад</button>
+      <span class="phdr-title">Импорт</span>
     </div>
-
-    <div class="sset-lbl">Данные</div>
-    <div class="sset-card" style="margin-bottom:16px">
-      <div class="sset-row" data-a="go-import">
-        <span class="sset-row-lbl">📂 Импортировать слова</span><span class="sset-row-val">›</span>
-      </div>
-      ${S.confirmPending === 'reset-progress'
-        ? `<div class="sset-row" style="gap:8px">
-             <span style="flex:1;font-size:14px;color:var(--yellow)">Сбросить прогресс?</span>
-             <button class="btn btn-secondary" style="width:auto;padding:5px 14px;font-size:13px" data-a="confirm-no">Нет</button>
-             <button class="btn btn-danger"    style="width:auto;padding:5px 14px;font-size:13px" data-a="confirm-yes">Да</button>
-           </div>`
-        : `<div class="sset-row" data-a="reset-progress">
-             <span class="sset-row-lbl" style="color:var(--yellow)">🔄 Сбросить прогресс</span><span class="sset-row-val">›</span>
-           </div>`}
-      ${S.confirmPending === 'clear-words'
-        ? `<div class="sset-row" style="gap:8px">
-             <span style="flex:1;font-size:14px;color:var(--red)">Удалить все слова?</span>
-             <button class="btn btn-secondary" style="width:auto;padding:5px 14px;font-size:13px" data-a="confirm-no">Нет</button>
-             <button class="btn btn-danger"    style="width:auto;padding:5px 14px;font-size:13px" data-a="confirm-yes">Да</button>
-           </div>`
-        : `<div class="sset-row" data-a="clear-words">
-             <span class="sset-row-lbl" style="color:var(--red)">🗑️ Удалить все слова</span><span class="sset-row-val">›</span>
-           </div>`}
-    </div>
-
-    <div class="sset-lbl">Формат CSV файла</div>
-    <div class="card mono">
-      kanji,reading,on_reading,kun_reading,translation,meaning,notes<br>
-      日本語,にほんご,にち・じつ,ひ・か,японский язык,Japanese,N5<br>
-      学校,がっこう,がく,まなぶ,школа,school,N5
-    </div>
-    <p style="font-size:12px;color:var(--text2);margin:6px 2px 14px">
-      Разделитель: запятая, точка с запятой или TAB. Первая строка — заголовки.
-    </p>`;
+    ${S.importStep==='map'&&S.importRaw?buildColMap()
+    :S.importStep==='preview'&&S.importPreview?buildUploadZone()+buildPreview()
+    :buildTypeSelect()+buildUploadZone()}`;
 }
-
-// ─────────────────────────────────────────────────────────────
-//  IMPORT
-// ─────────────────────────────────────────────────────────────
-function buildImport() {
-  if (S.importStep === 'map' && S.importRaw)     return buildColMap();
-  if (S.importStep === 'preview' && S.importPreview) return buildUploadZone() + buildPreview();
-  return buildUploadZone();
+function buildTypeSelect(){
+  return`${cfgCard('Что импортируем',chips([{v:'words',l:'Слова'},{v:'kanji',l:'Кандзи'}],S.importType,'import-type'))}`;
 }
-
-function buildUploadZone() {
-  return `
+function buildUploadZone(){
+  return`
     <div class="dropzone" id="dropzone">
       <div class="dz-icon">📂</div>
       <div class="dz-text">Нажмите или перетащите файл</div>
       <div class="dz-hint">CSV и TSV — с заголовками и без</div>
       <input type="file" id="file-in" accept=".csv,.tsv,.txt" style="display:none">
     </div>
-
-    ${S.importErr ? `
-      <div class="card" style="border-color:var(--red);background:rgba(248,81,73,.08);margin-bottom:10px">
-        <span style="color:var(--red)">⚠️ ${esc(S.importErr)}</span>
-      </div>` : ''}
-
-    <div class="card">
-      <div style="font-size:14px;font-weight:600;margin-bottom:8px">Поддерживаемые поля</div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.7">
-        <b>kanji / word / слово</b> — кандзи или слово<br>
-        <b>reading / кана</b> — чтение каной<br>
-        <b>on / on_reading</b> — он-чтение<br>
-        <b>kun / kun_reading</b> — кун-чтение<br>
-        <b>translation / перевод</b> — перевод<br>
-        <b>meaning / значение</b> — значение (eng)<br>
-        <b>notes / заметки</b> — заметки
-      </div>
-      <p style="font-size:12px;color:var(--text2);margin-top:8px">
-        Если в файле нет заголовков — вы назначите поля вручную.
-      </p>
-    </div>`;
+    ${S.importErr?`<div class="err-box">⚠️ ${esc(S.importErr)}</div>`:''}`;
 }
-
-// Column-mapping step (for headerless files)
-function buildColMap() {
-  const { rawRows, colCount } = S.importRaw;
-  const preview = rawRows.slice(0, 5);
-
-  const colHeads = Array.from({ length: colCount }, (_, i) => {
-    const cur = S.importMapping[i] || '';
-    const opts = [
-      `<option value="">— пропустить —</option>`,
-      ...FIELD_KEYS.map(k =>
-        `<option value="${k}"${cur === k ? ' selected' : ''}>${FIELDS[k].label}</option>`),
-    ].join('');
-    return `<th style="min-width:120px;padding:6px 8px">
-      <select id="map-col-${i}" style="width:100%;font-size:12px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 6px">${opts}</select>
-    </th>`;
+function buildColMap(){
+  const{rawRows,colCount}=S.importRaw;
+  // Тип можно менять прямо здесь — dropdowns обновятся при ре-рендере
+  const typeRow=buildTypeSelect();
+  const fk=S.importType==='kanji'?KF:WF;
+  const heads=Array.from({length:colCount},(_,i)=>{
+    const cur=S.importMapping[i]||'';
+    const opts=[`<option value="">— пропустить —</option>`,...fk.map(k=>`<option value="${k}"${cur===k?' selected':''}>${FIELDS[k].label}</option>`)].join('');
+    return`<th style="min-width:120px;padding:6px 8px"><select id="map-col-${i}" style="width:100%;font-size:12px;background:var(--bg);color:var(--t);border:1px solid var(--c2);border-radius:6px;padding:4px 6px">${opts}</select></th>`;
   }).join('');
-
-  const dataRows = preview.map(row =>
-    `<tr>${Array.from({ length: colCount }, (_, i) =>
-      `<td style="font-size:13px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(row[i]||'')}">${esc(row[i]||'')}</td>`
-    ).join('')}</tr>`
-  ).join('');
-
-  return `
-    <div class="card" style="margin-bottom:10px">
-      <div style="font-size:14px;font-weight:600;margin-bottom:4px">Назначьте колонки</div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:10px">
-        Заголовков не найдено. Выберите, какое поле содержит каждая колонка.
+  const drows=rawRows.slice(0,5).map(row=>`<tr>${Array.from({length:colCount},(_,i)=>`<td title="${esc(row[i]||'')}">${esc(row[i]||'')}</td>`).join('')}</tr>`).join('');
+  return`
+    ${typeRow}
+    <div class="cfg-card">
+      <div class="cfg-lbl">Назначьте колонки</div>
+      <div class="tbl-wrap" style="margin:0 0 10px">
+        <table><thead><tr>${heads}</tr></thead><tbody>${drows}</tbody></table>
       </div>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr>${colHeads}</tr></thead>
-          <tbody>${dataRows}</tbody>
-        </table>
-      </div>
-      ${rawRows.length > 5 ? `<div style="font-size:12px;color:var(--text2);margin-top:6px">...всего ${rawRows.length} строк</div>` : ''}
+      ${rawRows.length>5?`<div style="font-size:12px;color:var(--al);margin-bottom:8px">...всего ${rawRows.length} строк</div>`:''}
     </div>
-    <div class="btn-row">
-      <button class="btn btn-secondary" data-a="back-import">← Назад</button>
-      <button class="btn btn-primary"   data-a="apply-map">Применить →</button>
+    <div style="display:flex;gap:8px;padding:0 16px">
+      <button class="btn btn-s" data-a="back-import">← Назад</button>
+      <button class="btn btn-p" data-a="apply-map">Применить →</button>
     </div>`;
 }
-
-function buildPreview() {
-  const { words, headers } = S.importPreview;
-  const show = words.slice(0, 6);
-  return `
-    <div class="card" style="margin-bottom:10px">
-      <div style="font-size:14px;font-weight:600;margin-bottom:8px">Предпросмотр — ${words.length} слов</div>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr>${headers.map(h=>`<th>${FIELDS[h]?.short||h}</th>`).join('')}</tr></thead>
-          <tbody>${show.map(w=>`<tr>${headers.map(h=>`<td>${esc(w[h]||'')}</td>`).join('')}</tr>`).join('')}</tbody>
-        </table>
+function buildPreview(){
+  const{words,headers}=S.importPreview;
+  const show=words.slice(0,6);
+  return`
+    <div class="cfg-card">
+      <div class="cfg-lbl">Предпросмотр — ${words.length} записей</div>
+      <div class="tbl-wrap" style="margin:0 0 10px">
+        <table><thead><tr>${headers.map(h=>`<th>${FIELDS[h]?.short||h}</th>`).join('')}</tr></thead>
+        <tbody>${show.map(w=>`<tr>${headers.map(h=>`<td>${esc(w[h]||'')}</td>`).join('')}</tr>`).join('')}</tbody></table>
       </div>
-      ${words.length > 6 ? `<div style="font-size:12px;color:var(--text2);margin-top:7px">...и ещё ${words.length-6} слов</div>` : ''}
+      ${words.length>6?`<div style="font-size:12px;color:var(--al);margin-bottom:8px">...и ещё ${words.length-6}</div>`:''}
     </div>
-    <div class="btn-row">
-      <button class="btn btn-secondary" data-a="cancel-import">← Назад</button>
-      <button class="btn btn-primary"   data-a="confirm-import">✓ Импортировать ${words.length}</button>
+    <div style="display:flex;gap:8px;padding:0 16px">
+      <button class="btn btn-s" data-a="cancel-import">← Назад</button>
+      <button class="btn btn-p" data-a="confirm-import">✓ Импортировать ${words.length}</button>
     </div>`;
 }
-
-
-// ─────────────────────────────────────────────────────────────
-//  Helpers
-// ─────────────────────────────────────────────────────────────
-function noWordsBlock() {
-  return `
-    <div class="empty">
-      <div class="empty-icon">📭</div>
-      <div class="empty-title">Нет слов</div>
-      <div class="empty-body">Сначала импортируйте слова</div>
-      <button class="btn btn-primary" data-a="go-import">Импортировать</button>
-    </div>`;
+function noData(type){
+  return`<div class="empty"><div class="ei">${type==='kanji'?'㊙️':'📖'}</div><div class="et">Нет ${type==='kanji'?'кандзи':'слов'}</div><div class="eb">Сначала импортируйте данные</div><button class="btn btn-p" style="margin:0 16px;width:calc(100% - 32px)" data-a="go-import-home">Импорт</button></div>`;
 }
 
-let _toastT;
-function toast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg; el.classList.add('show');
-  clearTimeout(_toastT);
-  _toastT = setTimeout(() => el.classList.remove('show'), 2200);
+let _tt;
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2200);
 }
 
-function studySessionEnd() {
-  const res = { know:0, learning:0, unknown:0 };
-  S.studyQueue.forEach(w => {
-    const s = S.progress[w.id] || 'unknown';
-    res[s] = (res[s]||0) + 1;
-  });
-  S.studyResults = res;
-}
+/* ── Actions ── */
+function act(action){
+  const ci=action.indexOf(':');
+  const type=ci>-1?action.slice(0,ci):action;
+  const val=ci>-1?action.slice(ci+1):'';
 
-// ─────────────────────────────────────────────────────────────
-//  Actions
-// ─────────────────────────────────────────────────────────────
-function act(action) {
-  const colon = action.indexOf(':');
-  const type  = colon > -1 ? action.slice(0, colon) : action;
-  const val   = colon > -1 ? action.slice(colon+1)  : '';
-
-  switch (type) {
-    // ── Navigation ──────────────────────────────────────────
-    case 'tab':
-      S.tab = val; S.screen = 'main';
-      S.confirmPending = null;
-      if (val !== 'study') { S.studyQueue = []; S.studyResults = null; }
-      if (val !== 'quiz')  { S.quizQ = null; S.quizDone = false; }
+  switch(type){
+    case'tab':
+      S.tab=val;S.confirmPending=null;
+      if(val!=='tests'){S.studyQueue=[];S.studyResults=null;S.quizQ=null;S.quizDone=false;}
       break;
+    case'home-tab':   S.homeTab=val;break;
+    case'words-tab':  S.wordsTab=val;S.wordsSearch='';break;
+    case'tests-sub':  S.testsSubTab=val;break;
+    case'words-search-toggle': document.getElementById('words-search')?.focus(); return;
 
-    case 'go-import':
-      S.screen = 'import'; S.importStep = 'upload';
-      S.importPreview = null; S.importErr = null; S.importRaw = null;
+    case'go-cards':
+      S.tab='tests';S.testsSubTab='cards';S.studyCfg.type=S.homeTab;S.studyQueue=[];S.studyResults=null;break;
+    case'go-quiz':
+      S.tab='tests';S.testsSubTab='quiz';S.quizCfg.type=S.homeTab;S.quizQ=null;S.quizDone=false;break;
+    case'go-import-home':
+      S.screen='import';S.importType=S.homeTab;S.importStep='type';S.importPreview=null;S.importErr=null;S.importRaw=null;break;
+    case'words-import':
+      S.screen='import';S.importType=S.wordsTab;S.importStep='type';S.importPreview=null;S.importErr=null;S.importRaw=null;break;
+
+    case'import-type':
+      S.importType=val;
+      // Если уже в шаге маппинга — обновить дефолтные подписи колонок
+      if(S.importRaw)S.importMapping=defaultMapping(S.importRaw.colCount,val==='kanji');
       break;
-
-    case 'back-import':
-      if (S.importStep === 'map') {
-        S.importStep = 'upload'; S.importRaw = null; S.importMapping = [];
-      } else if (S.importStep === 'preview') {
-        // If came from map step, go back there
-        if (S.importRaw) { S.importStep = 'map'; S.importPreview = null; }
-        else { S.importStep = 'upload'; S.importPreview = null; }
-      } else {
-        S.screen = 'main'; S.importStep = 'upload';
-        S.importPreview = null; S.importErr = null; S.importRaw = null;
-      }
+    case'back-import':
+      if(S.importStep==='map'){S.importStep='type';S.importRaw=null;S.importMapping=[];}
+      else if(S.importStep==='preview'){S.importStep=S.importRaw?'map':'type';S.importPreview=null;}
+      else{S.screen='main';S.importStep='type';S.importPreview=null;S.importErr=null;S.importRaw=null;}
       break;
-
-    case 'cancel-import':
-      S.importPreview = null;
-      S.importStep = S.importRaw ? 'map' : 'upload';
-      break;
-
-    case 'apply-map': {
-      if (!S.importRaw) break;
-      // Read current select values from DOM
-      const mapping = Array.from({ length: S.importRaw.colCount }, (_, i) => {
-        const el = document.getElementById(`map-col-${i}`);
-        return el ? el.value : (S.importMapping[i] || '');
+    case'cancel-import':S.importPreview=null;S.importStep=S.importRaw?'map':'type';break;
+    case'apply-map':{
+      if(!S.importRaw)break;
+      const mapping=Array.from({length:S.importRaw.colCount},(_,i)=>{
+        const el=document.getElementById(`map-col-${i}`);return el?el.value:(S.importMapping[i]||'');
       });
-      // Need at least kanji or reading mapped
-      if (!mapping.includes('kanji') && !mapping.includes('reading')) {
-        toast('Назначьте хотя бы колонку кандзи или чтения');
-        return;
-      }
-      try {
-        S.importPreview = applyMapping(S.importRaw.rawRows, mapping);
-        S.importStep    = 'preview';
-        S.importErr     = null;
-      } catch (err) {
-        S.importErr = err.message;
-      }
+      if(!mapping.includes('kanji')&&!mapping.includes('reading')){toast('Назначьте колонку кандзи или чтения');return;}
+      try{S.importPreview=applyMapping(S.importRaw.rawRows,mapping,S.importType==='kanji');S.importStep='preview';S.importErr=null;}
+      catch(e){S.importErr=e.message;}
       break;
     }
-
-    // ── Import ──────────────────────────────────────────────
-    case 'confirm-import':
-      if (S.importPreview) {
-        const newWords = S.importPreview.words;
-        // Build lookup by kanji to preserve progress and avoid dupes
-        const existingByKanji = {};
-        S.words.forEach(w => { existingByKanji[w.kanji] = w; });
-
-        newWords.forEach(w => {
-          const old = existingByKanji[w.kanji];
-          if (old) {
-            // Copy over progress from existing word
-            if (S.progress[old.id]) {
-              S.progress[w.id] = S.progress[old.id];
-              delete S.progress[old.id];
+    case'confirm-import':
+      if(S.importPreview){
+        const nw=S.importPreview.words;
+        if(S.importType==='kanji'){
+          // Страховочный проход: если reading не был разбит на on/kun — делаем это сейчас
+          nw.forEach(w=>{
+            if(w.reading&&!w.on_reading&&!w.kun_reading){
+              const{on_reading,kun_reading}=splitOnKun(w.reading);
+              if(on_reading)w.on_reading=on_reading;
+              if(kun_reading)w.kun_reading=kun_reading;
+              delete w.reading;
             }
-          }
-        });
-
-        // Merge: replace existing words that match by kanji, append truly new ones
-        const newKanjiSet = new Set(newWords.map(w => w.kanji));
-        const kept = S.words.filter(w => !newKanjiSet.has(w.kanji));
-        S.words = [...kept, ...newWords];
-
-        S.importPreview = null; S.importRaw = null;
-        S.importStep = 'upload'; S.screen = 'main';
-        save();
-        toast(`Импортировано ${newWords.length} слов, всего ${S.words.length}`);
-      }
-      break;
-
-    // ── Study ────────────────────────────────────────────────
-    case 'start-study':
-      S.studyQueue = buildStudyQueue();
-      if (!S.studyQueue.length) { toast('Нет слов для этого фильтра'); return; }
-      S.studyIdx   = 0;
-      S.cardFlipped = false;
-      S.studyResults = null;
-      break;
-
-    case 'study-filter':
-      S.studyCfg.filter = val;
-      break;
-
-    case 'flip':
-      S.cardFlipped = !S.cardFlipped;
-      haptic('light');
-      break;
-
-    case 'mark':
-      if (S.studyQueue[S.studyIdx]) {
-        S.progress[S.studyQueue[S.studyIdx].id] = val;
-        save(); haptic();
-        S.studyIdx++;
-        S.cardFlipped = false;
-        if (S.studyIdx >= S.studyQueue.length) studySessionEnd();
-      }
-      break;
-
-    case 'skip-card':
-      S.studyIdx++;
-      S.cardFlipped = false;
-      if (S.studyIdx >= S.studyQueue.length) studySessionEnd();
-      break;
-
-    case 'stop-study':
-      S.studyQueue = []; S.studyResults = null;
-      break;
-
-    case 'restart-study':
-      S.studyQueue = buildStudyQueue();
-      S.studyIdx   = 0;
-      S.cardFlipped = false;
-      S.studyResults = null;
-      break;
-
-    // ── Quiz ─────────────────────────────────────────────────
-    case 'start-quiz':
-      // Auto-fix answer field if it has no data in the current word set
-      S.quizCfg.answer = bestAnswerField(S.quizCfg.answer);
-      S.quizScore = { ok:0, bad:0 };
-      S.quizQ    = buildQuiz();
-      S.quizDone = false; S.quizSel = -1;
-      if (!S.quizQ) toast('Недостаточно слов с заполненными полями (нужно ≥4)');
-      break;
-
-    case 'quiz-filter':
-      S.quizCfg.filter = val;
-      break;
-
-    case 'quiz-mode':
-      S.quizCfg.mode = val;
-      break;
-
-    case 'quiz-check': {
-      if (!S.quizDone && S.quizQ) {
-        const input = document.getElementById('quiz-input');
-        const userVal = input ? input.value : '';
-        S.quizInputVal = userVal;
-        S.quizDone = true;
-        const correct = checkInputAnswer(userVal, S.quizQ.options[S.quizQ.correct]);
-        if (correct) {
-          S.quizScore.ok++;
-          haptic('light');
-          const w = S.quizQ.word;
-          if (!S.progress[w.id] || S.progress[w.id] === 'unknown') {
-            S.progress[w.id] = 'learning'; save();
-          }
+          });
+          const ex={};S.kanjiItems.forEach(w=>{ex[w.kanji]=w;});
+          nw.forEach(w=>{const o=ex[w.kanji];if(o&&S.kanjiProgress[o.id]){S.kanjiProgress[w.id]=S.kanjiProgress[o.id];delete S.kanjiProgress[o.id];}});
+          const ns=new Set(nw.map(w=>w.kanji));S.kanjiItems=[...S.kanjiItems.filter(w=>!ns.has(w.kanji)),...nw];
         } else {
-          S.quizScore.bad++;
-          haptic('medium');
+          const ex={};S.words.forEach(w=>{ex[w.kanji]=w;});
+          nw.forEach(w=>{const o=ex[w.kanji];if(o&&S.progress[o.id]){S.progress[w.id]=S.progress[o.id];delete S.progress[o.id];}});
+          const ns=new Set(nw.map(w=>w.kanji));S.words=[...S.words.filter(w=>!ns.has(w.kanji)),...nw];
         }
+        S.importPreview=null;S.importRaw=null;S.importStep='type';S.screen='main';
+        save();toast(`Импортировано ${nw.length} записей`);
       }
       break;
-    }
 
-    case 'quiz-ans':
-      if (!S.quizDone && S.quizQ) {
-        const idx = parseInt(val);
-        S.quizSel  = idx;
-        S.quizDone = true;
-        const correct = idx === S.quizQ.correct;
-        if (correct) {
-          S.quizScore.ok++;
-          haptic('light');
-          // Auto-advance progress from unknown → learning on correct answer
-          const w = S.quizQ.word;
-          if (!S.progress[w.id] || S.progress[w.id] === 'unknown') {
-            S.progress[w.id] = 'learning';
-            save();
+    case'study-type':
+      S.studyCfg.type=val;S.studyCfg.front='kanji';
+      S.studyCfg.back=val==='kanji'?['meaning']:['reading','translation'];break;
+    case'study-front':S.studyCfg.front=val;break;
+    case'study-filter':S.studyCfg.filter=val;break;
+    case'study-count':S.studyCfg.count=val;break;
+    case'start-study':
+      S.studyQueue=buildStudyQueue();
+      if(!S.studyQueue.length){toast('Нет карточек для этого фильтра');return;}
+      S.studyIdx=0;S.cardFlipped=false;S.studyResults=null;break;
+    case'flip':S.cardFlipped=!S.cardFlipped;haptic('light');break;
+    case'mark':{
+      const w=S.studyQueue[S.studyIdx];
+      if(w){pr(S.studyCfg.type)[w.id]=val;save();haptic();S.studyIdx++;S.cardFlipped=false;
+        if(S.studyIdx>=S.studyQueue.length)sessionEnd();}
+      break;}
+    case'skip-card':
+      S.studyIdx++;S.cardFlipped=false;
+      if(S.studyIdx>=S.studyQueue.length)sessionEnd();break;
+    case'stop-study':
+      S.studyQueue=[];S.studyResults=null;S.tab='tests';S.testsSubTab='cards';break;
+    case'restart-study':
+      S.studyQueue=buildStudyQueue();S.studyIdx=0;S.cardFlipped=false;S.studyResults=null;break;
+
+    case'quiz-type':
+      S.quizCfg.type=val;S.quizCfg.question=['kanji'];S.quizCfg.answer=val==='kanji'?'meaning':'reading';break;
+    case'quiz-mode':S.quizCfg.mode=val;break;
+    case'quiz-afield':S.quizCfg.answer=val;break;
+    case'quiz-filter':S.quizCfg.filter=val;break;
+    case'quiz-count':S.quizCfg.count=val;break;
+    case'start-quiz':
+      S.quizCfg.answer=bestAF(S.quizCfg.answer);
+      S.quizScore={ok:0,bad:0};S.quizQ=buildQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
+      if(!S.quizQ)toast('Недостаточно данных (нужно ≥4 с заполненными полями)');break;
+    case'quiz-check':{
+      if(!S.quizDone&&S.quizQ){
+        const inp=document.getElementById('quiz-input');
+        S.quizInputVal=inp?inp.value:'';S.quizDone=true;
+        const ok=checkAns(S.quizInputVal,S.quizQ.options[S.quizQ.correct]);
+        const w=S.quizQ.word,p=pr(S.quizCfg.type);
+        if(ok){S.quizScore.ok++;haptic('light');if(!p[w.id]||p[w.id]==='unknown'){p[w.id]='learning';save();}}
+        else{S.quizScore.bad++;haptic('medium');}
+      }
+      break;}
+    case'quiz-ans':{
+      if(!S.quizDone&&S.quizQ){
+        const mode=S.quizCfg.mode;
+        if(mode==='mix'){
+          const inp=document.getElementById('quiz-input');
+          const iv=inp?inp.value:'';
+          if(iv.trim()){
+            S.quizInputVal=iv;S.quizSel=parseInt(val);S.quizDone=true;
+            const ok=checkAns(iv,S.quizQ.options[S.quizQ.correct]);
+            const w=S.quizQ.word,p=pr(S.quizCfg.type);
+            if(ok){S.quizScore.ok++;haptic('light');if(!p[w.id]||p[w.id]==='unknown'){p[w.id]='learning';save();}}
+            else{S.quizScore.bad++;haptic('medium');}
+            break;
           }
-        } else {
-          S.quizScore.bad++;
-          haptic('medium');
         }
+        const idx=parseInt(val);S.quizSel=idx;S.quizDone=true;
+        const ok=idx===S.quizQ.correct;
+        const w=S.quizQ.word,p=pr(S.quizCfg.type);
+        if(ok){S.quizScore.ok++;haptic('light');if(!p[w.id]||p[w.id]==='unknown'){p[w.id]='learning';save();}}
+        else{S.quizScore.bad++;haptic('medium');}
       }
-      break;
+      break;}
+    case'next-q':
+      S.quizQ=buildQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
+      if(!S.quizQ)toast('Нет вопросов — проверьте фильтр');break;
+    case'stop-quiz':
+      S.quizQ=null;S.quizDone=false;S.quizInputVal='';S.tab='tests';S.testsSubTab='quiz';break;
 
-    case 'next-q':
-      S.quizQ = buildQuiz();
-      S.quizDone = false; S.quizSel = -1; S.quizInputVal = '';
-      if (!S.quizQ) toast('Нет вопросов — проверьте фильтр');
-      break;
-
-    case 'stop-quiz':
-      S.quizQ = null; S.quizDone = false; S.quizInputVal = '';
-      break;
-
-    // ── Data management ──────────────────────────────────────
-    case 'reset-progress':
-      S.confirmPending = 'reset-progress';
-      break;
-
-    case 'clear-words':
-      S.confirmPending = 'clear-words';
-      break;
-
-    case 'confirm-yes':
-      if (S.confirmPending === 'reset-progress') {
-        S.progress = {}; save(); toast('Прогресс сброшен');
-      } else if (S.confirmPending === 'clear-words') {
-        S.words = []; S.progress = {}; S.studyQueue = []; S.quizQ = null;
-        save(); toast('Данные удалены');
+    case'reset-progress':S.confirmPending='reset-progress';break;
+    case'clear-words':   S.confirmPending='clear-words';break;
+    case'confirm-no':    S.confirmPending=null;break;
+    case'confirm-yes':
+      if(S.confirmPending==='reset-progress'){
+        S.progress={};S.kanjiProgress={};save();toast('Прогресс сброшен');
+      } else if(S.confirmPending==='clear-words'){
+        S.words=[];S.progress={};S.kanjiItems=[];S.kanjiProgress={};
+        S.studyQueue=[];S.quizQ=null;save();toast('Данные удалены');
       }
-      S.confirmPending = null;
-      break;
-
-    case 'confirm-no':
-      S.confirmPending = null;
-      break;
-
+      S.confirmPending=null;break;
   }
   render();
 }
 
-// ─────────────────────────────────────────────────────────────
-//  Event binding
-// ─────────────────────────────────────────────────────────────
-
-// Set up ONE permanent click-delegation on document (called once at boot).
-// bindAll() must NOT add delegation listeners — they would accumulate on every render.
-function setupDelegation() {
-  document.addEventListener('click', e => {
-    const el = e.target.closest('[data-a]');
-    if (el) act(el.dataset.a);
+/* ── Events ── */
+function setupDelegation(){
+  document.addEventListener('click',e=>{
+    const el=e.target.closest('[data-a]');if(el)act(el.dataset.a);
   });
-}
-
-function bindAll() {
-  // Study: front field select
-  const selFront = document.getElementById('sel-front');
-  if (selFront) selFront.onchange = e => { S.studyCfg.front = e.target.value; render(); };
-
-  // Study: back-field chips
-  const chipsBack = document.getElementById('chips-back');
-  if (chipsBack) chipsBack.addEventListener('click', e => {
-    const chip = e.target.closest('[data-field]');
-    if (!chip) return;
-    const f = chip.dataset.field;
-    const i = S.studyCfg.back.indexOf(f);
-    if (i >= 0) S.studyCfg.back = S.studyCfg.back.filter(x=>x!==f);
-    else S.studyCfg.back = [...S.studyCfg.back, f];
-    chip.classList.toggle('active');
-  });
-
-  // Quiz: field selects
-  const selQ = document.getElementById('sel-qfield');
-  if (selQ) selQ.onchange = e => { S.quizCfg.question = e.target.value; };
-  const selA = document.getElementById('sel-afield');
-  if (selA) selA.onchange = e => { S.quizCfg.answer   = e.target.value; };
-
-  // File input + drop zone
-  const dz  = document.getElementById('dropzone');
-  const fin = document.getElementById('file-in');
-  if (dz && fin) {
-    dz.onclick   = () => fin.click();
-    fin.onchange = e => { const f = e.target.files[0]; if (f) readFile(f); };
-    dz.ondragover  = e => { e.preventDefault(); dz.classList.add('over'); };
-    dz.ondragleave = ()  => dz.classList.remove('over');
-    dz.ondrop      = e  => {
-      e.preventDefault(); dz.classList.remove('over');
-      const f = e.dataTransfer.files[0]; if (f) readFile(f);
-    };
-  }
-
-  // Quiz input: Enter key triggers check
-  const qi = document.getElementById('quiz-input');
-  if (qi) {
-    qi.addEventListener('keydown', e => { if (e.key === 'Enter') act('quiz-check'); });
-    if (!S.quizDone) qi.focus();
-  }
-}
-
-function readFile(file) {
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const result = parseFile(e.target.result);
-      if (!result.hasHeaders) {
-        // Headerless file — go to column mapping step
-        S.importRaw     = result;
-        S.importMapping = defaultMapping(result.colCount);
-        S.importStep    = 'map';
-        S.importPreview = null;
-        S.importErr     = null;
-      } else {
-        S.importPreview = result;
-        S.importStep    = 'preview';
-        S.importRaw     = null;
-        S.importErr     = null;
-      }
-    } catch (err) {
-      S.importErr     = err.message;
-      S.importPreview = null;
-      S.importRaw     = null;
-      S.importStep    = 'upload';
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){
+      const qi=document.getElementById('quiz-input');
+      if(qi&&document.activeElement===qi)act('quiz-check');
     }
+  });
+}
+function bindAll(){
+  // Back-chips toggle (study)
+  const cb=document.getElementById('chips-back');
+  if(cb)cb.addEventListener('click',e=>{
+    const chip=e.target.closest('[data-field]');if(!chip)return;
+    const f=chip.dataset.field,i=S.studyCfg.back.indexOf(f);
+    if(i>=0)S.studyCfg.back=S.studyCfg.back.filter(x=>x!==f);
+    else S.studyCfg.back=[...S.studyCfg.back,f];
+    chip.classList.toggle('on');
+  });
+  // Question-chips toggle (quiz, multi-select)
+  const cq=document.getElementById('chips-q');
+  if(cq)cq.addEventListener('click',e=>{
+    const chip=e.target.closest('[data-qfield]');if(!chip)return;
+    const f=chip.dataset.qfield,i=S.quizCfg.question.indexOf(f);
+    if(i>=0){if(S.quizCfg.question.length>1)S.quizCfg.question=S.quizCfg.question.filter(x=>x!==f);}
+    else S.quizCfg.question=[...S.quizCfg.question,f];
+    chip.classList.toggle('on',S.quizCfg.question.includes(f));
+  });
+  // Word search
+  const ws=document.getElementById('words-search');
+  if(ws){
+    ws.addEventListener('input',e=>{S.wordsSearch=e.target.value;render();});
+  }
+  // File drop
+  const dz=document.getElementById('dropzone'),fin=document.getElementById('file-in');
+  if(dz&&fin){
+    dz.onclick=()=>fin.click();
+    fin.onchange=e=>{const f=e.target.files[0];if(f)readFile(f);};
+    dz.ondragover=e=>{e.preventDefault();dz.classList.add('over');};
+    dz.ondragleave=()=>dz.classList.remove('over');
+    dz.ondrop=e=>{e.preventDefault();dz.classList.remove('over');const f=e.dataTransfer.files[0];if(f)readFile(f);};
+  }
+  // Quiz input focus
+  const qi=document.getElementById('quiz-input');
+  if(qi&&!S.quizDone)setTimeout(()=>qi.focus(),50);
+}
+function readFile(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const r=parseFile(e.target.result);
+      if(!r.hasHeaders){S.importRaw=r;S.importMapping=defaultMapping(r.colCount,S.importType==='kanji');S.importStep='map';S.importPreview=null;S.importErr=null;}
+      else{S.importPreview=r;S.importStep='preview';S.importRaw=null;S.importErr=null;}
+    }catch(err){S.importErr=err.message;S.importPreview=null;S.importRaw=null;S.importStep='type';}
     render();
   };
-  reader.readAsText(file, 'UTF-8');
+  reader.readAsText(file,'UTF-8');
 }
 
-// ─────────────────────────────────────────────────────────────
-//  Boot
-// ─────────────────────────────────────────────────────────────
+/* ── Boot ── */
 load();
 setupDelegation();
 render();
