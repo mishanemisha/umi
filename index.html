@@ -57,7 +57,7 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 
 /* ─── Type tabs (Слова | Кандзи) ─── */
 .ttabs{display:flex;gap:8px;padding:4px 16px 12px}
-.ttab{padding:7px 16px;border-radius:300px;border:none;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;background:var(--c);color:var(--t)}
+.ttab{padding:8px 20px;border-radius:300px;border:none;font-size:14px;font-weight:500;cursor:pointer;transition:all .15s;background:var(--c);color:var(--t)}
 .ttab.on{background:var(--a);color:#fff}
 
 /* ─── Stats row ─── */
@@ -86,7 +86,7 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 .cfg-card{background:var(--c);border-radius:16px;padding:14px 16px;margin:0 16px 8px}
 .cfg-lbl{font-size:12px;color:var(--al);margin-bottom:10px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{padding:5px 12px;height:27px;border-radius:16px;border:none;font-size:12px;cursor:pointer;background:var(--c2);color:var(--t);transition:all .15s;font-weight:400;display:flex;align-items:center}
+.chip{padding:6px 14px;height:36px;border-radius:16px;border:none;font-size:16px;cursor:pointer;background:var(--c2);color:var(--t);transition:all .15s;font-weight:400;display:flex;align-items:center}
 .chip.on{background:var(--a);color:#fff}
 /* side-by-side config (filter + count) */
 .cfg-row{display:flex;gap:8px;padding:0 16px 8px}
@@ -141,7 +141,7 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 .cv-readings{display:flex;flex-direction:column;gap:6px;justify-content:center;padding-top:10px}
 .cv-rrow{display:flex;align-items:baseline;gap:6px}
 .cv-rl{font-size:11px;color:var(--t2);font-weight:600;letter-spacing:.05em;min-width:14px;text-align:right}
-.cv-rv{font-size:17px;color:var(--a);line-height:1.3;word-break:break-word}
+.cv-rv{font-size:20px;color:var(--a);line-height:1.3;word-break:break-word}
 /* Readings-only variant */
 .cv-rrow-lg{display:flex;align-items:baseline;gap:10px}
 .cv-rv-lg{font-size:26px;color:var(--a);line-height:1.3}
@@ -154,8 +154,8 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 .cv-sep{width:56px;height:1px;background:rgba(255,255,255,.12);margin:6px 0}
 /* Meanings list */
 .cv-meanings{width:100%;text-align:left;padding:0 2px}
-.cv-mn{font-size:12px;color:var(--t);line-height:1.9;display:flex;gap:6px;align-items:baseline}
-.cv-mi{color:var(--t2);font-size:10px;min-width:14px;text-align:right;flex-shrink:0}
+.cv-mn{font-size:16px;color:var(--t);line-height:1.7;display:flex;gap:6px;align-items:baseline}
+.cv-mi{color:var(--t2);font-size:12px;min-width:16px;text-align:right;flex-shrink:0}
 
 /* ─── Mark buttons ─── */
 .mark-row{display:flex;gap:8px;padding:0 16px;margin-bottom:8px}
@@ -211,7 +211,7 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 
 /* ─── Words list ─── */
 .wfilter{display:flex;gap:6px;padding:0 16px 10px;align-items:center}
-.wf-tab{padding:7px 14px;border-radius:300px;border:none;font-size:12px;background:var(--c);color:var(--t);cursor:pointer}
+.wf-tab{padding:8px 18px;border-radius:300px;border:none;font-size:14px;background:var(--c);color:var(--t);cursor:pointer}
 .wf-tab.on{background:var(--a);color:#fff}
 .wf-import{padding:7px 12px;border-radius:4px;border:none;font-size:12px;background:var(--c);color:var(--t);cursor:pointer;display:flex;align-items:center;gap:5px;margin-left:auto}
 .wf-search{padding:7px 12px;border-radius:4px;border:none;font-size:12px;background:var(--c);color:var(--t);cursor:pointer;display:flex;align-items:center;gap:5px}
@@ -315,8 +315,8 @@ const FIELDS={
   notes:{label:'Заметки',short:'Заметки'},
 };
 const FK=Object.keys(FIELDS);
-const WF=['kanji','reading','meaning','translation','notes'];
-const KF=['kanji','on_reading','kun_reading','meaning','translation','notes'];
+const WF=['kanji','reading','meaning'];
+const KF=['kanji','on_reading','kun_reading','meaning'];
 
 /* ── State ── */
 const S={
@@ -324,8 +324,9 @@ const S={
   wordsTab:'words', wordsSearch:'',
   words:[], progress:{},
   kanjiItems:[], kanjiProgress:{},
+  wordsCsv:'', kanjiCsv:'',
   studyQueue:[], studyIdx:0, cardFlipped:false, studyResults:null,
-  studyCfg:{type:'words',front:'kanji',back:['reading','translation'],filter:'all',count:'all'},
+  studyCfg:{type:'words',front:['kanji'],back:['reading','meaning'],filter:'all',count:'all'},
   quizCfg:{type:'words',mode:'choice6',question:['kanji'],answer:'reading',filter:'all',count:'all'},
   quizQ:null, quizScore:{ok:0,bad:0}, quizDone:false, quizSel:-1, quizInputVal:'',
   confirmPending:null,
@@ -339,15 +340,17 @@ function load(){
     const d=JSON.parse(localStorage.getItem('jl4')||'{}');
     S.words=d.words||[]; S.progress=d.progress||{};
     S.kanjiItems=d.kanjiItems||[]; S.kanjiProgress=d.kanjiProgress||{};
+    S.wordsCsv=d.wordsCsv||''; S.kanjiCsv=d.kanjiCsv||'';
     S.studyCfg={...S.studyCfg,...(d.studyCfg||{})};
     S.quizCfg={...S.quizCfg,...(d.quizCfg||{})};
     if(typeof S.quizCfg.question==='string')S.quizCfg.question=[S.quizCfg.question];
+    if(typeof S.studyCfg.front==='string')S.studyCfg.front=[S.studyCfg.front];
     // Миграция: исправляем кандзи с неспличенными on/kun чтениями
     let migrated=false;
     S.kanjiItems.forEach(w=>{
       const src=w.reading
-        ||(w.on_reading&&!w.kun_reading&&isHira(w.on_reading)?w.on_reading:null)
-        ||(w.kun_reading&&!w.on_reading&&isKata(w.kun_reading)?w.kun_reading:null)
+        ||(w.on_reading&&isHira(w.on_reading)?w.on_reading:null)
+        ||(w.kun_reading&&isKata(w.kun_reading)?w.kun_reading:null)
         ||'';
       if(src){
         const{on_reading,kun_reading}=splitOnKun(src);
@@ -365,6 +368,7 @@ function save(){
     localStorage.setItem('jl4',JSON.stringify({
       words:S.words,progress:S.progress,
       kanjiItems:S.kanjiItems,kanjiProgress:S.kanjiProgress,
+      wordsCsv:S.wordsCsv,kanjiCsv:S.kanjiCsv,
       studyCfg:S.studyCfg,quizCfg:S.quizCfg,
     }));
   }catch{}
@@ -445,14 +449,13 @@ function applyMapping(rawRows,mapping,isKanji=false){
     const w={id:uid()};
     mapping.forEach((fk,j)=>{if(fk)w[fk]=(vals[j]||'').trim();});
     if(isKanji){
-      // Находим поле с «сырыми» чтениями — это может быть reading, on_reading или kun_reading
-      // (пользователь мог назначить не ту колонку)
-      const combined=w.reading
-        ||(w.on_reading&&!w.kun_reading&&isHira(w.on_reading)?w.on_reading:null)
-        ||(w.kun_reading&&!w.on_reading&&isKata(w.kun_reading)?w.kun_reading:null)
+      // Сплит on/kun: любой источник где есть и хирагана и катакана (или просто reading)
+      const src=w.reading
+        ||(w.on_reading&&isHira(w.on_reading)?w.on_reading:null)
+        ||(w.kun_reading&&isKata(w.kun_reading)?w.kun_reading:null)
         ||'';
-      if(combined){
-        const{on_reading,kun_reading}=splitOnKun(combined);
+      if(src){
+        const{on_reading,kun_reading}=splitOnKun(src);
         w.on_reading=on_reading||'';
         w.kun_reading=kun_reading||'';
         delete w.reading;
@@ -462,7 +465,10 @@ function applyMapping(rawRows,mapping,isKanji=false){
     if(w.kanji)words.push(w);
   }
   if(!words.length)throw new Error('Нет записей с полем кандзи');
-  const foundFields=[...new Set(mapping.filter(h=>h&&FK.includes(h)))];
+  // foundFields берём из реальных данных, а не из маппинга
+  // (после сплита reading → on_reading+kun_reading маппинг уже не актуален)
+  const flds=isKanji?KF:WF;
+  const foundFields=flds.filter(f=>words.some(w=>w[f]));
   return{words,headers:foundFields,hasHeaders:true};
 }
 function defaultMapping(colCount,isKanji=false){
@@ -495,7 +501,8 @@ function buildQuizQ(){
   const wrongs=shuffle(all.filter(w=>w.id!==qw.id&&w[af])).slice(0,optN-1).map(w=>w[af]);
   if(wrongs.length<optN-1)return null;
   const options=shuffle([...wrongs,qw[af]]);
-  return{word:qw,qFields,aField:af,options,correct:options.indexOf(qw[af])};
+  const mixInput=mode==='mix'?Math.random()<0.5:null;
+  return{word:qw,qFields,aField:af,options,correct:options.indexOf(qw[af]),mixInput};
 }
 function checkAns(user,correct){
   const n=s=>s.trim().toLowerCase().replace(/\s+/g,' ');
@@ -505,7 +512,7 @@ function checkAns(user,correct){
 function bestAF(pref){
   const d=ds(S.quizCfg.type),has=f=>d.some(w=>w[f]);
   if(has(pref))return pref;
-  for(const f of['reading','meaning','translation','kanji','on_reading','kun_reading'])
+  for(const f of['reading','meaning','kanji','on_reading','kun_reading'])
     if(f!==pref&&has(f))return f;
   return pref;
 }
@@ -718,7 +725,7 @@ function buildCardsCfg(){
   const counts=[{v:'50',l:'50'},{v:'100',l:'100'},{v:'150',l:'150'},{v:'all',l:'Все'}];
   return`
     ${cfgCard('Что тренируем',chips([{v:'words',l:'Слова'},{v:'kanji',l:'Кандзи'}],type,'study-type'))}
-    ${cfgCard('Лицевая сторона',`<div class="chips">${flds.map(k=>`<button class="chip${S.studyCfg.front===k?' on':''}" data-a="study-front:${k}">${FIELDS[k].short}</button>`).join('')}</div>`)}
+    ${cfgCard('Лицевая сторона',`<div class="chips" id="chips-front">${flds.map(k=>`<button class="chip${S.studyCfg.front.includes(k)?' on':''}" data-field-front="${k}">${FIELDS[k].short}</button>`).join('')}</div>`)}
     ${cfgCard('Оборотная сторона',`<div class="chips" id="chips-back">${flds.map(k=>`<button class="chip${S.studyCfg.back.includes(k)?' on':''}" data-field="${k}">${FIELDS[k].short}</button>`).join('')}</div>`)}
     <div class="cfg-row">
       ${cfgCard('Фильтр',chips(filterOpts,S.studyCfg.filter,'study-filter'))}
@@ -755,10 +762,10 @@ function buildStudyActive(){
   const total=S.studyQueue.length,curr=S.studyIdx+1,pct=Math.round(curr/total*100);
   const p=pr(S.studyCfg.type),status=p[w.id]||'unknown';
   const sClass=status==='know'?'g':status==='learning'?'y':'r';
-  const front=S.studyCfg.front,isKanji=S.studyCfg.type==='kanji';
+  const isKanji=S.studyCfg.type==='kanji';
 
-  // Build front face content using buildCardFront
-  const frontBody=buildCardFront(w,front,S.studyCfg.type)
+  // Build front face content
+  const frontBody=buildCardVariant(w,S.studyCfg.front,S.studyCfg.type)
     +(!S.cardFlipped?`<div class="fc-tap">нажмите чтобы перевернуть</div>`:``);
 
 
@@ -817,8 +824,8 @@ function buildQuizActive(){
   const q=S.quizQ;if(!q)return'';
   const{ok,bad}=S.quizScore;
   const mode=S.quizCfg.mode;
-  const showChoice=mode==='choice4'||mode==='choice6'||mode==='mix';
-  const showInput=mode==='input'||mode==='mix';
+  const showChoice=mode==='choice4'||mode==='choice6'||(mode==='mix'&&!q.mixInput);
+  const showInput=mode==='input'||(mode==='mix'&&q.mixInput);
   const optN=mode==='choice4'?4:6;
 
   const scoreBar=`
@@ -863,13 +870,13 @@ function buildQuizActive(){
           value="${S.quizDone?esc(S.quizInputVal):''}"
           ${S.quizDone?'disabled':''}
           autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-        ${S.quizDone&&mode==='input'?`<div class="quiz-result ${isOk?'ok':'bad'}">${isOk?'✓ Правильно!':'✗ Правильно: '+esc(q.options[q.correct])}</div>`:''}
+        ${S.quizDone&&(mode==='input'||(mode==='mix'&&q.mixInput))?`<div class="quiz-result ${isOk?'ok':'bad'}">${isOk?'✓ Правильно!':'✗ Правильно: '+esc(q.options[q.correct])}</div>`:''}
       </div>`;
   }
 
   const nextBtn=S.quizDone
     ?`<button class="next-btn" data-a="next-q">Следующий →</button>`
-    :(showInput&&!showChoice?`<button class="next-btn" data-a="quiz-check">Проверить</button>`:'');
+    :(showInput?`<button class="next-btn" data-a="quiz-check">Проверить</button>`:'');
 
   return`<div class="pg">${scoreBar}${qCard}${choiceHtml}${inputHtml}${nextBtn}</div>`;
 }
@@ -956,6 +963,8 @@ function buildSettings(){
     <div style="margin-bottom:6px;padding:0 16px"><div class="sset-lbl">Данные</div></div>
     <div class="sset">
       <div class="srow" data-a="go-import-home"><span class="srow-l">Импортировать</span><span class="srow-r">›</span></div>
+      ${S.wordsCsv?`<div class="srow" data-a="download-csv:words"><span class="srow-l">Скачать CSV слов</span><span class="srow-r">↓</span></div>`:''}
+      ${S.kanjiCsv?`<div class="srow" data-a="download-csv:kanji"><span class="srow-l">Скачать CSV кандзи</span><span class="srow-r">↓</span></div>`:''}
       ${cBlock('reset-progress','Сбросить прогресс',false)}
       ${cBlock('clear-words','Удалить все данные',true)}
     </div>
@@ -1111,14 +1120,17 @@ function act(action){
           nw.forEach(w=>{const o=ex[w.kanji];if(o&&S.progress[o.id]){S.progress[w.id]=S.progress[o.id];delete S.progress[o.id];}});
           const ns=new Set(nw.map(w=>w.kanji));S.words=[...S.words.filter(w=>!ns.has(w.kanji)),...nw];
         }
+        if(S.importType==='kanji')S.kanjiCsv=S.importRawText||'';
+        else S.wordsCsv=S.importRawText||'';
+        S.importRawText='';
         S.importPreview=null;S.importRaw=null;S.importStep='type';S.screen='main';
         save();toast(`Импортировано ${nw.length} записей`);
       }
       break;
 
     case'study-type':
-      S.studyCfg.type=val;S.studyCfg.front='kanji';
-      S.studyCfg.back=val==='kanji'?['meaning']:['reading','translation'];break;
+      S.studyCfg.type=val;S.studyCfg.front=['kanji'];
+      S.studyCfg.back=val==='kanji'?['meaning']:['reading','meaning'];break;
     case'study-front':S.studyCfg.front=val;break;
     case'study-filter':S.studyCfg.filter=val;break;
     case'study-count':S.studyCfg.count=val;break;
@@ -1162,19 +1174,6 @@ function act(action){
       break;}
     case'quiz-ans':{
       if(!S.quizDone&&S.quizQ){
-        const mode=S.quizCfg.mode;
-        if(mode==='mix'){
-          const inp=document.getElementById('quiz-input');
-          const iv=inp?inp.value:'';
-          if(iv.trim()){
-            S.quizInputVal=iv;S.quizSel=parseInt(val);S.quizDone=true;
-            const ok=checkAns(iv,S.quizQ.options[S.quizQ.correct]);
-            const w=S.quizQ.word,p=pr(S.quizCfg.type);
-            if(ok){S.quizScore.ok++;haptic('light');if(!p[w.id]||p[w.id]==='unknown'){p[w.id]='learning';save();}}
-            else{S.quizScore.bad++;haptic('medium');}
-            break;
-          }
-        }
         const idx=parseInt(val);S.quizSel=idx;S.quizDone=true;
         const ok=idx===S.quizQ.correct;
         const w=S.quizQ.word,p=pr(S.quizCfg.type);
@@ -1188,6 +1187,16 @@ function act(action){
     case'stop-quiz':
       S.quizQ=null;S.quizDone=false;S.quizInputVal='';S.tab='tests';S.testsSubTab='quiz';break;
 
+    case'download-csv':{
+      const csv=val==='kanji'?S.kanjiCsv:S.wordsCsv;
+      if(!csv){toast('CSV не сохранён');return;}
+      const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;a.download=val==='kanji'?'kanji.csv':'words.csv';
+      document.body.appendChild(a);a.click();document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return;}
     case'reset-progress':S.confirmPending='reset-progress';break;
     case'clear-words':   S.confirmPending='clear-words';break;
     case'confirm-no':    S.confirmPending=null;break;
@@ -1196,6 +1205,7 @@ function act(action){
         S.progress={};S.kanjiProgress={};save();toast('Прогресс сброшен');
       } else if(S.confirmPending==='clear-words'){
         S.words=[];S.progress={};S.kanjiItems=[];S.kanjiProgress={};
+        S.wordsCsv='';S.kanjiCsv='';
         S.studyQueue=[];S.quizQ=null;save();toast('Данные удалены');
       }
       S.confirmPending=null;break;
@@ -1216,6 +1226,15 @@ function setupDelegation(){
   });
 }
 function bindAll(){
+  // Front-chips toggle (study, multi-select)
+  const cf=document.getElementById('chips-front');
+  if(cf)cf.addEventListener('click',e=>{
+    const chip=e.target.closest('[data-field-front]');if(!chip)return;
+    const f=chip.dataset.fieldFront,i=S.studyCfg.front.indexOf(f);
+    if(i>=0)S.studyCfg.front=S.studyCfg.front.filter(x=>x!==f);
+    else S.studyCfg.front=[...S.studyCfg.front,f];
+    chip.classList.toggle('on',S.studyCfg.front.includes(f));
+  });
   // Back-chips toggle (study)
   const cb=document.getElementById('chips-back');
   if(cb)cb.addEventListener('click',e=>{
@@ -1256,7 +1275,9 @@ function readFile(file){
   const reader=new FileReader();
   reader.onload=e=>{
     try{
-      const r=parseFile(e.target.result);
+      const text=e.target.result;
+      S.importRawText=text;
+      const r=parseFile(text);
       if(!r.hasHeaders){S.importRaw=r;S.importMapping=defaultMapping(r.colCount,S.importType==='kanji');S.importStep='map';S.importPreview=null;S.importErr=null;}
       else{S.importPreview=r;S.importStep='preview';S.importRaw=null;S.importErr=null;}
     }catch(err){S.importErr=err.message;S.importPreview=null;S.importRaw=null;S.importStep='type';}
