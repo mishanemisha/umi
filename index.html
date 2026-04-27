@@ -108,10 +108,10 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 
 /* ─── Flashcard ─── */
 .fc-counter{font-size:18px;text-align:center;padding:8px 16px 12px}
-.fc-wrap{perspective:1000px;height:260px;margin:0 16px 14px;cursor:pointer}
-.fc{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform .45s cubic-bezier(.4,0,.2,1)}
+.fc-wrap{perspective:1000px;min-height:260px;margin:0 16px 14px;cursor:pointer}
+.fc{width:100%;display:grid;position:relative;transform-style:preserve-3d;transition:transform .45s cubic-bezier(.4,0,.2,1)}
 .fc.flipped{transform:rotateY(180deg)}
-.fc-face{position:absolute;inset:0;background:var(--c);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden}
+.fc-face{grid-area:1/1;background:var(--c);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;backface-visibility:hidden;-webkit-backface-visibility:hidden;min-height:260px}
 .fc-back{transform:rotateY(180deg);background:var(--c2)}
 .fc-sbar{position:absolute;top:0;left:0;right:0;height:4px;border-radius:16px 16px 0 0}
 .fc-sbar.g{background:var(--g)}.fc-sbar.y{background:var(--y)}.fc-sbar.r{background:var(--c2)}
@@ -132,30 +132,19 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 .fc-okrow{font-size:12px;color:var(--t)}
 .fc-okrow span{color:var(--a);font-size:16px;margin-left:4px}
 
-/* ─── Card Variant System ─── */
-/* Shared wrapper */
-.cv-root{width:100%;display:flex;flex-direction:column;align-items:center;gap:8px}
-/* Kanji variant */
-.cv-kanji-main{display:flex;align-items:flex-start;justify-content:center;gap:18px;width:100%}
-.cv-kanji-char{font-size:68px;color:var(--t);line-height:1;font-weight:300;flex-shrink:0}
-.cv-readings{display:flex;flex-direction:column;gap:6px;justify-content:center;padding-top:10px}
-.cv-rrow{display:flex;align-items:baseline;gap:6px}
-.cv-rl{font-size:11px;color:var(--t2);font-weight:600;letter-spacing:.05em;min-width:14px;text-align:right}
-.cv-rv{font-size:20px;color:var(--a);line-height:1.3;word-break:break-word}
-/* Readings-only variant */
-.cv-rrow-lg{display:flex;align-items:baseline;gap:10px}
-.cv-rv-lg{font-size:26px;color:var(--a);line-height:1.3}
-/* Word variant */
-.cv-word{font-size:52px;color:var(--t);line-height:1;font-weight:300}
-.cv-kana{font-size:20px;color:var(--a);margin-top:2px}
-/* Single reading (front or back) */
+/* ─── Card Variant System (Figma 31:112 / 33:235) ─── */
+.cv-root{width:100%;display:flex;flex-direction:column;align-items:center;gap:20px}
+.cv-top{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap}
+.cv-main{font-size:52px;line-height:1;color:var(--t);font-weight:400}
+.cv-readings{display:flex;flex-direction:column;gap:12px}
+.cv-rread{display:flex;flex-direction:column;gap:2px}
+.cv-rl{font-size:12px;color:var(--t);line-height:1.2}
+.cv-rv{font-size:20px;color:var(--a);line-height:1.2;word-break:break-word}
 .cv-kana-lg{font-size:36px;color:var(--a);line-height:1}
-/* Separator */
-.cv-sep{width:56px;height:1px;background:rgba(255,255,255,.12);margin:6px 0}
-/* Meanings list */
-.cv-meanings{width:100%;text-align:left;padding:0 2px}
-.cv-mn{font-size:16px;color:var(--t);line-height:1.7;display:flex;gap:6px;align-items:baseline}
-.cv-mi{color:var(--t2);font-size:12px;min-width:16px;text-align:right;flex-shrink:0}
+.cv-meanings{width:280px;max-width:100%;display:flex;flex-direction:column;gap:4px}
+.cv-mn{display:flex;flex-direction:row;align-items:baseline;gap:6px}
+.cv-mi{font-size:12px;color:var(--t);line-height:1.2;flex-shrink:0}
+.cv-mt{font-size:16px;color:var(--t);line-height:1.3;word-break:break-word}
 
 /* ─── Mark buttons ─── */
 .mark-row{display:flex;gap:8px;padding:0 16px;margin-bottom:8px}
@@ -170,40 +159,44 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 .stop-btn{flex:1;height:27px;background:var(--c);border:none;color:var(--t);border-radius:16px;font-size:12px;cursor:pointer;transition:opacity .15s}
 .stop-btn:active{opacity:.7}
 
-/* ─── Quiz score bar ─── */
-.qscore{display:flex;align-items:center;gap:10px;padding:0 16px;margin-bottom:12px}
-.qscore-item{display:flex;align-items:center;gap:5px;font-size:13px;font-weight:500}
-.qscore-bad{color:var(--t)}
-.qscore-ok{color:var(--t)}
-.qscore-total{color:var(--t);margin-right:auto}
-.qscore .stop-btn{margin-left:auto;width:auto;flex:none;padding:0 14px}
+/* ─── Quiz score badges (Figma: pill 100×20, border) ─── */
+.qscore{display:flex;align-items:center;justify-content:center;gap:4px;padding:0 16px;margin-bottom:12px;flex-wrap:wrap}
+.qbadge{display:flex;align-items:center;justify-content:center;gap:10px;min-width:100px;height:20px;padding:6px 8px;border-radius:16px;border:1px solid var(--a);font-size:12px;color:var(--t);background:transparent;line-height:1}
+.qbadge.qbad{border-color:#ff4f4f}
+.qbadge.qok{border-color:#7aff78}
 
-/* ─── Quiz question card ─── */
-.quiz-q{background:var(--c);border-radius:16px;padding:20px;margin:0 16px 12px;min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center}
+/* ─── Quiz question card (Figma: h280, p16, gap20) ─── */
+.quiz-q{background:var(--c);border-radius:16px;padding:16px;margin:0 16px 12px;min-height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;text-align:center}
 .quiz-ql{font-size:12px;color:var(--al)}
 .quiz-qm{font-size:52px;line-height:1}
 .quiz-qm.sm{font-size:20px}
 .quiz-qh{font-size:14px;color:var(--t2)}
 
-/* ─── Quiz options grid (3×2) ─── */
-.quiz-opts{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:0 16px;margin-bottom:10px}
-.qopt{background:var(--c);border:none;color:var(--t);border-radius:4px;padding:0 8px;height:27px;font-size:13px;cursor:pointer;transition:background .15s;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ─── Quiz options panel (Figma: card wrap + label) ─── */
+.quiz-panel{background:var(--c);border-radius:16px;padding:8px;margin:0 16px 12px;display:flex;flex-direction:column;gap:16px;align-items:center}
+.quiz-panel-lbl{font-size:12px;color:var(--al);text-align:center}
+.quiz-opts{display:grid;grid-template-columns:1fr 1fr;gap:4px;width:100%}
+.qopt{background:var(--c);border:1px solid var(--a);color:var(--t);border-radius:4px;padding:16px 12px;font-size:16px;cursor:pointer;text-align:center;line-height:1.2;word-break:break-word;min-height:54px;display:flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s}
 .qopt.sel{background:var(--a);color:#fff}
-.qopt.ok{background:rgba(122,255,120,.25);color:var(--g)}
-.qopt.bad{background:rgba(255,60,60,.2);color:var(--r)}
+.qopt.ok{background:rgba(122,255,120,.18);border-color:var(--g);color:var(--g)}
+.qopt.bad{background:rgba(255,60,60,.18);border-color:var(--r);color:var(--r)}
 .qopt:disabled{cursor:default}
 
-/* ─── Quiz input ─── */
-.quiz-inp-wrap{background:var(--c);border-radius:16px;padding:10px 16px;margin:0 16px 10px}
-.quiz-inp-lbl{font-size:12px;color:var(--al);margin-bottom:8px}
-.quiz-inp{width:100%;background:var(--c2);border:none;border-radius:4px;color:var(--t);font-size:15px;padding:5px 10px;height:27px;outline:none;font-family:inherit;text-align:center;transition:box-shadow .15s}
-.quiz-inp:focus{box-shadow:0 0 0 2px var(--a)}
-.quiz-inp.ok{box-shadow:0 0 0 2px var(--g)}
-.quiz-inp.bad{box-shadow:0 0 0 2px var(--r)}
-.quiz-inp:disabled{opacity:.8;cursor:default}
-.quiz-result{font-size:13px;margin-top:8px;text-align:center}
+/* ─── Quiz input (Figma: pill, border, 12px) ─── */
+.quiz-inp{width:100%;background:transparent;border:1px solid var(--a);border-radius:300px;color:var(--t);font-size:13px;padding:6px 12px;outline:none;font-family:inherit;text-align:center;transition:border-color .15s,box-shadow .15s}
+.quiz-inp::placeholder{color:#5a5a5a}
+.quiz-inp:focus{box-shadow:0 0 0 2px rgba(131,132,199,.4)}
+.quiz-inp.ok{border-color:var(--g);color:var(--g)}
+.quiz-inp.bad{border-color:var(--r);color:var(--r)}
+.quiz-inp:disabled{opacity:.9;cursor:default}
+.quiz-result{font-size:13px;text-align:center}
 .quiz-result.ok{color:var(--g)}
 .quiz-result.bad{color:var(--r)}
+
+/* ─── Quiz bottom actions (Стоп / Пропустить) ─── */
+.quiz-actions{display:flex;gap:4px;justify-content:center;padding:0 16px;margin-bottom:10px}
+.qact-btn{min-width:100px;height:27px;padding:6px 8px;background:var(--c);border:1px solid var(--a);color:var(--t);border-radius:16px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity .15s}
+.qact-btn:active{opacity:.7}
 
 /* ─── Next button (quiz) ─── */
 .next-btn{margin:0 16px 10px;background:var(--a);border:none;color:#fff;border-radius:16px;padding:10px;font-size:13px;font-weight:500;width:calc(100% - 32px);cursor:pointer;transition:opacity .15s}
@@ -345,20 +338,21 @@ function load(){
     S.quizCfg={...S.quizCfg,...(d.quizCfg||{})};
     if(typeof S.quizCfg.question==='string')S.quizCfg.question=[S.quizCfg.question];
     if(typeof S.studyCfg.front==='string')S.studyCfg.front=[S.studyCfg.front];
-    // Миграция: исправляем кандзи с неспличенными on/kun чтениями
+    // Миграция: чиним только если есть legacy w.reading или явное cross-contamination
+    // (хирагана в on_reading либо катакана в kun_reading). Объединяем все три поля
+    // и пересплитим — splitOnKun идемпотентен для уже корректных данных.
     let migrated=false;
     S.kanjiItems.forEach(w=>{
-      const src=w.reading
-        ||(w.on_reading&&isHira(w.on_reading)?w.on_reading:null)
-        ||(w.kun_reading&&isKata(w.kun_reading)?w.kun_reading:null)
-        ||'';
-      if(src){
-        const{on_reading,kun_reading}=splitOnKun(src);
-        w.on_reading=on_reading||'';
-        w.kun_reading=kun_reading||'';
-        delete w.reading;
-        migrated=true;
-      }
+      const hasLegacy=!!w.reading;
+      const onBroken=w.on_reading&&isHira(w.on_reading);
+      const kunBroken=w.kun_reading&&isKata(w.kun_reading);
+      if(!hasLegacy&&!onBroken&&!kunBroken)return;
+      const combined=[w.reading,w.on_reading,w.kun_reading].filter(Boolean).join('・');
+      const{on_reading,kun_reading}=splitOnKun(combined);
+      w.on_reading=on_reading||'';
+      w.kun_reading=kun_reading||'';
+      delete w.reading;
+      migrated=true;
     });
     if(migrated)save();
   }catch{}
@@ -449,13 +443,14 @@ function applyMapping(rawRows,mapping,isKanji=false){
     const w={id:uid()};
     mapping.forEach((fk,j)=>{if(fk)w[fk]=(vals[j]||'').trim();});
     if(isKanji){
-      // Сплит on/kun: любой источник где есть и хирагана и катакана (или просто reading)
-      const src=w.reading
-        ||(w.on_reading&&isHira(w.on_reading)?w.on_reading:null)
-        ||(w.kun_reading&&isKata(w.kun_reading)?w.kun_reading:null)
-        ||'';
-      if(src){
-        const{on_reading,kun_reading}=splitOnKun(src);
+      // Сплит on/kun: объединяем reading + on_reading + kun_reading и переразбиваем
+      // по алфавиту (катакана → on, хирагана → kun). Идемпотентно для корректных данных.
+      const hasLegacy=!!w.reading;
+      const onBroken=w.on_reading&&isHira(w.on_reading);
+      const kunBroken=w.kun_reading&&isKata(w.kun_reading);
+      if(hasLegacy||onBroken||kunBroken){
+        const combined=[w.reading,w.on_reading,w.kun_reading].filter(Boolean).join('・');
+        const{on_reading,kun_reading}=splitOnKun(combined);
         w.on_reading=on_reading||'';
         w.kun_reading=kun_reading||'';
         delete w.reading;
@@ -476,17 +471,92 @@ function defaultMapping(colCount,isKanji=false){
   return Array.from({length:colCount},(_,i)=>d[i]||'');
 }
 
+/* ── SM-2 lite ──
+ * Per-item progress object:
+ *   {reps, lapses, ef, interval, due, lastSeen}
+ * Status is derived from reps/interval, not stored, чтобы не рассинхронизировать.
+ * quality 0..5 (как в классическом SM-2): <3 — провал; ≥3 — успех.
+ *   choice correct  → 4
+ *   input  correct  → 5
+ *   any    wrong    → 1
+ *   mark "знаю"     → 5
+ *   mark "учу"      → 3
+ *   mark "не знаю"  → 0
+ */
+const SM={DAY:86400000,KNOW_REPS:3,KNOW_INTERVAL:7,DEFAULT_EF:2.5,MIN_EF:1.3};
+function defaultProg(){return{reps:0,lapses:0,ef:SM.DEFAULT_EF,interval:0,due:0,lastSeen:0};}
+function getProg(p,id){
+  const v=p[id];
+  if(!v)return defaultProg();
+  if(typeof v==='string'){
+    // Legacy migration: status string → object с разумными значениями
+    const e=defaultProg();
+    if(v==='know'){e.reps=SM.KNOW_REPS;e.interval=SM.KNOW_INTERVAL;e.due=Date.now()+SM.KNOW_INTERVAL*SM.DAY;}
+    else if(v==='learning'){e.reps=1;e.lapses=1;e.interval=1;e.due=Date.now()+SM.DAY;}
+    return e;
+  }
+  return{...defaultProg(),...v};
+}
+function statusOf(p,id){
+  const v=p[id];
+  if(!v)return'unknown';
+  if(typeof v==='string')return v;
+  const reps=v.reps||0,lapses=v.lapses||0,interval=v.interval||0;
+  if(reps===0&&lapses===0)return'unknown';
+  if(reps>=SM.KNOW_REPS&&interval>=SM.KNOW_INTERVAL)return'know';
+  return'learning';
+}
+function smUpdate(p,id,quality){
+  const e=getProg(p,id);
+  if(quality<3){
+    e.reps=0;e.interval=1;e.lapses=(e.lapses||0)+1;
+  } else {
+    if(e.reps===0)e.interval=1;
+    else if(e.reps===1)e.interval=6;
+    else e.interval=Math.max(1,Math.round(e.interval*(e.ef||SM.DEFAULT_EF)));
+    e.reps=(e.reps||0)+1;
+  }
+  const ef=(e.ef||SM.DEFAULT_EF)+(0.1-(5-quality)*(0.08+(5-quality)*0.02));
+  e.ef=Math.max(SM.MIN_EF,ef);
+  e.lastSeen=Date.now();
+  e.due=Date.now()+e.interval*SM.DAY;
+  p[id]=e;
+}
+function smOverwrite(p,id,quality){
+  // Кнопки в флэшкарте: явный overwrite от пользователя (без накопления reps)
+  if(quality>=5){p[id]={reps:SM.KNOW_REPS,lapses:0,ef:SM.DEFAULT_EF,interval:SM.KNOW_INTERVAL,due:Date.now()+SM.KNOW_INTERVAL*SM.DAY,lastSeen:Date.now()};}
+  else if(quality>=3){p[id]={reps:1,lapses:0,ef:SM.DEFAULT_EF,interval:1,due:Date.now()+SM.DAY,lastSeen:Date.now()};}
+  else {p[id]={reps:0,lapses:1,ef:SM.DEFAULT_EF,interval:0,due:Date.now(),lastSeen:Date.now()};}
+}
+function dueOf(p,id){const v=p[id];if(!v||typeof v==='string')return 0;return v.due||0;}
+
 /* ── Data helpers ── */
 function ds(type){return type==='kanji'?S.kanjiItems:S.words;}
 function pr(type){return type==='kanji'?S.kanjiProgress:S.progress;}
 function filtered(type,filter,count){
   const p=pr(type);
-  let arr=filter==='all'?[...ds(type)]:ds(type).filter(w=>(p[w.id]||'unknown')===filter);
-  if(count&&count!=='all')arr=shuffle(arr).slice(0,parseInt(count));
+  let arr=filter==='all'?[...ds(type)]:ds(type).filter(w=>statusOf(p,w.id)===filter);
+  // SM-2: для лимита берём сначала просроченные (due<=now), затем добиваем случайными
+  if(count&&count!=='all'){
+    const n=parseInt(count),now=Date.now();
+    const due=shuffle(arr.filter(w=>dueOf(p,w.id)<=now));
+    const rest=shuffle(arr.filter(w=>dueOf(p,w.id)>now));
+    arr=[...due,...rest].slice(0,n);
+  }
   return arr;
 }
 function shuffle(arr){return[...arr].sort(()=>Math.random()-.5);}
-function buildStudyQueue(){return shuffle(filtered(S.studyCfg.type,S.studyCfg.filter,S.studyCfg.count));}
+function buildStudyQueue(){
+  // Карточки: просроченные первыми, далее по lastSeen (давно не виденные раньше)
+  const arr=filtered(S.studyCfg.type,S.studyCfg.filter,S.studyCfg.count);
+  const p=pr(S.studyCfg.type),now=Date.now();
+  return arr.sort((a,b)=>{
+    const da=dueOf(p,a.id),db=dueOf(p,b.id);
+    const aDue=da<=now,bDue=db<=now;
+    if(aDue!==bDue)return aDue?-1:1;
+    return da-db;
+  });
+}
 function buildQuizQ(){
   const{type,mode,answer:af,filter,count}=S.quizCfg;
   const qFields=Array.isArray(S.quizCfg.question)?S.quizCfg.question:[S.quizCfg.question];
@@ -495,14 +565,31 @@ function buildQuizQ(){
   if(pool.length<2)return null;
   const all=ds(type).filter(w=>w[af]);
   if(all.length<optN)return null;
+  // SM-2: сначала просроченные (due<=now), внутри тира — случайно.
+  // Без random-выбора квиз показывал одну и ту же карточку, т.к. filtered
+  // не шафлит при count='all'.
+  const now=Date.now(),pp=pr(type);
+  const dueP=shuffle(pool.filter(w=>dueOf(pp,w.id)<=now));
+  const restP=shuffle(pool.filter(w=>dueOf(pp,w.id)>now));
+  const ranked=[...dueP,...restP];
   let qw=null;
-  for(const c of shuffle(pool).slice(0,10)){if(qFields.some(f=>c[f])&&c[af]){qw=c;break;}}
+  for(const c of ranked){if(qFields.some(f=>c[f])&&c[af]){qw=c;break;}}
   if(!qw)return null;
-  const wrongs=shuffle(all.filter(w=>w.id!==qw.id&&w[af])).slice(0,optN-1).map(w=>w[af]);
-  if(wrongs.length<optN-1)return null;
-  const options=shuffle([...wrongs,qw[af]]);
+  // Wrongs must be unique and != correct
+  const correctVal=qw[af];
+  const wrongPool=[];
+  const seen=new Set([correctVal]);
+  for(const w of shuffle(all)){
+    if(w.id===qw.id)continue;
+    if(seen.has(w[af]))continue;
+    seen.add(w[af]);
+    wrongPool.push(w[af]);
+    if(wrongPool.length>=optN-1)break;
+  }
+  if(wrongPool.length<optN-1)return null;
+  const options=shuffle([correctVal,...wrongPool]);
   const mixInput=mode==='mix'?Math.random()<0.5:null;
-  return{word:qw,qFields,aField:af,options,correct:options.indexOf(qw[af]),mixInput};
+  return{word:qw,qFields,aField:af,options,correct:options.indexOf(correctVal),mixInput};
 }
 function checkAns(user,correct){
   const n=s=>s.trim().toLowerCase().replace(/\s+/g,' ');
@@ -518,93 +605,51 @@ function bestAF(pref){
 }
 function sessionEnd(){
   const p=pr(S.studyCfg.type),res={know:0,learning:0,unknown:0};
-  S.studyQueue.forEach(w=>{const s=p[w.id]||'unknown';res[s]=(res[s]||0)+1;});
+  S.studyQueue.forEach(w=>{const s=statusOf(p,w.id);res[s]=(res[s]||0)+1;});
   S.studyResults=res;
 }
 
-/* ── Card Variant Builder ── */
-function cvMeanings(word,showFields){
+/* ── Card Variant Builder (Figma 31:112 / 33:235) ── */
+function cvReadRow(label,value){
+  return`<div class="cv-rread"><div class="cv-rl">${label}:</div><div class="cv-rv">${esc(value)}</div></div>`;
+}
+function cvMeaningsBlock(word,showFields){
   const has=f=>showFields.includes(f)&&word[f];
   const g=[];
   ['meaning','translation'].forEach(f=>{
     if(has(f))word[f].split(/;/).forEach(s=>{const t=s.trim();if(t)g.push(t);});
   });
   if(!g.length)return'';
-  return`<div class="cv-meanings">${g.slice(0,7).map((s,i)=>`<div class="cv-mn"><span class="cv-mi">${i+1}</span>${esc(s)}</div>`).join('')}</div>`;
+  return`<div class="cv-meanings">${g.slice(0,7).map((s,i)=>`<div class="cv-mn"><span class="cv-mi">${i+1}.</span><span class="cv-mt">${esc(s)}</span></div>`).join('')}</div>`;
 }
-
-// Variant A: Kanji type + kanji field present
-function cvKanjiCard(word,showFields){
-  const has=f=>showFields.includes(f)&&word[f];
-  const hasOn=has('on_reading'),hasKun=has('kun_reading');
-  const readHtml=hasOn||hasKun?`<div class="cv-readings">
-    ${hasOn?`<div class="cv-rrow"><span class="cv-rl">音</span><span class="cv-rv">${esc(word.on_reading)}</span></div>`:''}
-    ${hasKun?`<div class="cv-rrow"><span class="cv-rl">訓</span><span class="cv-rv">${esc(word.kun_reading)}</span></div>`:''}
-  </div>`:'';
-  const mHtml=cvMeanings(word,showFields);
-  return`<div class="cv-root">
-    <div class="cv-kanji-main">
-      <div class="cv-kanji-char">${esc(word.kanji)}</div>
-      ${readHtml}
-    </div>
-    ${mHtml?'<div class="cv-sep"></div>'+mHtml:''}
-  </div>`;
-}
-
-// Variant B: Word type + kanji (word) field present
-function cvWordCard(word,showFields){
-  const has=f=>showFields.includes(f)&&word[f];
-  const mHtml=cvMeanings(word,showFields);
-  return`<div class="cv-root">
-    <div class="cv-word">${esc(word.kanji)}</div>
-    ${has('reading')?`<div class="cv-kana">${esc(word.reading)}</div>`:''}
-    ${mHtml?'<div class="cv-sep"></div>'+mHtml:''}
-  </div>`;
-}
-
-// Variant C: Readings only (kanji type, no kanji field)
-function cvReadingsCard(word,showFields){
-  const has=f=>showFields.includes(f)&&word[f];
-  const mHtml=cvMeanings(word,showFields);
-  return`<div class="cv-root">
-    ${has('on_reading')?`<div class="cv-rrow-lg"><span class="cv-rl">音</span><span class="cv-rv-lg">${esc(word.on_reading)}</span></div>`:''}
-    ${has('kun_reading')?`<div class="cv-rrow-lg"><span class="cv-rl">訓</span><span class="cv-rv-lg">${esc(word.kun_reading)}</span></div>`:''}
-    ${mHtml?'<div class="cv-sep"></div>'+mHtml:''}
-  </div>`;
-}
-
-// Variant D: Kana reading only (word type, no kanji field)
-function cvKanaCard(word,showFields){
-  const mHtml=cvMeanings(word,showFields);
-  return`<div class="cv-root">
-    <div class="cv-kana-lg">${esc(word.reading)}</div>
-    ${mHtml?'<div class="cv-sep"></div>'+mHtml:''}
-  </div>`;
-}
-
-// Variant E: Meaning only
-function cvMeaningOnlyCard(word,showFields){
-  return`<div class="cv-root">${cvMeanings(word,showFields)||'<div style="color:var(--t2)">—</div>'}</div>`;
-}
-
 function buildCardVariant(word,showFields,dataType){
   if(!word||!showFields||!showFields.length)return'<div style="color:var(--t2);text-align:center">—</div>';
   const has=f=>showFields.includes(f)&&word[f];
   const isKanjiType=dataType==='kanji';
+  const mHtml=cvMeaningsBlock(word,showFields);
 
-  if(has('kanji')){
-    return isKanjiType?cvKanjiCard(word,showFields):cvWordCard(word,showFields);
+  // Build readings (right side of top row)
+  const reads=[];
+  if(isKanjiType){
+    if(has('on_reading'))reads.push(cvReadRow('on',word.on_reading));
+    if(has('kun_reading'))reads.push(cvReadRow('kun',word.kun_reading));
+  }else{
+    if(has('reading'))reads.push(cvReadRow('kana',word.reading));
   }
-  if(isKanjiType&&(has('on_reading')||has('kun_reading'))){
-    return cvReadingsCard(word,showFields);
+  const readsHtml=reads.length?`<div class="cv-readings">${reads.join('')}</div>`:'';
+
+  // Top row: main char + readings (if either exists)
+  const mainHtml=has('kanji')?`<div class="cv-main">${esc(word.kanji)}</div>`:'';
+  let topHtml='';
+  if(mainHtml||readsHtml){
+    topHtml=`<div class="cv-top">${mainHtml}${readsHtml}</div>`;
   }
-  if(!isKanjiType&&has('reading')){
-    return cvKanaCard(word,showFields);
+
+  if(!topHtml&&!mHtml){
+    if(has('notes'))return`<div class="cv-root"><div style="font-size:12px;color:var(--t2);font-style:italic">${esc(word.notes)}</div></div>`;
+    return'<div style="color:var(--t2);text-align:center">—</div>';
   }
-  const mHtml=cvMeanings(word,showFields);
-  if(mHtml)return`<div class="cv-root">${mHtml}</div>`;
-  if(has('notes'))return`<div class="cv-root"><div style="font-size:12px;color:var(--t2);font-style:italic">${esc(word.notes)}</div></div>`;
-  return'<div style="color:var(--t2);text-align:center">—</div>';
+  return`<div class="cv-root">${topHtml}${mHtml}</div>`;
 }
 
 /* ── Card Front Builder ── */
@@ -617,10 +662,10 @@ function buildCardFront(word,frontField,dataType){
       :`<div class="fc-main">${esc(val)}</div>`;
   }
   if(frontField==='on_reading'){
-    return`<div class="fc-lbl">音読み</div><div class="cv-kana-lg">${esc(val)}</div>`;
+    return`<div class="fc-lbl">on</div><div class="cv-kana-lg">${esc(val)}</div>`;
   }
   if(frontField==='kun_reading'){
-    return`<div class="fc-lbl">訓読み</div><div class="cv-kana-lg">${esc(val)}</div>`;
+    return`<div class="fc-lbl">kun</div><div class="cv-kana-lg">${esc(val)}</div>`;
   }
   if(frontField==='reading'){
     return`<div class="cv-kana-lg">${esc(val)}</div>`;
@@ -628,7 +673,7 @@ function buildCardFront(word,frontField,dataType){
   if(frontField==='meaning'||frontField==='translation'){
     const g=[];val.split(/;/).forEach(s=>{const t=s.trim();if(t)g.push(t);});
     if(g.length)return`<div class="fc-lbl">Значение</div><div class="cv-meanings">${
-      g.slice(0,4).map((s,i)=>`<div class="cv-mn"><span class="cv-mi">${i+1}</span>${esc(s)}</div>`).join('')
+      g.slice(0,4).map((s,i)=>`<div class="cv-mn"><span class="cv-mi">${i+1}.</span><span class="cv-mt">${esc(s)}</span></div>`).join('')
     }</div>`;
   }
   return`<div class="fc-lbl">${FIELDS[frontField]?.label||frontField}</div><div class="fc-main sm">${esc(val)}</div>`;
@@ -670,8 +715,8 @@ function nav(){
 /* ── HOME ── */
 function buildHome(){
   const type=S.homeTab,d=ds(type),p=pr(type);
-  const total=d.length,know=d.filter(w=>p[w.id]==='know').length;
-  const learning=d.filter(w=>p[w.id]==='learning').length,unk=total-know-learning;
+  const total=d.length,know=d.filter(w=>statusOf(p,w.id)==='know').length;
+  const learning=d.filter(w=>statusOf(p,w.id)==='learning').length,unk=total-know-learning;
   const pct=total?Math.round(know/total*100):0;
   return`
     <div class="phdr"><div class="top-icon">語</div><span class="phdr-title">日本語</span></div>
@@ -760,7 +805,7 @@ function buildStudyActive(){
   const w=S.studyQueue[S.studyIdx];
   if(!w){sessionEnd();return buildStudyDone();}
   const total=S.studyQueue.length,curr=S.studyIdx+1,pct=Math.round(curr/total*100);
-  const p=pr(S.studyCfg.type),status=p[w.id]||'unknown';
+  const p=pr(S.studyCfg.type),status=statusOf(p,w.id);
   const sClass=status==='know'?'g':status==='learning'?'y':'r';
   const isKanji=S.studyCfg.type==='kanji';
 
@@ -830,16 +875,15 @@ function buildQuizActive(){
 
   const scoreBar=`
     <div class="qscore">
-      <div class="qscore-item qscore-bad">
-        <svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 1l10 8M11 1L1 9" stroke="#ff3c3c" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <div class="qbadge qbad">
+        <svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 1l10 8M11 1L1 9" stroke="#ff4f4f" stroke-width="1.8" stroke-linecap="round"/></svg>
         ${bad}
       </div>
-      <div class="qscore-item qscore-ok">
+      <div class="qbadge qok">
         <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5l4 4L13 1" stroke="#7aff78" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         ${ok}
       </div>
-      <div class="qscore-item qscore-total" style="color:var(--al)">итого ${ok+bad}</div>
-      <button class="stop-btn" style="padding:0 14px;height:27px;width:auto;border-radius:16px" data-a="stop-quiz">Стоп</button>
+      <div class="qbadge">итого ${ok+bad}</div>
     </div>`;
 
   const qCard=`
@@ -849,12 +893,16 @@ function buildQuizActive(){
 
   let choiceHtml='';
   if(showChoice&&q.options){
-    choiceHtml=`<div class="quiz-opts">
-      ${q.options.slice(0,optN).map((opt,i)=>{
+    choiceHtml=`<div class="quiz-panel">
+      <div class="quiz-panel-lbl">Выберите вариант:</div>
+      <div class="quiz-opts">
+      ${q.options.map((opt,i)=>{
         let cls='';
         if(S.quizDone)cls=i===q.correct?'ok':i===S.quizSel?'bad':'';
+        else if(i===S.quizSel)cls='sel';
         return`<button class="qopt ${cls}" ${S.quizDone?'disabled':''} data-a="quiz-ans:${i}">${esc(opt)}</button>`;
       }).join('')}
+      </div>
     </div>`;
   }
 
@@ -863,22 +911,28 @@ function buildQuizActive(){
     const isOk=S.quizDone?checkAns(S.quizInputVal,q.options[q.correct]):null;
     const iCls=S.quizDone?(isOk?'ok':'bad'):'';
     inputHtml=`
-      <div class="quiz-inp-wrap">
-        <div class="quiz-inp-lbl">Впишите вариант:</div>
+      <div class="quiz-panel">
+        <div class="quiz-panel-lbl">Впишите вариант:</div>
         <input id="quiz-input" class="quiz-inp ${iCls}" type="text"
           placeholder="Ваш ответ..."
           value="${S.quizDone?esc(S.quizInputVal):''}"
           ${S.quizDone?'disabled':''}
           autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-        ${S.quizDone&&(mode==='input'||(mode==='mix'&&q.mixInput))?`<div class="quiz-result ${isOk?'ok':'bad'}">${isOk?'✓ Правильно!':'✗ Правильно: '+esc(q.options[q.correct])}</div>`:''}
+        ${S.quizDone?`<div class="quiz-result ${isOk?'ok':'bad'}">${isOk?'✓ Правильно!':'✗ Правильно: '+esc(q.options[q.correct])}</div>`:''}
       </div>`;
   }
+
+  const actions=`
+    <div class="quiz-actions">
+      <button class="qact-btn" data-a="stop-quiz">Стоп</button>
+      <button class="qact-btn" data-a="skip-q">Пропустить</button>
+    </div>`;
 
   const nextBtn=S.quizDone
     ?`<button class="next-btn" data-a="next-q">Следующий →</button>`
     :(showInput?`<button class="next-btn" data-a="quiz-check">Проверить</button>`:'');
 
-  return`<div class="pg">${scoreBar}${qCard}${choiceHtml}${inputHtml}${nextBtn}</div>`;
+  return`<div class="pg">${scoreBar}${qCard}${choiceHtml}${inputHtml}${actions}${nextBtn}</div>`;
 }
 
 /* ── WORDS ── */
@@ -909,7 +963,7 @@ function buildWords(){
       ?`<div class="empty"><div class="ei">${type==='kanji'?'㊙️':'📖'}</div><div class="et">Нет ${type==='kanji'?'кандзи':'слов'}</div><div class="eb">Импортируйте CSV/TSV файл</div><button class="btn btn-p" style="margin:0 16px;width:calc(100% - 32px)" data-a="words-import">Импортировать</button></div>`
       :`<div class="wlist">
           ${list.map(w=>{
-            const s=p[w.id]||'unknown';
+            const s=statusOf(p,w.id);
             const dc=s==='know'?'g':s==='learning'?'y':'';
             if(type==='kanji'){
               return`<div class="witem">
@@ -939,8 +993,8 @@ function buildWords(){
 /* ── SETTINGS ── */
 function buildSettings(){
   const total=S.words.length,kt=S.kanjiItems.length;
-  const know=S.words.filter(w=>S.progress[w.id]==='know').length;
-  const kknow=S.kanjiItems.filter(w=>S.kanjiProgress[w.id]==='know').length;
+  const know=S.words.filter(w=>statusOf(S.progress,w.id)==='know').length;
+  const kknow=S.kanjiItems.filter(w=>statusOf(S.kanjiProgress,w.id)==='know').length;
   const cBlock=(key,lbl,isRed)=>S.confirmPending===key
     ?`<div class="confirm-row">
         <span class="confirm-text" style="color:${isRed?'var(--r)':'var(--y)'}">${lbl}?</span>
@@ -1141,8 +1195,12 @@ function act(action){
     case'flip':S.cardFlipped=!S.cardFlipped;haptic('light');break;
     case'mark':{
       const w=S.studyQueue[S.studyIdx];
-      if(w){pr(S.studyCfg.type)[w.id]=val;save();haptic();S.studyIdx++;S.cardFlipped=false;
-        if(S.studyIdx>=S.studyQueue.length)sessionEnd();}
+      if(w){
+        const q=val==='know'?5:val==='learning'?3:0;
+        smOverwrite(pr(S.studyCfg.type),w.id,q);
+        save();haptic();S.studyIdx++;S.cardFlipped=false;
+        if(S.studyIdx>=S.studyQueue.length)sessionEnd();
+      }
       break;}
     case'skip-card':
       S.studyIdx++;S.cardFlipped=false;
@@ -1168,8 +1226,10 @@ function act(action){
         S.quizInputVal=inp?inp.value:'';S.quizDone=true;
         const ok=checkAns(S.quizInputVal,S.quizQ.options[S.quizQ.correct]);
         const w=S.quizQ.word,p=pr(S.quizCfg.type);
-        if(ok){S.quizScore.ok++;haptic('light');if(!p[w.id]||p[w.id]==='unknown'){p[w.id]='learning';save();}}
+        smUpdate(p,w.id,ok?5:1);
+        if(ok){S.quizScore.ok++;haptic('light');}
         else{S.quizScore.bad++;haptic('medium');}
+        save();
       }
       break;}
     case'quiz-ans':{
@@ -1177,15 +1237,23 @@ function act(action){
         const idx=parseInt(val);S.quizSel=idx;S.quizDone=true;
         const ok=idx===S.quizQ.correct;
         const w=S.quizQ.word,p=pr(S.quizCfg.type);
-        if(ok){S.quizScore.ok++;haptic('light');if(!p[w.id]||p[w.id]==='unknown'){p[w.id]='learning';save();}}
+        smUpdate(p,w.id,ok?4:1);
+        if(ok){S.quizScore.ok++;haptic('light');}
         else{S.quizScore.bad++;haptic('medium');}
+        save();
       }
       break;}
     case'next-q':
       S.quizQ=buildQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
       if(!S.quizQ)toast('Нет вопросов — проверьте фильтр');break;
+    case'skip-q':
+      // Пропуск без оценки — просто следующий вопрос
+      S.quizQ=buildQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
+      if(!S.quizQ)toast('Нет вопросов — проверьте фильтр');break;
     case'stop-quiz':
-      S.quizQ=null;S.quizDone=false;S.quizInputVal='';S.tab='tests';S.testsSubTab='quiz';break;
+      S.quizQ=null;S.quizDone=false;S.quizInputVal='';
+      S.quizScore={ok:0,bad:0};S.quizSel=-1;
+      S.tab='tests';S.testsSubTab='quiz';break;
 
     case'download-csv':{
       const csv=val==='kanji'?S.kanjiCsv:S.wordsCsv;
@@ -1219,9 +1287,15 @@ function setupDelegation(){
     const el=e.target.closest('[data-a]');if(el)act(el.dataset.a);
   });
   document.addEventListener('keydown',e=>{
-    if(e.key==='Enter'){
-      const qi=document.getElementById('quiz-input');
-      if(qi&&document.activeElement===qi)act('quiz-check');
+    if(e.key!=='Enter')return;
+    if(!S.quizQ)return;
+    const qi=document.getElementById('quiz-input');
+    if(qi&&document.activeElement===qi){
+      e.preventDefault();
+      act(S.quizDone?'next-q':'quiz-check');
+    } else if(S.quizDone){
+      // После ответа Enter где угодно — следующий
+      e.preventDefault();act('next-q');
     }
   });
 }
@@ -1267,9 +1341,19 @@ function bindAll(){
     dz.ondragleave=()=>dz.classList.remove('over');
     dz.ondrop=e=>{e.preventDefault();dz.classList.remove('over');const f=e.dataTransfer.files[0];if(f)readFile(f);};
   }
-  // Quiz input focus
+  // Quiz input focus — только при первом маунте текущего вопроса,
+  // чтобы не переуводить курсор при каждом re-render во время взаимодействия
   const qi=document.getElementById('quiz-input');
-  if(qi&&!S.quizDone)setTimeout(()=>qi.focus(),50);
+  if(qi&&!S.quizDone){
+    const qid=S.quizQ&&S.quizQ.word?S.quizQ.word.id:null;
+    if(qid&&S._quizFocusedFor!==qid){
+      S._quizFocusedFor=qid;
+      setTimeout(()=>qi.focus(),50);
+    }
+  } else if(S.quizDone){
+    // Сброс маркера, чтобы следующий вопрос снова получил фокус
+    S._quizFocusedFor=null;
+  }
 }
 function readFile(file){
   const reader=new FileReader();
