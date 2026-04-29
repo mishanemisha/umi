@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>日本語</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
@@ -49,6 +52,9 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 
 /* ─── top_icon ─── */
 .top-icon{width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--a);line-height:1;flex-shrink:0}
+.top-icon img{width:100%;height:100%;object-fit:contain;display:block}
+.hero-icon{display:flex;justify-content:center;padding:4px 16px 12px}
+.hero-icon img{width:120px;height:auto;display:block}
 
 /* ─── Page header ─── */
 .phdr{padding:16px 16px 8px;display:flex;align-items:center;gap:12px}
@@ -701,7 +707,6 @@ function buildApp(){
 /* ── NAV ── */
 const TABS=[
   {id:'home',   icon:'home',   lbl:'Главная'  },
-  {id:'tests',  icon:'tests',  lbl:'Тесты'    },
   {id:'words',  icon:'words',  lbl:'Слова'    },
   {id:'settings',icon:'settings',lbl:'Настройки'},
 ];
@@ -720,7 +725,8 @@ function buildHome(){
   const learning=d.filter(w=>statusOf(p,w.id)==='learning').length,unk=total-know-learning;
   const pct=total?Math.round(know/total*100):0;
   return`
-    <div class="phdr"><div class="top-icon">語</div><span class="phdr-title">日本語</span></div>
+    <div class="phdr"><div class="top-icon"><img src="top_icon.png" alt=""></div><span class="phdr-title">日本語</span><span style="font-size:10px;color:var(--t2);align-self:flex-end;padding-bottom:4px">v7</span></div>
+    <div class="hero-icon"><img src="main_icon.png" alt=""></div>
     <div class="ttabs">
       <button class="ttab${type==='words'?' on':''}" data-a="home-tab:words">Слова</button>
       <button class="ttab${type==='kanji'?' on':''}" data-a="home-tab:kanji">Кандзи</button>
