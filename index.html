@@ -51,7 +51,7 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 .bnav-icon svg{width:28px;height:28px;stroke:currentColor;fill:none;stroke-linecap:round;stroke-linejoin:round}
 
 /* ─── top_icon ─── */
-.top-icon{width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--a);line-height:1;flex-shrink:0}
+.top-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--a);line-height:1;flex-shrink:0}
 .top-icon img{width:100%;height:100%;object-fit:contain;display:block}
 .hero-icon{display:flex;justify-content:center;padding:4px 16px 12px}
 .hero-icon img{width:120px;height:auto;display:block}
@@ -638,8 +638,13 @@ function buildCardVariant(word,showFields,dataType){
   // Build readings (right side of top row)
   const reads=[];
   if(isKanjiType){
-    if(has('on_reading'))reads.push(cvReadRow('on',word.on_reading));
-    if(has('kun_reading'))reads.push(cvReadRow('kun',word.kun_reading));
+    let onR=word.on_reading,kunR=word.kun_reading;
+    if((!onR||!kunR)&&word.reading){
+      const sp=splitOnKun([word.reading,onR,kunR].filter(Boolean).join('・'));
+      onR=onR||sp.on_reading;kunR=kunR||sp.kun_reading;
+    }
+    if(showFields.includes('on_reading')&&onR)reads.push(cvReadRow('on',onR));
+    if(showFields.includes('kun_reading')&&kunR)reads.push(cvReadRow('kun',kunR));
   }else{
     if(has('reading'))reads.push(cvReadRow('kana',word.reading));
   }
@@ -1191,7 +1196,7 @@ function act(action){
 
     case'study-type':
       S.studyCfg.type=val;S.studyCfg.front=['kanji'];
-      S.studyCfg.back=val==='kanji'?['meaning']:['reading','meaning'];break;
+      S.studyCfg.back=val==='kanji'?['on_reading','kun_reading','meaning']:['reading','meaning'];break;
     case'study-front':S.studyCfg.front=val;break;
     case'study-filter':S.studyCfg.filter=val;break;
     case'study-count':S.studyCfg.count=val;break;
@@ -1218,7 +1223,9 @@ function act(action){
       S.studyQueue=buildStudyQueue();S.studyIdx=0;S.cardFlipped=false;S.studyResults=null;break;
 
     case'quiz-type':
-      S.quizCfg.type=val;S.quizCfg.question=['kanji'];S.quizCfg.answer=val==='kanji'?'meaning':'reading';break;
+      S.quizCfg.type=val;
+      S.quizCfg.question=val==='kanji'?['kanji']:['kanji'];
+      S.quizCfg.answer=val==='kanji'?'on_reading':'reading';break;
     case'quiz-mode':S.quizCfg.mode=val;break;
     case'quiz-afield':S.quizCfg.answer=val;break;
     case'quiz-filter':S.quizCfg.filter=val;break;
