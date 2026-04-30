@@ -437,9 +437,11 @@ function splitOnKun(str){
       else on.push(p);
       continue;
     }
+    const hasKana=[...s].some(c=>HIRA_SET.has(c)||KATA_SET.has(c));
+    if(!hasKana)continue; // не-кана (английский, цифры) — это не чтение, дропаем
     if(isKata(s)&&!isHira(s))on.push(p);
     else if(isHira(s)&&!isKata(s))kun.push(p);
-    else on.push(p); // смешанный или неизвестный → он
+    else on.push(p); // смешанный (кана+кана) → он
   }
   return{on_reading:on.join('・'),kun_reading:kun.join('・')};
 }
