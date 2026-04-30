@@ -474,7 +474,7 @@ function applyMapping(rawRows,mapping,isKanji=false){
   return{words,headers:foundFields,hasHeaders:true};
 }
 function defaultMapping(colCount,isKanji=false){
-  const d=isKanji?['kanji','reading','meaning','translation','notes']:['kanji','reading','meaning','translation','notes'];
+  const d=isKanji?['kanji','on_reading','kun_reading','meaning','translation','notes']:['kanji','reading','meaning','translation','notes'];
   return Array.from({length:colCount},(_,i)=>d[i]||'');
 }
 
