@@ -316,6 +316,8 @@ const FIELDS={
 const FK=Object.keys(FIELDS);
 const WF=['kanji','reading','meaning'];
 const KF=['kanji','on_reading','kun_reading','meaning'];
+function fldShort(k,type){if(k==='kanji'&&type==='words')return'Слово';return FIELDS[k]?.short||k;}
+function fldLabel(k,type){if(k==='kanji'&&type==='words')return'Слово';return FIELDS[k]?.label||k;}
 
 /* ── State ── */
 const S={
@@ -702,7 +704,7 @@ function buildCardFront(word,frontField,dataType){
       g.slice(0,4).map((s,i)=>`<div class="cv-mn"><span class="cv-mi">${i+1}.</span><span class="cv-mt">${esc(s)}</span></div>`).join('')
     }</div>`;
   }
-  return`<div class="fc-lbl">${FIELDS[frontField]?.label||frontField}</div><div class="fc-main sm">${esc(val)}</div>`;
+  return`<div class="fc-lbl">${fldLabel(frontField,dataType)}</div><div class="fc-main sm">${esc(val)}</div>`;
 }
 
 /* ── Render ── */
@@ -796,8 +798,8 @@ function buildCardsCfg(){
   const counts=[{v:'50',l:'50'},{v:'100',l:'100'},{v:'150',l:'150'},{v:'all',l:'Все'}];
   return`
     ${cfgCard('Что тренируем',chips([{v:'words',l:'Слова'},{v:'kanji',l:'Кандзи'}],type,'study-type'))}
-    ${cfgCard('Лицевая сторона',`<div class="chips" id="chips-front">${flds.map(k=>`<button class="chip${S.studyCfg.front.includes(k)?' on':''}" data-field-front="${k}">${FIELDS[k].short}</button>`).join('')}</div>`)}
-    ${cfgCard('Оборотная сторона',`<div class="chips" id="chips-back">${flds.map(k=>`<button class="chip${S.studyCfg.back.includes(k)?' on':''}" data-field="${k}">${FIELDS[k].short}</button>`).join('')}</div>`)}
+    ${cfgCard('Лицевая сторона',`<div class="chips" id="chips-front">${flds.map(k=>`<button class="chip${S.studyCfg.front.includes(k)?' on':''}" data-field-front="${k}">${fldShort(k,type)}</button>`).join('')}</div>`)}
+    ${cfgCard('Оборотная сторона',`<div class="chips" id="chips-back">${flds.map(k=>`<button class="chip${S.studyCfg.back.includes(k)?' on':''}" data-field="${k}">${fldShort(k,type)}</button>`).join('')}</div>`)}
     <div class="cfg-row">
       ${cfgCard('Фильтр',chips(filterOpts,S.studyCfg.filter,'study-filter'))}
       ${cfgCard('Количество',chips(counts,S.studyCfg.count,'study-count'))}
@@ -816,8 +818,8 @@ function buildQuizCfg(){
   return`
     ${cfgCard('Что тренируем',chips([{v:'words',l:'Слова'},{v:'kanji',l:'Кандзи'}],type,'quiz-type'))}
     ${cfgCard('Режим ответа',chips(modes,S.quizCfg.mode,'quiz-mode'))}
-    ${cfgCard('Что в вопросе (несколько)',`<div class="chips" id="chips-q">${flds.map(k=>`<button class="chip${S.quizCfg.question.includes(k)?' on':''}" data-qfield="${k}">${FIELDS[k].short}</button>`).join('')}</div>`)}
-    ${cfgCard('Что отгадываем (одно)',`<div class="chips">${flds.map(k=>`<button class="chip${S.quizCfg.answer===k?' on':''}" data-a="quiz-afield:${k}">${FIELDS[k].short}</button>`).join('')}</div>`)}
+    ${cfgCard('Что в вопросе (несколько)',`<div class="chips" id="chips-q">${flds.map(k=>`<button class="chip${S.quizCfg.question.includes(k)?' on':''}" data-qfield="${k}">${fldShort(k,type)}</button>`).join('')}</div>`)}
+    ${cfgCard('Что отгадываем (одно)',`<div class="chips">${flds.map(k=>`<button class="chip${S.quizCfg.answer===k?' on':''}" data-a="quiz-afield:${k}">${fldShort(k,type)}</button>`).join('')}</div>`)}
     <div class="cfg-row">
       ${cfgCard('Фильтр',chips(filterOpts,S.quizCfg.filter,'quiz-filter'))}
       ${cfgCard('Количество',chips(counts,S.quizCfg.count,'quiz-count'))}
@@ -1087,7 +1089,7 @@ function buildColMap(){
   const fk=S.importType==='kanji'?KF:WF;
   const heads=Array.from({length:colCount},(_,i)=>{
     const cur=S.importMapping[i]||'';
-    const opts=[`<option value="">— пропустить —</option>`,...fk.map(k=>`<option value="${k}"${cur===k?' selected':''}>${FIELDS[k].label}</option>`)].join('');
+    const opts=[`<option value="">— пропустить —</option>`,...fk.map(k=>`<option value="${k}"${cur===k?' selected':''}>${fldLabel(k,S.importType)}</option>`)].join('');
     return`<th style="min-width:120px;padding:6px 8px"><select id="map-col-${i}" style="width:100%;font-size:12px;background:var(--bg);color:var(--t);border:1px solid var(--c2);border-radius:6px;padding:4px 6px">${opts}</select></th>`;
   }).join('');
   const drows=rawRows.slice(0,5).map(row=>`<tr>${Array.from({length:colCount},(_,i)=>`<td title="${esc(row[i]||'')}">${esc(row[i]||'')}</td>`).join('')}</tr>`).join('');
@@ -1112,7 +1114,7 @@ function buildPreview(){
     <div class="cfg-card">
       <div class="cfg-lbl">Предпросмотр — ${words.length} записей</div>
       <div class="tbl-wrap" style="margin:0 0 10px">
-        <table><thead><tr>${headers.map(h=>`<th>${FIELDS[h]?.short||h}</th>`).join('')}</tr></thead>
+        <table><thead><tr>${headers.map(h=>`<th>${fldShort(h,S.importType)}</th>`).join('')}</tr></thead>
         <tbody>${show.map(w=>`<tr>${headers.map(h=>`<td>${esc(w[h]||'')}</td>`).join('')}</tr>`).join('')}</tbody></table>
       </div>
       ${words.length>6?`<div style="font-size:12px;color:var(--al);margin-bottom:8px">...и ещё ${words.length-6}</div>`:''}
@@ -1247,7 +1249,7 @@ function act(action){
     case'start-quiz':{
       const af=S.quizCfg.answer;
       const d=ds(S.quizCfg.type);
-      if(!d.some(w=>w[af])){toast(`Поле "${FIELDS[af]?.short||af}" пустое во всех записях`);break;}
+      if(!d.some(w=>w[af])){toast(`Поле "${fldShort(af,S.quizCfg.type)}" пустое во всех записях`);break;}
       S.quizScore={ok:0,bad:0};S.quizQ=buildQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
       if(!S.quizQ)toast('Недостаточно данных (нужно ≥4 с заполненными полями)');
       break;}
