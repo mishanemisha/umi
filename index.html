@@ -480,8 +480,11 @@ function defaultMapping(colCount,isKanji=false){
   if(isKanji){
     // 3 кол.: kanji / смешанные он+кун / значение  → reading автосплитнется на он/кун
     // 4+ кол.: kanji / он / кун / значение / ...
+    // 3 кол.: kanji / смешанные он+кун (мапим в on_reading, потом applyMapping
+    //          увидит хирагану в on_reading и автосплитнет на он/кун) / значение
+    // 4+ кол.: kanji / он / кун / значение / ...
     d=colCount<=3
-      ?['kanji','reading','meaning']
+      ?['kanji','on_reading','meaning']
       :['kanji','on_reading','kun_reading','meaning','translation','notes'];
   }else{
     d=['kanji','reading','meaning','translation','notes'];
