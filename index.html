@@ -476,7 +476,16 @@ function applyMapping(rawRows,mapping,isKanji=false){
   return{words,headers:foundFields,hasHeaders:true};
 }
 function defaultMapping(colCount,isKanji=false){
-  const d=isKanji?['kanji','on_reading','kun_reading','meaning','translation','notes']:['kanji','reading','meaning','translation','notes'];
+  let d;
+  if(isKanji){
+    // 3 кол.: kanji / смешанные он+кун / значение  → reading автосплитнется на он/кун
+    // 4+ кол.: kanji / он / кун / значение / ...
+    d=colCount<=3
+      ?['kanji','reading','meaning']
+      :['kanji','on_reading','kun_reading','meaning','translation','notes'];
+  }else{
+    d=['kanji','reading','meaning','translation','notes'];
+  }
   return Array.from({length:colCount},(_,i)=>d[i]||'');
 }
 
