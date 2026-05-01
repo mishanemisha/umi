@@ -53,8 +53,8 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 /* ─── top_icon ─── */
 .top-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--a);line-height:1;flex-shrink:0}
 .top-icon img{width:100%;height:100%;object-fit:contain;display:block}
-.hero-icon{display:flex;justify-content:center;padding:4px 16px 12px}
-.hero-icon img{width:120px;height:auto;display:block}
+.hero-icon{display:flex;justify-content:center;padding:16px 16px 12px}
+.hero-icon img{width:60px;height:auto;display:block}
 
 /* ─── Page header ─── */
 .phdr{padding:16px 16px 8px;display:flex;align-items:center;gap:12px}
@@ -276,8 +276,8 @@ td{padding:7px 10px;border-top:1px solid rgba(255,255,255,.05);white-space:nowra
 .stab.on{background:var(--c2);color:var(--t)}
 
 /* ─── Toast ─── */
-#toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--c2);border-radius:12px;padding:9px 18px;font-size:13px;z-index:300;transition:transform .2s;white-space:nowrap;pointer-events:none}
-#toast.show{transform:translateX(-50%) translateY(0)}
+#toast{position:fixed;top:14px;left:50%;transform:translate(-50%,-20px);background:transparent;color:var(--t2);font-size:12px;z-index:300;opacity:0;transition:opacity .25s, transform .25s;white-space:nowrap;pointer-events:none;padding:4px 10px;letter-spacing:.2px}
+#toast.show{opacity:1;transform:translate(-50%,0)}
 
 /* ─── Error box ─── */
 .err-box{background:rgba(255,60,60,.1);border:1px solid var(--r);border-radius:12px;padding:11px 14px;color:var(--r);font-size:13px;margin:0 16px 10px}
@@ -614,6 +614,37 @@ function buildQuizQ(){
   const mixInput=mode==='mix'?Math.random()<0.5:null;
   return{word:qw,qFields,aField:af,options,correct:options.indexOf(correctVal),mixInput};
 }
+function buildMatchQ(){
+  const{type,filter,count}=S.quizCfg;
+  if(type!=='kanji')return null;
+  const qFields=Array.isArray(S.quizCfg.question)?S.quizCfg.question:[S.quizCfg.question];
+  const qField=qFields[0]||'kanji';
+  const otherFields=KF.filter(f=>f!==qField);
+  const all=ds(type);
+  const pool=filtered(type,filter,count).filter(w=>w[qField]&&otherFields.some(f=>w[f]));
+  if(pool.length<2)return null;
+  const now=Date.now(),pp=pr(type);
+  const dueP=shuffle(pool.filter(w=>dueOf(pp,w.id)<=now));
+  const restP=shuffle(pool.filter(w=>dueOf(pp,w.id)>now));
+  const qw=[...dueP,...restP][0];
+  if(!qw)return null;
+  const groups=[];
+  for(const f of otherFields){
+    const correct=qw[f];if(!correct)continue;
+    const seen=new Set([correct]);const distractors=[];
+    for(const w of shuffle(all)){
+      if(w.id===qw.id||!w[f]||seen.has(w[f]))continue;
+      seen.add(w[f]);distractors.push(w[f]);
+      if(distractors.length>=3)break;
+    }
+    if(distractors.length<3)continue;
+    const options=shuffle([correct,...distractors]);
+    groups.push({field:f,correct:options.indexOf(correct),options});
+  }
+  if(groups.length<2)return null;
+  return{match:true,word:qw,qField,groups,picks:{}};
+}
+function nextQuizQ(){return S.quizCfg.mode==='match'?buildMatchQ():buildQuizQ();}
 function checkAns(user,correct){
   const n=s=>s.trim().toLowerCase().replace(/\s+/g,' ');
   const u=n(user);if(!u)return false;
@@ -734,7 +765,7 @@ const TABS=[
 function nav(){
   return`<nav class="bnav">${TABS.map(t=>`
     <button class="bnav-btn${S.tab===t.id?' active':''}" data-a="tab:${t.id}">
-      <span class="bnav-icon">${ICONS[t.icon]}</span>
+      <span class="bnav-icon">${t.icon==='home'?`<img src="top_icon.png" alt="" style="width:100%;height:100%;object-fit:contain;display:block;${S.tab===t.id?'':'opacity:.55;filter:grayscale(.6)'}">`:ICONS[t.icon]}</span>
       <span>${t.lbl}</span>
     </button>`).join('')}</nav>`;
 }
@@ -746,7 +777,6 @@ function buildHome(){
   const learning=d.filter(w=>statusOf(p,w.id)==='learning').length,unk=total-know-learning;
   const pct=total?Math.round(know/total*100):0;
   return`
-    <div class="phdr"><div class="top-icon"><img src="top_icon.png" alt=""></div><span class="phdr-title">日本語</span><span style="font-size:10px;color:var(--t2);align-self:flex-end;padding-bottom:4px">v7</span></div>
     <div class="hero-icon"><img src="main_icon.png" alt=""></div>
     <div class="ttabs">
       <button class="ttab${type==='words'?' on':''}" data-a="home-tab:words">Слова</button>
@@ -815,11 +845,15 @@ function buildQuizCfg(){
   const filterOpts=[{v:'all',l:'Все'},{v:'unknown',l:'Не знаю'},{v:'learning',l:'Учу'},{v:'know',l:'Знаю'}];
   const counts=[{v:'50',l:'50'},{v:'100',l:'100'},{v:'150',l:'150'},{v:'all',l:'Все'}];
   const modes=[{v:'choice4',l:'4 варианта'},{v:'choice6',l:'6 вариантов'},{v:'input',l:'Вписать'},{v:'mix',l:'Микс'}];
+  if(type==='kanji')modes.push({v:'match',l:'Все три'});
+  if(S.quizCfg.mode==='match'&&type!=='kanji')S.quizCfg.mode='choice6';
+  const isMatch=S.quizCfg.mode==='match';
+  const qLabel=isMatch?'Что в вопросе (одно)':'Что в вопросе (несколько)';
   return`
     ${cfgCard('Что тренируем',chips([{v:'words',l:'Слова'},{v:'kanji',l:'Кандзи'}],type,'quiz-type'))}
     ${cfgCard('Режим ответа',chips(modes,S.quizCfg.mode,'quiz-mode'))}
-    ${cfgCard('Что в вопросе (несколько)',`<div class="chips" id="chips-q">${flds.map(k=>`<button class="chip${S.quizCfg.question.includes(k)?' on':''}" data-qfield="${k}">${fldShort(k,type)}</button>`).join('')}</div>`)}
-    ${cfgCard('Что отгадываем (одно)',`<div class="chips">${flds.map(k=>`<button class="chip${S.quizCfg.answer===k?' on':''}" data-a="quiz-afield:${k}">${fldShort(k,type)}</button>`).join('')}</div>`)}
+    ${cfgCard(qLabel,`<div class="chips" id="chips-q">${flds.map(k=>`<button class="chip${S.quizCfg.question.includes(k)?' on':''}" data-qfield="${k}">${fldShort(k,type)}</button>`).join('')}</div>`)}
+    ${isMatch?'':cfgCard('Что отгадываем (одно)',`<div class="chips">${flds.map(k=>`<button class="chip${S.quizCfg.answer===k?' on':''}" data-a="quiz-afield:${k}">${fldShort(k,type)}</button>`).join('')}</div>`)}
     <div class="cfg-row">
       ${cfgCard('Фильтр',chips(filterOpts,S.quizCfg.filter,'quiz-filter'))}
       ${cfgCard('Количество',chips(counts,S.quizCfg.count,'quiz-count'))}
@@ -896,6 +930,7 @@ function buildStudyDone(){
 function buildQuizActive(){
   const q=S.quizQ;if(!q)return'';
   const{ok,bad}=S.quizScore;
+  if(q.match)return buildMatchActive(q);
   const mode=S.quizCfg.mode;
   const showChoice=mode==='choice4'||mode==='choice6'||(mode==='mix'&&!q.mixInput);
   const showInput=mode==='input'||(mode==='mix'&&q.mixInput);
@@ -961,6 +996,37 @@ function buildQuizActive(){
     :(showInput?`<button class="next-btn" data-a="quiz-check">Проверить</button>`:'');
 
   return`<div class="pg">${scoreBar}${qCard}${choiceHtml}${inputHtml}${actions}${nextBtn}</div>`;
+}
+function buildMatchActive(q){
+  const{ok,bad}=S.quizScore;
+  const scoreBar=`<div class="qscore">
+    <div class="qbadge qbad"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 1l10 8M11 1L1 9" stroke="#ff4f4f" stroke-width="1.8" stroke-linecap="round"/></svg>${bad}</div>
+    <div class="qbadge qok"><svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5l4 4L13 1" stroke="#7aff78" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>${ok}</div>
+    <div class="qbadge">итого ${ok+bad}</div>
+  </div>`;
+  const qCard=`<div class="quiz-q">${buildCardVariant(q.word,[q.qField],S.quizCfg.type)}</div>`;
+  const groupsHtml=q.groups.map((g,gi)=>{
+    const picked=q.picks[gi];
+    const opts=g.options.map((opt,oi)=>{
+      let cls='';
+      if(picked!=null){
+        if(oi===g.correct)cls='ok';
+        else if(oi===picked)cls='bad';
+      }
+      const dis=picked!=null?'disabled':'';
+      return`<button class="qopt ${cls}" ${dis} data-a="match-pick:${gi}:${oi}">${esc(opt)}</button>`;
+    }).join('');
+    return`<div class="quiz-panel">
+      <div class="quiz-panel-lbl">${fldShort(g.field,'kanji')}:</div>
+      <div class="quiz-opts">${opts}</div>
+    </div>`;
+  }).join('');
+  const actions=`<div class="quiz-actions">
+    <button class="qact-btn" data-a="stop-quiz">Стоп</button>
+    <button class="qact-btn" data-a="skip-q">Пропустить</button>
+  </div>`;
+  const nextBtn=S.quizDone?`<button class="next-btn" data-a="next-q">Следующий →</button>`:'';
+  return`<div class="pg">${scoreBar}${qCard}${groupsHtml}${actions}${nextBtn}</div>`;
 }
 
 /* ── WORDS ── */
@@ -1242,15 +1308,18 @@ function act(action){
       S.quizCfg.type=val;
       S.quizCfg.question=val==='kanji'?['kanji']:['kanji'];
       S.quizCfg.answer=val==='kanji'?'on_reading':'reading';break;
-    case'quiz-mode':S.quizCfg.mode=val;break;
+    case'quiz-mode':
+      S.quizCfg.mode=val;
+      if(val==='match'&&S.quizCfg.question.length>1)S.quizCfg.question=[S.quizCfg.question[0]];
+      break;
     case'quiz-afield':S.quizCfg.answer=val;break;
     case'quiz-filter':S.quizCfg.filter=val;break;
     case'quiz-count':S.quizCfg.count=val;break;
     case'start-quiz':{
       const af=S.quizCfg.answer;
       const d=ds(S.quizCfg.type);
-      if(!d.some(w=>w[af])){toast(`Поле "${fldShort(af,S.quizCfg.type)}" пустое во всех записях`);break;}
-      S.quizScore={ok:0,bad:0};S.quizQ=buildQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
+      if(S.quizCfg.mode!=='match'&&!d.some(w=>w[af])){toast(`Поле "${fldShort(af,S.quizCfg.type)}" пустое во всех записях`);break;}
+      S.quizScore={ok:0,bad:0};S.quizQ=nextQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
       if(!S.quizQ)toast('Недостаточно данных (нужно ≥4 с заполненными полями)');
       break;}
     case'quiz-check':{
@@ -1265,6 +1334,23 @@ function act(action){
         save();
       }
       break;}
+    case'match-pick':{
+      if(!S.quizQ||!S.quizQ.match||S.quizDone)break;
+      const[gs,os]=val.split(':');const gi=+gs,oi=+os;
+      const q=S.quizQ;if(q.picks[gi]!=null)break;
+      q.picks[gi]=oi;
+      const correct=oi===q.groups[gi].correct;
+      haptic(correct?'light':'medium');
+      if(Object.keys(q.picks).length>=q.groups.length){
+        let wrong=0;
+        q.groups.forEach((g,i)=>{if(q.picks[i]!==g.correct)wrong++;});
+        const quality=wrong===0?5:wrong===1?3:1;
+        const w=q.word,p=pr(S.quizCfg.type);
+        smUpdate(p,w.id,quality);
+        if(wrong===0)S.quizScore.ok++;else S.quizScore.bad++;
+        S.quizDone=true;save();
+      }
+      break;}
     case'quiz-ans':{
       if(!S.quizDone&&S.quizQ){
         const idx=parseInt(val);S.quizSel=idx;S.quizDone=true;
@@ -1277,11 +1363,11 @@ function act(action){
       }
       break;}
     case'next-q':
-      S.quizQ=buildQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
+      S.quizQ=nextQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
       if(!S.quizQ)toast('Нет вопросов — проверьте фильтр');break;
     case'skip-q':
       // Пропуск без оценки — просто следующий вопрос
-      S.quizQ=buildQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
+      S.quizQ=nextQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
       if(!S.quizQ)toast('Нет вопросов — проверьте фильтр');break;
     case'stop-quiz':
       S.quizQ=null;S.quizDone=false;S.quizInputVal='';
@@ -1355,7 +1441,9 @@ function bindAll(){
   const cq=document.getElementById('chips-q');
   if(cq)cq.addEventListener('click',e=>{
     const chip=e.target.closest('[data-qfield]');if(!chip)return;
-    const f=chip.dataset.qfield,i=S.quizCfg.question.indexOf(f);
+    const f=chip.dataset.qfield;
+    if(S.quizCfg.mode==='match'){S.quizCfg.question=[f];render();return;}
+    const i=S.quizCfg.question.indexOf(f);
     if(i>=0){if(S.quizCfg.question.length>1)S.quizCfg.question=S.quizCfg.question.filter(x=>x!==f);}
     else S.quizCfg.question=[...S.quizCfg.question,f];
     chip.classList.toggle('on',S.quizCfg.question.includes(f));
