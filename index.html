@@ -1232,10 +1232,13 @@ function act(action){
     case'quiz-afield':S.quizCfg.answer=val;break;
     case'quiz-filter':S.quizCfg.filter=val;break;
     case'quiz-count':S.quizCfg.count=val;break;
-    case'start-quiz':
-      S.quizCfg.answer=bestAF(S.quizCfg.answer);
+    case'start-quiz':{
+      const af=S.quizCfg.answer;
+      const d=ds(S.quizCfg.type);
+      if(!d.some(w=>w[af])){toast(`Поле "${FIELDS[af]?.short||af}" пустое во всех записях`);break;}
       S.quizScore={ok:0,bad:0};S.quizQ=buildQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
-      if(!S.quizQ)toast('Недостаточно данных (нужно ≥4 с заполненными полями)');break;
+      if(!S.quizQ)toast('Недостаточно данных (нужно ≥4 с заполненными полями)');
+      break;}
     case'quiz-check':{
       if(!S.quizDone&&S.quizQ){
         const inp=document.getElementById('quiz-input');
