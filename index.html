@@ -628,7 +628,7 @@ function buildMatchQ(){
   const restP=shuffle(pool.filter(w=>dueOf(pp,w.id)>now));
   const qw=[...dueP,...restP][0];
   if(!qw)return null;
-  const groups=[];
+  const opts=[];let need=0;
   for(const f of otherFields){
     const correct=qw[f];if(!correct)continue;
     const seen=new Set([correct]);const distractors=[];
@@ -638,11 +638,12 @@ function buildMatchQ(){
       if(distractors.length>=3)break;
     }
     if(distractors.length<3)continue;
-    const options=shuffle([correct,...distractors]);
-    groups.push({field:f,correct:options.indexOf(correct),options});
+    opts.push({value:correct,field:f,correct:true});
+    distractors.forEach(v=>opts.push({value:v,field:f,correct:false}));
+    need++;
   }
-  if(groups.length<2)return null;
-  return{match:true,word:qw,qField,groups,picks:{}};
+  if(need<2)return null;
+  return{match:true,word:qw,qField,options:shuffle(opts),picks:[],need};
 }
 function nextQuizQ(){return S.quizCfg.mode==='match'?buildMatchQ():buildQuizQ();}
 function checkAns(user,correct){
@@ -664,8 +665,17 @@ function sessionEnd(){
 }
 
 /* ── Card Variant Builder (Figma 31:112 / 33:235) ── */
-function cvReadRow(label,value){
-  return`<div class="cv-rread"><div class="cv-rl">${label}:</div><div class="cv-rv">${esc(value)}</div></div>`;
+function renderKun(s){
+  if(!s)return'';
+  const tokens=String(s).split(/[、・,]/).map(t=>t.trim()).filter(Boolean);
+  return tokens.map(t=>{
+    const i=t.indexOf('.');
+    if(i<0)return esc(t);
+    return esc(t.slice(0,i))+`<span style="color:#636363">${esc(t.slice(i+1))}</span>`;
+  }).join(', ');
+}
+function cvReadRow(label,value,raw){
+  return`<div class="cv-rread"><div class="cv-rl">${label}:</div><div class="cv-rv">${raw?value:esc(value)}</div></div>`;
 }
 function cvMeaningsBlock(word,showFields){
   const has=f=>showFields.includes(f)&&word[f];
@@ -691,7 +701,7 @@ function buildCardVariant(word,showFields,dataType){
       onR=onR||sp.on_reading;kunR=kunR||sp.kun_reading;
     }
     if(showFields.includes('on_reading')&&onR)reads.push(cvReadRow('on',onR));
-    if(showFields.includes('kun_reading')&&kunR)reads.push(cvReadRow('kun',kunR));
+    if(showFields.includes('kun_reading')&&kunR)reads.push(cvReadRow('kun',renderKun(kunR),true));
   }else{
     if(has('reading'))reads.push(cvReadRow('kana',word.reading));
   }
@@ -724,7 +734,7 @@ function buildCardFront(word,frontField,dataType){
     return`<div class="fc-lbl">on</div><div class="cv-kana-lg">${esc(val)}</div>`;
   }
   if(frontField==='kun_reading'){
-    return`<div class="fc-lbl">kun</div><div class="cv-kana-lg">${esc(val)}</div>`;
+    return`<div class="fc-lbl">kun</div><div class="cv-kana-lg">${renderKun(val)}</div>`;
   }
   if(frontField==='reading'){
     return`<div class="cv-kana-lg">${esc(val)}</div>`;
@@ -1005,28 +1015,23 @@ function buildMatchActive(q){
     <div class="qbadge">итого ${ok+bad}</div>
   </div>`;
   const qCard=`<div class="quiz-q">${buildCardVariant(q.word,[q.qField],S.quizCfg.type)}</div>`;
-  const groupsHtml=q.groups.map((g,gi)=>{
-    const picked=q.picks[gi];
-    const opts=g.options.map((opt,oi)=>{
-      let cls='';
-      if(picked!=null){
-        if(oi===g.correct)cls='ok';
-        else if(oi===picked)cls='bad';
-      }
-      const dis=picked!=null?'disabled':'';
-      return`<button class="qopt ${cls}" ${dis} data-a="match-pick:${gi}:${oi}">${esc(opt)}</button>`;
-    }).join('');
-    return`<div class="quiz-panel">
-      <div class="quiz-panel-lbl">${fldShort(g.field,'kanji')}:</div>
-      <div class="quiz-opts">${opts}</div>
-    </div>`;
+  const picks=q.picks||[];
+  const optsHtml=q.options.map((o,i)=>{
+    const picked=picks.includes(i);
+    let cls='';
+    if(picked)cls=o.correct?'ok':'bad';
+    const dis=picked||S.quizDone?'disabled':'';
+    const txt=o.field==='kun_reading'?renderKun(o.value):esc(o.value);
+    return`<button class="qopt ${cls}" ${dis} data-a="match-pick:${i}">${txt}</button>`;
   }).join('');
+  const lbl=`Выберите ${q.need} правильных (${picks.length}/${q.need})`;
+  const panel=`<div class="quiz-panel"><div class="quiz-panel-lbl">${lbl}</div><div class="quiz-opts">${optsHtml}</div></div>`;
   const actions=`<div class="quiz-actions">
     <button class="qact-btn" data-a="stop-quiz">Стоп</button>
     <button class="qact-btn" data-a="skip-q">Пропустить</button>
   </div>`;
   const nextBtn=S.quizDone?`<button class="next-btn" data-a="next-q">Следующий →</button>`:'';
-  return`<div class="pg">${scoreBar}${qCard}${groupsHtml}${actions}${nextBtn}</div>`;
+  return`<div class="pg">${scoreBar}${qCard}${panel}${actions}${nextBtn}</div>`;
 }
 
 /* ── WORDS ── */
@@ -1336,14 +1341,12 @@ function act(action){
       break;}
     case'match-pick':{
       if(!S.quizQ||!S.quizQ.match||S.quizDone)break;
-      const[gs,os]=val.split(':');const gi=+gs,oi=+os;
-      const q=S.quizQ;if(q.picks[gi]!=null)break;
-      q.picks[gi]=oi;
-      const correct=oi===q.groups[gi].correct;
-      haptic(correct?'light':'medium');
-      if(Object.keys(q.picks).length>=q.groups.length){
-        let wrong=0;
-        q.groups.forEach((g,i)=>{if(q.picks[i]!==g.correct)wrong++;});
+      const i=+val;const q=S.quizQ;
+      if(q.picks.includes(i))break;
+      q.picks.push(i);
+      haptic(q.options[i].correct?'light':'medium');
+      if(q.picks.length>=q.need){
+        const wrong=q.picks.filter(p=>!q.options[p].correct).length;
         const quality=wrong===0?5:wrong===1?3:1;
         const w=q.word,p=pr(S.quizCfg.type);
         smUpdate(p,w.id,quality);
