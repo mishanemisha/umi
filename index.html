@@ -973,7 +973,8 @@ function buildQuizActive(){
         let cls='';
         if(S.quizDone)cls=i===q.correct?'ok':i===S.quizSel?'bad':'';
         else if(i===S.quizSel)cls='sel';
-        return`<button class="qopt ${cls}" ${S.quizDone?'disabled':''} data-a="quiz-ans:${i}">${esc(opt)}</button>`;
+        const txt=q.aField==='kun_reading'?renderKun(opt):esc(opt);
+        return`<button class="qopt ${cls}" ${S.quizDone?'disabled':''} data-a="quiz-ans:${i}">${txt}</button>`;
       }).join('')}
       </div>
     </div>`;
@@ -991,7 +992,7 @@ function buildQuizActive(){
           value="${S.quizDone?esc(S.quizInputVal):''}"
           ${S.quizDone?'disabled':''}
           autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-        ${S.quizDone?`<div class="quiz-result ${isOk?'ok':'bad'}">${isOk?'✓ Правильно!':'✗ Правильно: '+esc(q.options[q.correct])}</div>`:''}
+        ${S.quizDone?`<div class="quiz-result ${isOk?'ok':'bad'}">${isOk?'✓ Правильно!':'✗ Правильно: '+(q.aField==='kun_reading'?renderKun(q.options[q.correct]):esc(q.options[q.correct]))}</div>`:''}
       </div>`;
   }
 
