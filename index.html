@@ -1020,7 +1020,12 @@ function buildMatchActive(q){
   const optsHtml=q.options.map((o,i)=>{
     const picked=picks.includes(i);
     let cls='';
-    if(picked)cls=o.correct?'ok':'bad';
+    if(S.quizDone){
+      if(o.correct)cls='ok';
+      else if(picked)cls='bad';
+    } else if(picked){
+      cls=o.correct?'ok':'bad';
+    }
     const dis=picked||S.quizDone?'disabled':'';
     const txt=o.field==='kun_reading'?renderKun(o.value):esc(o.value);
     return`<button class="qopt ${cls}" ${dis} data-a="match-pick:${i}">${txt}</button>`;
