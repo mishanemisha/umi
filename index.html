@@ -181,8 +181,8 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 /* ─── Quiz options panel (Figma: card wrap + label) ─── */
 .quiz-panel{background:var(--c);border-radius:16px;padding:8px;margin:0 16px 12px;display:flex;flex-direction:column;gap:16px;align-items:center}
 .quiz-panel-lbl{font-size:12px;color:var(--al);text-align:center}
-.quiz-opts{display:grid;grid-template-columns:1fr 1fr;gap:4px;width:100%}
-.qopt{background:var(--c);border:1px solid var(--a);color:var(--t);border-radius:4px;padding:16px 12px;font-size:16px;cursor:pointer;text-align:center;line-height:1.2;word-break:break-word;min-height:54px;display:flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s}
+.quiz-opts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px;width:100%}
+.qopt{background:var(--c);border:1px solid var(--a);color:var(--t);border-radius:4px;padding:8px 6px;font-size:16px;cursor:pointer;text-align:center;line-height:1.2;overflow-wrap:anywhere;min-width:0;min-height:54px;display:flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s}
 .qopt.sel{background:var(--a);color:#fff}
 .qopt.ok{background:rgba(122,255,120,.18);border-color:var(--g);color:var(--g)}
 .qopt.bad{background:rgba(255,60,60,.18);border-color:var(--r);color:var(--r)}
@@ -670,8 +670,8 @@ function renderKun(s){
   const tokens=String(s).split(/[、・,]/).map(t=>t.trim()).filter(Boolean);
   return tokens.map(t=>{
     const i=t.indexOf('.');
-    if(i<0)return esc(t);
-    return esc(t.slice(0,i))+`<span style="color:#636363">${esc(t.slice(i+1))}</span>`;
+    const inner=i<0?esc(t):esc(t.slice(0,i))+`<span style="color:#636363">${esc(t.slice(i+1))}</span>`;
+    return`<span style="display:inline-block;white-space:nowrap">${inner}</span>`;
   }).join(', ');
 }
 function cvReadRow(label,value,raw){
@@ -1017,16 +1017,22 @@ function buildMatchActive(q){
   </div>`;
   const qCard=`<div class="quiz-q">${buildCardVariant(q.word,[q.qField],S.quizCfg.type)}</div>`;
   const picks=q.picks||[];
+  const revealed=q.revealed||[];
+  const fStatus=q.fieldStatus||{};
   const optsHtml=q.options.map((o,i)=>{
     const picked=picks.includes(i);
+    const isRevealed=revealed.includes(i);
     let cls='';
     if(S.quizDone){
       if(o.correct)cls='ok';
       else if(picked)cls='bad';
     } else if(picked){
       cls=o.correct?'ok':'bad';
+    } else if(isRevealed){
+      cls='ok';
     }
-    const dis=picked||S.quizDone?'disabled':'';
+    const lockedField=fStatus[o.field]&&!picked&&!isRevealed;
+    const dis=picked||isRevealed||lockedField||S.quizDone?'disabled':'';
     const txt=o.field==='kun_reading'?renderKun(o.value):esc(o.value);
     return`<button class="qopt ${cls}" ${dis} data-a="match-pick:${i}">${txt}</button>`;
   }).join('');
@@ -1347,12 +1353,19 @@ function act(action){
       break;}
     case'match-pick':{
       if(!S.quizQ||!S.quizQ.match||S.quizDone)break;
-      const i=+val;const q=S.quizQ;
-      if(q.picks.includes(i))break;
+      const i=+val;const q=S.quizQ;const o=q.options[i];
+      q.fieldStatus=q.fieldStatus||{};
+      q.revealed=q.revealed||[];
+      if(q.fieldStatus[o.field]||q.picks.includes(i))break;
       q.picks.push(i);
-      haptic(q.options[i].correct?'light':'medium');
-      if(q.picks.length>=q.need){
-        const wrong=q.picks.filter(p=>!q.options[p].correct).length;
+      q.fieldStatus[o.field]=o.correct?'right':'wrong';
+      if(!o.correct){
+        const ci=q.options.findIndex(x=>x.field===o.field&&x.correct);
+        if(ci>=0&&!q.revealed.includes(ci))q.revealed.push(ci);
+      }
+      haptic(o.correct?'light':'medium');
+      if(Object.keys(q.fieldStatus).length>=q.need){
+        const wrong=Object.values(q.fieldStatus).filter(s=>s==='wrong').length;
         const quality=wrong===0?5:wrong===1?3:1;
         const w=q.word,p=pr(S.quizCfg.type);
         smUpdate(p,w.id,quality);
