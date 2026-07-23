@@ -208,6 +208,53 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 .next-btn{margin:0 16px 10px;background:var(--a);border:none;color:#fff;border-radius:16px;padding:10px;font-size:13px;font-weight:500;width:calc(100% - 32px);cursor:pointer;transition:opacity .15s}
 .next-btn:active{opacity:.8}
 
+/* ─── Big kanji option (compose / pairs) ─── */
+.qopt.kanji{font-size:24px;font-weight:400;min-height:47px}
+.qopt.kanji .qopt-on{font-size:11px;color:var(--a);margin-left:5px}
+/* Card border feedback (canvas result) */
+.quiz-q.ok{border:2px solid var(--g)}
+.quiz-q.bad{border:2px solid var(--r)}
+
+/* ─── Kanji hints (Figma: Подсказка_квиз_кандзи) ─── */
+.hint-btn{display:flex;align-items:center;justify-content:center;width:calc(100% - 32px);margin:0 16px 12px;height:47px;background:var(--c);border:1px solid var(--a);color:var(--t);border-radius:16px;font-size:14px;cursor:pointer;transition:opacity .15s}
+.hint-btn:active{opacity:.7}
+.hint-row{display:flex;flex-wrap:wrap;gap:8px;margin:0 16px 12px}
+.hint-chip{flex:1 1 calc(50% - 4px);min-width:0;min-height:47px;background:var(--c);border:1px solid var(--a);border-radius:16px;padding:6px 10px;display:flex;align-items:center;justify-content:center;gap:8px;overflow:hidden}
+.hint-word{font-size:18px;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hint-read{font-size:11px;color:var(--t2);white-space:nowrap;flex-shrink:0}
+.hint-read b{color:var(--a);font-weight:400}
+.hint-empty{flex:1 1 100%;text-align:center;font-size:12px;color:var(--t2);padding:8px}
+
+/* ─── Compose word mode (Figma: Составить слова) ─── */
+.cmp-canvas{width:100%;display:flex;flex-direction:column;align-items:center;gap:16px}
+.cmp-build{display:flex;gap:8px;justify-content:center;align-items:center;min-height:66px;flex-wrap:wrap}
+.cmp-ch{font-size:56px;line-height:1;color:var(--t)}
+.cmp-slot{width:44px;height:60px;border-bottom:2px solid var(--c2);display:inline-block}
+.cmp-line{font-size:14px;color:var(--t);text-align:center}
+.cmp-line .lbl{color:var(--t)}
+.cmp-line .val{color:var(--a)}
+.cmp-correct{font-size:15px;color:var(--g);text-align:center}
+.cmp-correct span{font-size:22px;color:var(--g);margin-left:4px}
+.cmp-switch{display:flex;gap:8px;margin:0 16px 12px}
+.cmp-sw{flex:1;height:47px;border:1px solid var(--a);background:var(--c);color:var(--t);border-radius:16px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s}
+.cmp-sw.on{background:var(--a);color:#fff}
+.cmp-sw:active{opacity:.8}
+.cmp-arrow{font-size:15px;line-height:1}
+
+/* ─── Choose pair mode (Figma: Выбери пару) ─── */
+.pair-count{display:flex;justify-content:center;margin:0 16px 12px}
+.pair-count-pill{min-width:47px;height:24px;padding:2px 16px;border-radius:16px;background:var(--a);color:#fff;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.pair-canvas{width:100%;display:flex;flex-direction:column;align-items:center;gap:18px}
+.pair-slots{display:flex;justify-content:center;align-items:flex-start;gap:52px}
+.pair-slot{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:80px}
+.pair-slot .pk{font-size:52px;line-height:1;color:var(--t)}
+.pair-slot .pm{font-size:12px;color:var(--t)}
+.pair-slot .pm b{color:var(--a);font-weight:400}
+.pair-on{font-size:12px;color:var(--t);text-align:center;line-height:1.4}
+.pair-on .lbl{color:var(--t)}
+.pair-on .val{color:var(--a);font-size:20px}
+.pair-hint{font-size:13px;color:var(--t2);text-align:center;padding:0 20px;line-height:1.5}
+
 /* ─── Words list ─── */
 .wfilter{display:flex;gap:6px;padding:0 16px 10px;align-items:center}
 .wf-tab{padding:8px 18px;border-radius:300px;border:none;font-size:14px;background:var(--c);color:var(--t);cursor:pointer}
@@ -319,6 +366,9 @@ const KF=['kanji','on_reading','kun_reading','meaning'];
 function fldShort(k,type){if(k==='kanji'&&type==='words')return'Слово';return FIELDS[k]?.short||k;}
 function fldLabel(k,type){if(k==='kanji'&&type==='words')return'Слово';return FIELDS[k]?.label||k;}
 
+/* ── Встроенный банк слов N5/N4 (мэтчится с загруженным словарём кандзи) ── */
+const BUILTIN_WORDS=[{"w":"北口","r":"きたぐち","m":"северный выход"},{"w":"南口","r":"みなみぐち","m":"южный выход"},{"w":"東口","r":"ひがしぐち","m":"восточный выход"},{"w":"西口","r":"にしぐち","m":"западный выход"},{"w":"入口","r":"いりぐち","m":"вход"},{"w":"出口","r":"でぐち","m":"выход"},{"w":"右手","r":"みぎて","m":"правая рука; справа"},{"w":"左手","r":"ひだりて","m":"левая рука; слева"},{"w":"上下","r":"じょうげ","m":"верх и низ"},{"w":"左右","r":"さゆう","m":"лево и право; влияние"},{"w":"前後","r":"ぜんご","m":"до и после; примерно"},{"w":"外出","r":"がいしゅつ","m":"выход из дома"},{"w":"海外","r":"かいがい","m":"заграница"},{"w":"町中","r":"まちなか","m":"центр города; по всему городу"},{"w":"山道","r":"やまみち","m":"горная дорога"},{"w":"明日","r":"あした","m":"завтра"},{"w":"先週","r":"せんしゅう","m":"прошлая неделя"},{"w":"来週","r":"らいしゅう","m":"следующая неделя"},{"w":"先月","r":"せんげつ","m":"прошлый месяц"},{"w":"来月","r":"らいげつ","m":"следующий месяц"},{"w":"来年","r":"らいねん","m":"следующий год"},{"w":"午前","r":"ごぜん","m":"до полудня; AM"},{"w":"午後","r":"ごご","m":"после полудня; PM"},{"w":"夕方","r":"ゆうがた","m":"вечер, ближе к закату"},{"w":"夜中","r":"よなか","m":"середина ночи"},{"w":"大人","r":"おとな","m":"взрослый"},{"w":"友人","r":"ゆうじん","m":"друг, знакомый"},{"w":"父母","r":"ふぼ","m":"отец и мать; родители"},{"w":"学生","r":"がくせい","m":"студент, учащийся"},{"w":"先生","r":"せんせい","m":"учитель; специалист"},{"w":"大学","r":"だいがく","m":"университет"},{"w":"大学生","r":"だいがくせい","m":"студент университета"},{"w":"学校","r":"がっこう","m":"школа"},{"w":"小学校","r":"しょうがっこう","m":"начальная школа"},{"w":"中学校","r":"ちゅうがっこう","m":"средняя школа"},{"w":"高校","r":"こうこう","m":"старшая школа"},{"w":"高校生","r":"こうこうせい","m":"старшеклассник"},{"w":"入学","r":"にゅうがく","m":"поступление в учебное заведение"},{"w":"見学","r":"けんがく","m":"учебная экскурсия; осмотр"},{"w":"学年","r":"がくねん","m":"учебный год; класс"},{"w":"学生会","r":"がくせいかい","m":"студенческий совет"},{"w":"校長","r":"こうちょう","m":"директор школы"},{"w":"会話","r":"かいわ","m":"разговор; диалог"},{"w":"電話","r":"でんわ","m":"телефон; телефонный звонок"},{"w":"読書","r":"どくしょ","m":"чтение книг"},{"w":"勉強","r":"べんきょう","m":"учёба; заниматься"},{"w":"知人","r":"ちじん","m":"знакомый"},{"w":"名前","r":"なまえ","m":"имя"},{"w":"電車","r":"でんしゃ","m":"электричка; поезд"},{"w":"駅前","r":"えきまえ","m":"перед станцией"},{"w":"会社","r":"かいしゃ","m":"компания"},{"w":"社会","r":"しゃかい","m":"общество"},{"w":"社長","r":"しゃちょう","m":"президент компании; директор"},{"w":"書店","r":"しょてん","m":"книжный магазин"},{"w":"売店","r":"ばいてん","m":"киоск; торговая точка"},{"w":"市場","r":"いちば","m":"рынок"},{"w":"市長","r":"しちょう","m":"мэр"},{"w":"町長","r":"ちょうちょう","m":"глава города или посёлка"},{"w":"村長","r":"そんちょう","m":"глава деревни"},{"w":"銀行","r":"ぎんこう","m":"банк"},{"w":"病院","r":"びょういん","m":"больница"},{"w":"入院","r":"にゅういん","m":"госпитализация"},{"w":"外食","r":"がいしょく","m":"есть вне дома"},{"w":"朝食","r":"ちょうしょく","m":"завтрак"},{"w":"昼食","r":"ちゅうしょく","m":"обед"},{"w":"夕食","r":"ゆうしょく","m":"ужин"},{"w":"飲食","r":"いんしょく","m":"еда и напитки"},{"w":"入場","r":"にゅうじょう","m":"вход; допуск"},{"w":"出場","r":"しゅつじょう","m":"участие; выход на сцену или поле"},{"w":"立入","r":"たちいり","m":"вход; проникновение"},{"w":"切手","r":"きって","m":"почтовая марка"},{"w":"大切","r":"たいせつ","m":"важный; бережно"},{"w":"元気","r":"げんき","m":"здоровый; бодрый"},{"w":"病気","r":"びょうき","m":"болезнь; больной"},{"w":"天気","r":"てんき","m":"погода"},{"w":"人気","r":"にんき","m":"популярность"},{"w":"気分","r":"きぶん","m":"самочувствие; настроение"},{"w":"安心","r":"あんしん","m":"спокойствие; облегчение"},{"w":"上手","r":"じょうず","m":"умелый"},{"w":"下手","r":"へた","m":"неумелый"},{"w":"新年","r":"しんねん","m":"Новый год; новый год"},{"w":"多少","r":"たしょう","m":"в некоторой степени; количество"},{"w":"広場","r":"ひろば","m":"площадь; открытое пространство"},{"w":"早口","r":"はやくち","m":"быстрая речь"},{"w":"青空","r":"あおぞら","m":"голубое небо"},{"w":"夕日","r":"ゆうひ","m":"вечернее солнце; закат"},{"w":"朝日","r":"あさひ","m":"утреннее солнце; восход"},{"w":"花見","r":"はなみ","m":"любование цветущей сакурой"},{"w":"青色","r":"あおいろ","m":"синий цвет"},{"w":"赤色","r":"あかいろ","m":"красный цвет"},{"w":"白色","r":"はくしょく","m":"белый цвет"},{"w":"黒色","r":"こくしょく","m":"чёрный цвет"},{"w":"体力","r":"たいりょく","m":"физическая сила; выносливость"},{"w":"気力","r":"きりょく","m":"сила духа; энергия"},{"w":"手足","r":"てあし","m":"руки и ноги"},{"w":"口中","r":"こうちゅう","m":"во рту; полость рта"},{"w":"野鳥","r":"やちょう","m":"дикая птица"},{"w":"牛肉","r":"ぎゅうにく","m":"говядина"},{"w":"豚肉","r":"ぶたにく","m":"свинина"},{"w":"鳥肉","r":"とりにく","m":"мясо птицы"},{"w":"魚料理","r":"さかなりょうり","m":"рыбное блюдо"},{"w":"茶色","r":"ちゃいろ","m":"коричневый цвет"},{"w":"味見","r":"あじみ","m":"проба на вкус"},{"w":"料理","r":"りょうり","m":"блюдо; готовка"},{"w":"野菜","r":"やさい","m":"овощи"},{"w":"生野菜","r":"なまやさい","m":"сырые овощи"},{"w":"食品","r":"しょくひん","m":"пищевые продукты"},{"w":"朝飯","r":"あさめし","m":"завтрак (разговорное)"},{"w":"昼飯","r":"ひるめし","m":"обед (разговорное)"},{"w":"晩飯","r":"ばんめし","m":"ужин (разговорное)"},{"w":"春分","r":"しゅんぶん","m":"весеннее равноденствие"},{"w":"秋分","r":"しゅうぶん","m":"осеннее равноденствие"},{"w":"春夏","r":"しゅんか","m":"весна и лето"},{"w":"秋冬","r":"しゅうとう","m":"осень и зима"},{"w":"夏場","r":"なつば","m":"летний сезон"},{"w":"冬場","r":"ふゆば","m":"зимний сезон"},{"w":"年中","r":"ねんじゅう","m":"круглый год"},{"w":"人生","r":"じんせい","m":"жизнь человека"},{"w":"化学","r":"かがく","m":"химия"},{"w":"未来","r":"みらい","m":"будущее"},{"w":"神社","r":"じんじゃ","m":"синтоистский храм"}];
+
 /* ── State ── */
 const S={
   tab:'home', homeTab:'words', testsSubTab:'cards',
@@ -328,8 +378,9 @@ const S={
   wordsCsv:'', kanjiCsv:'',
   studyQueue:[], studyIdx:0, cardFlipped:false, studyResults:null,
   studyCfg:{type:'words',front:['kanji'],back:['reading','meaning'],filter:'all',count:'all',folders:[]},
-  quizCfg:{type:'words',mode:'choice6',question:['kanji'],answer:'reading',filter:'all',count:'all',folders:[]},
+  quizCfg:{type:'words',mode:'choice6',question:['kanji'],answer:'reading',filter:'all',count:'all',folders:[],composeShow:{reading:true,meaning:false}},
   quizQ:null, quizScore:{ok:0,bad:0}, quizDone:false, quizSel:-1, quizInputVal:'',
+  quizHint:false, cardHint:false,
   confirmPending:null,
   screen:'main', importType:'words', importStep:'type',
   importRaw:null, importMapping:[], importPreview:null, importErr:null,
@@ -349,6 +400,7 @@ function load(){
     if(typeof S.studyCfg.front==='string')S.studyCfg.front=[S.studyCfg.front];
     if(!Array.isArray(S.studyCfg.folders))S.studyCfg.folders=[];
     if(!Array.isArray(S.quizCfg.folders))S.quizCfg.folders=[];
+    if(!S.quizCfg.composeShow||typeof S.quizCfg.composeShow!=='object')S.quizCfg.composeShow={reading:true,meaning:false};
     // Папки: старые записи без папки → «Общая»
     S.words.forEach(w=>{if(!w.folder)w.folder='Общая';});
     S.kanjiItems.forEach(w=>{if(!w.folder)w.folder='Общая';});
@@ -673,7 +725,107 @@ function buildMatchQ(){
   if(need<2)return null;
   return{match:true,word:qw,qField,options:shuffle(opts),picks:[],need};
 }
-function nextQuizQ(){return S.quizCfg.mode==='match'?buildMatchQ():buildQuizQ();}
+/* ── Compose mode (Figma: Составить слова) ──
+ * Слово из 2–3 кандзи собирается из 6 иероглифов. */
+function isKanjiChar(c){const n=c.codePointAt(0);return(n>=0x4e00&&n<=0x9fff)||(n>=0x3400&&n<=0x4dbf)||(n>=0xf900&&n<=0xfaff);}
+function kanjiChars(str){return[...String(str||'')].filter(isKanjiChar);}
+
+/* ── Мэтчинг встроенного банка слов с загруженным словарём кандзи ── */
+function userKanjiSet(){
+  const s=new Set();
+  S.kanjiItems.forEach(k=>{const c=String(k.kanji||'');if([...c].length===1)s.add(c);});
+  return s;
+}
+// Слово подходит, если все его кандзи есть в загруженном словаре кандзи
+function wordMatchesKanji(word,ks){
+  const kc=kanjiChars(word);
+  return kc.length>0&&kc.every(c=>ks.has(c));
+}
+// Пример-слова для иероглифа: свои слова + встроенный банк (только по загруженным кандзи)
+function exampleWords(ch){
+  const ks=userKanjiSet(),out=[],seen=new Set();
+  S.words.forEach(w=>{const k=String(w.kanji||'');if(k&&k!==ch&&[...k].includes(ch)&&!seen.has(k)){seen.add(k);out.push({kanji:k,reading:w.reading||''});}});
+  BUILTIN_WORDS.forEach(bw=>{
+    if(seen.has(bw.w)||bw.w===ch||![...bw.w].includes(ch))return;
+    if(!wordMatchesKanji(bw.w,ks))return;
+    seen.add(bw.w);out.push({kanji:bw.w,reading:bw.r});
+  });
+  return out;
+}
+// Встроенные слова 2–3 кандзи, все кандзи которых загружены — источник для «Составить слова»
+function builtinComposeWords(){
+  const ks=userKanjiSet();
+  return BUILTIN_WORDS.filter(bw=>{
+    const ch=[...bw.w];
+    return ch.length>=2&&ch.length<=3&&ch.every(isKanjiChar)&&ch.every(c=>ks.has(c));
+  }).map(bw=>({id:'bw_'+bw.w,kanji:bw.w,reading:bw.r,meaning:bw.m,folder:'Общая',_builtin:true}));
+}
+function buildComposeQ(){
+  const{filter,count}=S.quizCfg;
+  // Режим в разделе «Кандзи»: свои слова берём без учёта выбранных папок кандзи
+  let pool=filtered('words',filter,count,[]).filter(w=>{
+    const ch=[...String(w.kanji||'')];
+    return ch.length>=2&&ch.length<=3&&ch.every(isKanjiChar)&&(w.reading||w.meaning);
+  });
+  // Встроенный банк слов (только по загруженным кандзи). Фильтры «знаю/учу» — по своим словам.
+  if(filter==='all'||filter==='unknown'){
+    const seen=new Set(pool.map(w=>w.kanji));
+    builtinComposeWords().forEach(bw=>{if(!seen.has(bw.kanji)){seen.add(bw.kanji);pool.push(bw);}});
+  }
+  if(!pool.length)return null;
+  const now=Date.now(),pp=pr('words');
+  const dueP=shuffle(pool.filter(w=>dueOf(pp,w.id)<=now));
+  const restP=shuffle(pool.filter(w=>dueOf(pp,w.id)>now));
+  const qw=[...dueP,...restP][0];
+  if(!qw)return null;
+  const target=[...qw.kanji];
+  // Дистракторы: одиночные кандзи из других слов и из списка кандзи
+  const bag=new Set();
+  ds('words').forEach(w=>{if(w.id===qw.id)return;kanjiChars(w.kanji).forEach(c=>{if(!target.includes(c))bag.add(c);});});
+  ds('kanji').forEach(w=>{const c=String(w.kanji||'');if([...c].length===1&&isKanjiChar(c)&&!target.includes(c))bag.add(c);});
+  const distract=shuffle([...bag]);
+  const need=Math.max(0,6-target.length);
+  const options=shuffle([...target,...distract.slice(0,need)]);
+  if(options.length<target.length+1)return null;
+  return{compose:true,word:qw,target,options,picks:[],result:null};
+}
+
+/* ── Pairs mode (Figma: Выбери пару) ──
+ * Пул из пар кандзи с одинаковым он-чтением. */
+function onKey(s){
+  const t=String(s||'').split(/[、・,\s]+/).filter(Boolean)[0]||'';
+  // хирагана → катакана, чтобы группировать одинаково
+  return[...t].map(c=>{const cc=c.charCodeAt(0);return(cc>=0x3041&&cc<=0x3096)?String.fromCharCode(cc+0x60):c;}).join('');
+}
+function buildPairsQ(){
+  const{filter,count}=S.quizCfg;
+  const pool=filtered('kanji',filter,count,S.quizCfg.folders).filter(w=>w.on_reading&&onKey(w.on_reading));
+  const groups={};
+  shuffle(pool).forEach(w=>{const k=onKey(w.on_reading);(groups[k]=groups[k]||[]).push(w);});
+  let pairs=Object.values(groups).filter(g=>g.length>=2).map(g=>shuffle(g).slice(0,2));
+  if(pairs.length<2)return null;
+  pairs=shuffle(pairs).slice(0,5);
+  const options=[];
+  pairs.forEach((g,pi)=>g.forEach(w=>options.push({
+    id:w.id,kanji:w.kanji,on:onKey(w.on_reading),onRaw:w.on_reading,
+    meaning:(String(w.meaning||'').split(/;/)[0]||'').trim(),pairId:pi,
+  })));
+  return{pairs:true,options:shuffle(options),total:pairs.length,found:[],firstPick:null,result:null,wrong:0};
+}
+
+function nextQuizQ(){
+  const m=S.quizCfg.mode;
+  if(m==='match')return buildMatchQ();
+  if(m==='compose')return buildComposeQ();
+  if(m==='pairs')return buildPairsQ();
+  return buildQuizQ();
+}
+function startQuizError(){
+  const m=S.quizCfg.mode;
+  if(m==='compose')return'Нужны слова из 2–3 кандзи (проверьте фильтр)';
+  if(m==='pairs')return'Нужно ≥2 пар кандзи с общим он-чтением';
+  return'Недостаточно данных (нужно ≥4 с заполненными полями)';
+}
 function checkAns(user,correct){
   const n=s=>s.trim().toLowerCase().replace(/\s+/g,' ');
   const u=n(user);if(!u)return false;
@@ -891,16 +1043,26 @@ function buildQuizCfg(){
   const filterOpts=[{v:'all',l:'Все'},{v:'unknown',l:'Не знаю'},{v:'learning',l:'Учу'},{v:'know',l:'Знаю'}];
   const counts=[{v:'50',l:'50'},{v:'100',l:'100'},{v:'150',l:'150'},{v:'all',l:'Все'}];
   const modes=[{v:'choice4',l:'4 варианта'},{v:'choice6',l:'6 вариантов'},{v:'input',l:'Вписать'},{v:'mix',l:'Микс'}];
-  if(type==='kanji')modes.push({v:'match',l:'Все три'});
-  if(S.quizCfg.mode==='match'&&type!=='kanji')S.quizCfg.mode='choice6';
-  const isMatch=S.quizCfg.mode==='match';
+  if(type==='kanji'){modes.push({v:'match',l:'Все три'});modes.push({v:'pairs',l:'Выбери пару'});modes.push({v:'compose',l:'Составить слова'});}
+  // match/pairs/compose — только для кандзи; сбросить при несовпадении типа
+  if(type!=='kanji'&&(S.quizCfg.mode==='match'||S.quizCfg.mode==='pairs'||S.quizCfg.mode==='compose'))S.quizCfg.mode='choice6';
+  const mode=S.quizCfg.mode;
+  const isMatch=mode==='match';
+  const noFields=mode==='pairs'||mode==='compose'; // свои поля не нужны
   const qLabel=isMatch?'Что в вопросе (одно)':'Что в вопросе (несколько)';
+  const composeCfg=mode==='compose'
+    ?cfgCard('Показывать на канвасе',`<div class="chips">
+        <button class="chip${S.quizCfg.composeShow.reading?' on':''}" data-a="compose-switch:reading">Кана</button>
+        <button class="chip${S.quizCfg.composeShow.meaning?' on':''}" data-a="compose-switch:meaning">Значение</button>
+      </div>`)
+    :'';
   return`
     ${cfgCard('Что тренируем',chips([{v:'words',l:'Слова'},{v:'kanji',l:'Кандзи'}],type,'quiz-type'))}
     ${foldersOf(type).length>1?cfgCard('Папки',folderChips(type,S.quizCfg.folders,'quiz-folder')):''}
-    ${cfgCard('Режим ответа',chips(modes,S.quizCfg.mode,'quiz-mode'))}
-    ${cfgCard(qLabel,`<div class="chips" id="chips-q">${flds.map(k=>`<button class="chip${S.quizCfg.question.includes(k)?' on':''}" data-qfield="${k}">${fldShort(k,type)}</button>`).join('')}</div>`)}
-    ${isMatch?'':cfgCard('Что отгадываем (одно)',`<div class="chips">${flds.map(k=>`<button class="chip${S.quizCfg.answer===k?' on':''}" data-a="quiz-afield:${k}">${fldShort(k,type)}</button>`).join('')}</div>`)}
+    ${cfgCard('Режим ответа',chips(modes,mode,'quiz-mode'))}
+    ${noFields?'':cfgCard(qLabel,`<div class="chips" id="chips-q">${flds.map(k=>`<button class="chip${S.quizCfg.question.includes(k)?' on':''}" data-qfield="${k}">${fldShort(k,type)}</button>`).join('')}</div>`)}
+    ${(isMatch||noFields)?'':cfgCard('Что отгадываем (одно)',`<div class="chips">${flds.map(k=>`<button class="chip${S.quizCfg.answer===k?' on':''}" data-a="quiz-afield:${k}">${fldShort(k,type)}</button>`).join('')}</div>`)}
+    ${composeCfg}
     <div class="cfg-row">
       ${cfgCard('Фильтр',chips(filterOpts,S.quizCfg.filter,'quiz-filter'))}
       ${cfgCard('Количество',chips(counts,S.quizCfg.count,'quiz-count'))}
@@ -940,6 +1102,7 @@ function buildStudyActive(){
         </div>
       </div>
     </div>
+    ${isKanji?buildHintBlock(w,S.cardHint,'toggle-card-hint'):''}
     <div class="mark-row">
       <button class="mbtn r" data-a="mark:unknown">✕ Не знаю</button>
       <button class="mbtn y" data-a="mark:learning">∼ Учу</button>
@@ -949,6 +1112,20 @@ function buildStudyActive(){
       <button class="stop-btn" data-a="stop-study">Стоп</button>
       <button class="stop-btn" data-a="skip-card">Пропустить</button>
     </div>`;
+}
+
+/* ── Kanji hint block (Figma: Подсказка_квиз_кандзи) ──
+ * Кнопка «Включить подсказки» → чипы «слово + кана» из словаря,
+ * содержащие текущий иероглиф. Общая для квиза и карточек. */
+function buildHintBlock(item,on,toggleAction){
+  const ch=item&&item.kanji?String(item.kanji):'';
+  if(!ch)return'';
+  if(!on)return`<button class="hint-btn" data-a="${toggleAction}">Включить подсказки</button>`;
+  const words=exampleWords(ch).slice(0,6);
+  if(!words.length)return`<div class="hint-row"><div class="hint-empty">Нет слов с этим иероглифом в словаре</div></div>`;
+  return`<div class="hint-row">${words.map(w=>
+    `<div class="hint-chip"><span class="hint-word">${esc(w.kanji)}</span>${w.reading?`<span class="hint-read">kana: <b>${esc(w.reading)}</b></span>`:''}</div>`
+  ).join('')}</div>`;
 }
 
 function buildStudyDone(){
@@ -978,6 +1155,8 @@ function buildQuizActive(){
   const q=S.quizQ;if(!q)return'';
   const{ok,bad}=S.quizScore;
   if(q.match)return buildMatchActive(q);
+  if(q.compose)return buildComposeActive(q);
+  if(q.pairs)return buildPairsActive(q);
   const mode=S.quizCfg.mode;
   const showChoice=mode==='choice4'||mode==='choice6'||(mode==='mix'&&!q.mixInput);
   const showInput=mode==='input'||(mode==='mix'&&q.mixInput);
@@ -1043,7 +1222,9 @@ function buildQuizActive(){
     ?`<button class="next-btn" data-a="next-q">Следующий →</button>`
     :(showInput?`<button class="next-btn" data-a="quiz-check">Проверить</button>`:'');
 
-  return`<div class="pg">${scoreBar}${qCard}${choiceHtml}${inputHtml}${actions}${nextBtn}</div>`;
+  const hintHtml=S.quizCfg.type==='kanji'?buildHintBlock(q.word,S.quizHint,'toggle-hint'):'';
+
+  return`<div class="pg">${scoreBar}${qCard}${hintHtml}${choiceHtml}${inputHtml}${actions}${nextBtn}</div>`;
 }
 function buildMatchActive(q){
   const{ok,bad}=S.quizScore;
@@ -1081,6 +1262,89 @@ function buildMatchActive(q){
   </div>`;
   const nextBtn=S.quizDone?`<button class="next-btn" data-a="next-q">Следующий →</button>`:'';
   return`<div class="pg">${scoreBar}${qCard}${panel}${actions}${nextBtn}</div>`;
+}
+
+/* Общий score-bar (крестик / галочка / итого) */
+function qScoreBar(){
+  const{ok,bad}=S.quizScore;
+  return`<div class="qscore">
+    <div class="qbadge qbad"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 1l10 8M11 1L1 9" stroke="#ff4f4f" stroke-width="1.8" stroke-linecap="round"/></svg>${bad}</div>
+    <div class="qbadge qok"><svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5l4 4L13 1" stroke="#7aff78" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>${ok}</div>
+    <div class="qbadge">итого ${ok+bad}</div>
+  </div>`;
+}
+const qActions=`<div class="quiz-actions">
+    <button class="qact-btn" data-a="stop-quiz">Стоп</button>
+    <button class="qact-btn" data-a="skip-q">Пропустить</button>
+  </div>`;
+
+/* ── COMPOSE ACTIVE (Figma: Составить слова) ── */
+function buildComposeActive(q){
+  const cs=S.quizCfg.composeShow||{reading:true,meaning:false};
+  const built=q.picks.map(i=>q.options[i]);
+  // Канвас: собранное слово + подсказка (кана/значение)
+  const slots=[];
+  for(let i=0;i<q.target.length;i++){
+    slots.push(built[i]!=null?`<span class="cmp-ch">${esc(built[i])}</span>`:`<span class="cmp-slot"></span>`);
+  }
+  const buildRow=`<div class="cmp-build">${slots.join('')}</div>`;
+  const lines=[];
+  if((cs.reading||S.quizDone)&&q.word.reading)
+    lines.push(`<div class="cmp-line"><span class="lbl">kana:</span> <span class="val">${esc(q.word.reading)}</span></div>`);
+  if(cs.meaning&&q.word.meaning)
+    lines.push(`<div class="cmp-line"><span class="lbl">meaning:</span> <span class="val">${esc(String(q.word.meaning).split(/;/)[0])}</span></div>`);
+  // При ошибке показываем правильный ответ
+  if(S.quizDone&&!q.result)
+    lines.push(`<div class="cmp-correct">Правильно: <span>${esc(q.word.kanji)}</span></div>`);
+  const canvasCls=S.quizDone?(q.result?' ok':' bad'):'';
+  const canvas=`<div class="quiz-q${canvasCls}"><div class="cmp-canvas">${buildRow}${lines.join('')}</div></div>`;
+  // Свитчеры Кана / Значение
+  const sw=(k,label)=>`<button class="cmp-sw${cs[k]?' on':''}" data-a="compose-switch:${k}">${cs[k]?'<span class="cmp-arrow">→</span>':''}${label}</button>`;
+  const switches=`<div class="cmp-switch">${sw('reading','Кана')}${sw('meaning','Значение')}</div>`;
+  // 6 иероглифов
+  const opts=q.options.map((o,i)=>{
+    const picked=q.picks.includes(i);
+    let cls='';
+    if(S.quizDone)cls=picked?(q.result?'ok':'bad'):'';
+    else if(picked)cls='sel';
+    return`<button class="qopt kanji ${cls}" ${S.quizDone?'disabled':''} data-a="compose-pick:${i}">${esc(o)}</button>`;
+  }).join('');
+  const panel=`<div class="quiz-panel"><div class="quiz-panel-lbl">Выберите вариант:</div><div class="quiz-opts">${opts}</div></div>`;
+  const nextBtn=S.quizDone?`<button class="next-btn" data-a="next-q">Следующий →</button>`:'';
+  return`<div class="pg">${qScoreBar()}${canvas}${switches}${panel}${qActions}${nextBtn}</div>`;
+}
+
+/* ── PAIRS ACTIVE (Figma: Выбери пару) ── */
+function buildPairsActive(q){
+  const counter=`<div class="pair-count"><div class="pair-count-pill">${q.found.length}/${q.total}</div></div>`;
+  // Канвас
+  let canvasInner,canvasCls='';
+  const slot=(o,withMeaning)=>`<div class="pair-slot"><div class="pk">${esc(o.kanji)}</div>${withMeaning&&o.meaning?`<div class="pm">meaning: <b>${esc(o.meaning)}</b></div>`:''}</div>`;
+  if(q.result){
+    const a=q.options[q.result.a],b=q.options[q.result.b];
+    canvasCls=q.result.ok?' ok':' bad';
+    const readings=q.result.ok
+      ?`<div class="pair-on"><span class="lbl">on:</span> <span class="val">${esc(a.onRaw)}</span></div>`
+      :`<div class="pair-on"><span class="val">${esc(a.onRaw)}</span> <span class="lbl">≠</span> <span class="val">${esc(b.onRaw)}</span></div>`;
+    canvasInner=`<div class="pair-canvas"><div class="pair-slots">${slot(a,q.result.ok)}${slot(b,q.result.ok)}</div>${readings}</div>`;
+  } else if(q.firstPick!=null){
+    const a=q.options[q.firstPick];
+    canvasInner=`<div class="pair-canvas"><div class="pair-slots">${slot(a,false)}</div></div>`;
+  } else {
+    canvasInner=`<div class="pair-canvas"><div class="pair-hint">Выберите два иероглифа с одинаковым он-чтением</div></div>`;
+  }
+  const canvas=`<div class="quiz-q${canvasCls}">${canvasInner}</div>`;
+  // Варианты
+  const opts=q.options.map((o,i)=>{
+    const found=q.found.some(f=>f.includes(i));
+    const sel=q.firstPick===i;
+    let cls=found?'ok':sel?'sel':'';
+    const label=found?`${esc(o.kanji)}<span class="qopt-on">${esc(o.onRaw)}</span>`:esc(o.kanji);
+    return`<button class="qopt kanji ${cls}" ${found||S.quizDone?'disabled':''} data-a="pairs-pick:${i}">${label}</button>`;
+  }).join('');
+  const panel=`<div class="quiz-panel"><div class="quiz-panel-lbl">Выберите вариант:</div><div class="quiz-opts">${opts}</div></div>`;
+  const nextBtn=S.quizDone?`<button class="next-btn" data-a="next-q">Следующий →</button>`:'';
+  return`<div class="pg">${qScoreBar()}${counter}${canvas}${panel}${qActions}${nextBtn}</div>`;
 }
 
 /* ── WORDS ── */
@@ -1386,7 +1650,7 @@ function act(action){
     case'start-study':
       S.studyQueue=buildStudyQueue();
       if(!S.studyQueue.length){toast('Нет карточек для этого фильтра');return;}
-      S.studyIdx=0;S.cardFlipped=false;S.studyResults=null;break;
+      S.studyIdx=0;S.cardFlipped=false;S.studyResults=null;S.cardHint=false;break;
     case'flip':S.cardFlipped=!S.cardFlipped;haptic('light');break;
     case'mark':{
       const w=S.studyQueue[S.studyIdx];
@@ -1401,14 +1665,16 @@ function act(action){
       S.studyIdx++;S.cardFlipped=false;
       if(S.studyIdx>=S.studyQueue.length)sessionEnd();break;
     case'stop-study':
-      S.studyQueue=[];S.studyResults=null;S.tab='tests';S.testsSubTab='cards';break;
+      S.studyQueue=[];S.studyResults=null;S.cardHint=false;S.tab='tests';S.testsSubTab='cards';break;
     case'restart-study':
       S.studyQueue=buildStudyQueue();S.studyIdx=0;S.cardFlipped=false;S.studyResults=null;break;
 
     case'quiz-type':
       S.quizCfg.type=val;S.quizCfg.folders=[];
       S.quizCfg.question=val==='kanji'?['kanji']:['kanji'];
-      S.quizCfg.answer=val==='kanji'?'on_reading':'reading';break;
+      S.quizCfg.answer=val==='kanji'?'on_reading':'reading';
+      if(val!=='kanji'&&['match','pairs','compose'].includes(S.quizCfg.mode))S.quizCfg.mode='choice6';
+      break;
     case'quiz-folder':
       if(val==='__all__')S.quizCfg.folders=[];
       else{const a=S.quizCfg.folders||[];S.quizCfg.folders=a.includes(val)?a.filter(x=>x!==val):[...a,val];}
@@ -1423,9 +1689,11 @@ function act(action){
     case'start-quiz':{
       const af=S.quizCfg.answer;
       const d=ds(S.quizCfg.type);
-      if(S.quizCfg.mode!=='match'&&!d.some(w=>w[af])){toast(`Поле "${fldShort(af,S.quizCfg.type)}" пустое во всех записях`);break;}
-      S.quizScore={ok:0,bad:0};S.quizQ=nextQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
-      if(!S.quizQ)toast('Недостаточно данных (нужно ≥4 с заполненными полями)');
+      const mode=S.quizCfg.mode;
+      const fieldModes=mode==='match'||mode==='pairs'||mode==='compose';
+      if(!fieldModes&&!d.some(w=>w[af])){toast(`Поле "${fldShort(af,S.quizCfg.type)}" пустое во всех записях`);break;}
+      S.quizScore={ok:0,bad:0};S.quizQ=nextQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';S.quizHint=false;
+      if(!S.quizQ)toast(startQuizError());
       break;}
     case'quiz-check':{
       if(!S.quizDone&&S.quizQ){
@@ -1437,6 +1705,51 @@ function act(action){
         if(ok){S.quizScore.ok++;haptic('light');}
         else{S.quizScore.bad++;haptic('medium');}
         save();
+      }
+      break;}
+    case'toggle-hint':S.quizHint=!S.quizHint;break;
+    case'toggle-card-hint':S.cardHint=!S.cardHint;break;
+    case'compose-switch':{
+      const cs=S.quizCfg.composeShow||{reading:true,meaning:false};
+      cs[val]=!cs[val];
+      if(!cs.reading&&!cs.meaning)cs[val]=true; // хотя бы один включён
+      S.quizCfg.composeShow=cs;save();break;}
+    case'compose-pick':{
+      const q=S.quizQ;if(!q||!q.compose||S.quizDone)break;
+      const i=+val,at=q.picks.indexOf(i);
+      if(at>=0){q.picks.splice(at,1);haptic('light');break;} // отжать
+      q.picks.push(i);haptic('light');
+      if(q.picks.length===q.target.length){
+        const built=q.picks.map(x=>q.options[x]).join('');
+        const ok=built===String(q.word.kanji);
+        q.result=ok;S.quizDone=true;
+        smUpdate(pr('words'),q.word.id,ok?4:1);
+        if(ok){S.quizScore.ok++;haptic('light');}else{S.quizScore.bad++;haptic('medium');}
+        save();
+      }
+      break;}
+    case'pairs-pick':{
+      const q=S.quizQ;if(!q||!q.pairs||S.quizDone)break;
+      const i=+val;
+      if(q.found.some(f=>f.includes(i)))break; // уже собран
+      if(q.firstPick==null){q.firstPick=i;q.result=null;haptic('light');break;}
+      if(i===q.firstPick){q.firstPick=null;q.result=null;break;} // отжать
+      const a=q.options[q.firstPick],b=q.options[i];
+      if(a.on===b.on){
+        q.found.push([q.firstPick,i]);
+        q.result={ok:true,a:q.firstPick,b:i};
+        haptic('light');
+      }else{
+        q.wrong++;
+        q.result={ok:false,a:q.firstPick,b:i};
+        haptic('medium');
+      }
+      q.firstPick=null;
+      if(q.found.length>=q.total){
+        const p=pr('kanji');
+        q.options.forEach(o=>smUpdate(p,o.id,q.wrong===0?5:3));
+        if(q.wrong===0)S.quizScore.ok++;else S.quizScore.bad++;
+        S.quizDone=true;save();
       }
       break;}
     case'match-pick':{
@@ -1474,13 +1787,13 @@ function act(action){
       break;}
     case'next-q':
       S.quizQ=nextQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
-      if(!S.quizQ)toast('Нет вопросов — проверьте фильтр');break;
+      if(!S.quizQ)toast(startQuizError());break;
     case'skip-q':
       // Пропуск без оценки — просто следующий вопрос
       S.quizQ=nextQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
-      if(!S.quizQ)toast('Нет вопросов — проверьте фильтр');break;
+      if(!S.quizQ)toast(startQuizError());break;
     case'stop-quiz':
-      S.quizQ=null;S.quizDone=false;S.quizInputVal='';
+      S.quizQ=null;S.quizDone=false;S.quizInputVal='';S.quizHint=false;
       S.quizScore={ok:0,bad:0};S.quizSel=-1;
       S.tab='tests';S.testsSubTab='quiz';break;
 
