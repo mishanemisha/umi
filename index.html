@@ -741,10 +741,9 @@ function wordMatchesKanji(word,ks){
   const kc=kanjiChars(word);
   return kc.length>0&&kc.every(c=>ks.has(c));
 }
-// Пример-слова для иероглифа: свои слова + встроенный банк (только по загруженным кандзи)
+// Пример-слова для иероглифа: только встроенный банк из CSV (по загруженным кандзи)
 function exampleWords(ch){
   const ks=userKanjiSet(),out=[],seen=new Set();
-  S.words.forEach(w=>{const k=String(w.kanji||'');if(k&&k!==ch&&[...k].includes(ch)&&!seen.has(k)){seen.add(k);out.push({kanji:k,reading:w.reading||''});}});
   BUILTIN_WORDS.forEach(bw=>{
     if(seen.has(bw.w)||bw.w===ch||![...bw.w].includes(ch))return;
     if(!wordMatchesKanji(bw.w,ks))return;
@@ -762,27 +761,23 @@ function builtinComposeWords(){
 }
 function buildComposeQ(){
   const{filter,count}=S.quizCfg;
-  // Режим в разделе «Кандзи»: свои слова берём без учёта выбранных папок кандзи
-  let pool=filtered('words',filter,count,[]).filter(w=>{
-    const ch=[...String(w.kanji||'')];
-    return ch.length>=2&&ch.length<=3&&ch.every(isKanjiChar)&&(w.reading||w.meaning);
-  });
-  // Встроенный банк слов (только по загруженным кандзи). Фильтры «знаю/учу» — по своим словам.
-  if(filter==='all'||filter==='unknown'){
-    const seen=new Set(pool.map(w=>w.kanji));
-    builtinComposeWords().forEach(bw=>{if(!seen.has(bw.kanji)){seen.add(bw.kanji);pool.push(bw);}});
-  }
+  const p=pr('words');
+  // ТОЛЬКО встроенный банк из CSV, отфильтрованный по загруженным кандзи.
+  // Ни свои слова, ни произвольные кандзи из словаря сюда не попадают.
+  const matched=builtinComposeWords();
+  let pool=matched;
+  if(filter!=='all')pool=pool.filter(w=>statusOf(p,w.id)===filter);
+  if(count&&count!=='all')pool=pool.slice(0,parseInt(count));
   if(!pool.length)return null;
-  const now=Date.now(),pp=pr('words');
-  const dueP=shuffle(pool.filter(w=>dueOf(pp,w.id)<=now));
-  const restP=shuffle(pool.filter(w=>dueOf(pp,w.id)>now));
+  const now=Date.now();
+  const dueP=shuffle(pool.filter(w=>dueOf(p,w.id)<=now));
+  const restP=shuffle(pool.filter(w=>dueOf(p,w.id)>now));
   const qw=[...dueP,...restP][0];
   if(!qw)return null;
   const target=[...qw.kanji];
-  // Дистракторы: одиночные кандзи из других слов и из списка кандзи
+  // Дистракторы — только кандзи из встроенных слов (значит: из CSV и уже загруженные)
   const bag=new Set();
-  ds('words').forEach(w=>{if(w.id===qw.id)return;kanjiChars(w.kanji).forEach(c=>{if(!target.includes(c))bag.add(c);});});
-  ds('kanji').forEach(w=>{const c=String(w.kanji||'');if([...c].length===1&&isKanjiChar(c)&&!target.includes(c))bag.add(c);});
+  matched.forEach(w=>{[...w.kanji].forEach(c=>{if(!target.includes(c))bag.add(c);});});
   const distract=shuffle([...bag]);
   const need=Math.max(0,6-target.length);
   const options=shuffle([...target,...distract.slice(0,need)]);
