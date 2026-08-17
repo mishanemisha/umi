@@ -855,6 +855,9 @@ function builtinComposeWords(){
     return ch.length>=2&&ch.length<=3&&ch.every(isKanjiChar)&&ch.every(c=>ks.has(c));
   }).map(bw=>({id:'bw_'+bw.w,kanji:bw.w,reading:bw.r,meaning:bw.m,seg:bw.k||null,folder:'Общая',_builtin:true}));
 }
+// Числовые кандзи — слова с ними скрываем из ultra (数字 малополезны: «один человек» и т.п.).
+// Считаем только по символам самого слова, не по чтениям.
+const NUM_KANJI=new Set([...'一二三四五六七八九十']);
 // Ultra: слова из additional-банка. Известность считаем ПО ИМПОРТУ юзера:
 // в слове должен быть ≥1 незнакомый кандзи (нет в импорте — он «стоит» на месте
 // как учимый) и ≥1 знакомый (есть в импорте — его юзер подставляет по значению).
@@ -864,6 +867,7 @@ function ultraComposeWords(){
   return ADDITIONAL_WORDS.filter(w=>{
     if(diff!=='all'&&w.d!==diff)return false;
     const ch=[...w.w];
+    if(ch.some(c=>NUM_KANJI.has(c)))return false; // скрываем слова с числовыми кандзи
     if(ch.length<2||ch.length>3||!ch.every(isKanjiChar))return false;
     const unknown=ch.filter(c=>!ks.has(c)).length;
     const known=ch.filter(c=>ks.has(c)).length;
