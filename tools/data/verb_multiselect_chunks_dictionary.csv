@@ -1,0 +1,53 @@
+﻿token_id,jp_surface,card_label_romaji,значение_ru,family,confusable_tokens
+RU,る,ru,словарное окончание,ending,TA|NAI|MASU
+TA,た,ta,прошедшее / た,tense,RU|TE|NAI
+TE,て,te,て-форма,connector,TA|NAKUTE
+NAI,ない,nai,отрицание,negative,NAKATTA|NAKUTE|NAKEREBA
+NAKATTA,なかった,nakatta,отрицательное прошедшее,negative,NAI|NAKUTE|NAKEREBA
+NAKUTE,なくて,nakute,отрицательная て-форма,negative,NAI|NAKATTA|NAKEREBA
+NAKEREBA,なければ,nakereba,если не / необходимо,conditional_negative,NAKYA|NAKUCHA|NAKATTA
+NAKYA,なきゃ,nakya,разговорное なければ,conditional_negative,NAKEREBA|NAKUCHA|NAI
+NAKUCHA,なくちゃ,nakucha,разговорное なくては,conditional_negative,NAKEREBA|NAKYA|NAKUTE
+BA,ば,ba,условие 〜ば,conditional,RA|TO
+RA,ら,ra,часть 〜たら,conditional,BA|TO
+RE,れ,re,элемент производной формы,derivation,SE|RA
+SE,せ,se,элемент каузатива,derivation,RE|RA
+MASU,ます,masu,вежливая утвердительная,polite,MASHITA|MASEN|MASHOU
+MASHITA,ました,mashita,вежливая прошедшая,polite,MASU|MASEN|MASHOU
+MASEN,ません,masen,вежливая отрицательная,polite,MASU|MASHITA|MASHOU
+DESHITA,でした,deshita,вежливое прошедшее после ません,copula_polite,DESU|MASHITA|TA
+DESU,です,desu,вежливость,copula_polite,DESHITA|MASU
+MASHOU,ましょう,mashou,вежливое предложение / волевая,volitional,MASU|MASHITA|MASEN
+NA_IMP,な,na,запрет после словарной формы,imperative,NAI|YO
+YO,よ,yo,часть волевой формы,volitional,RE|RO
+YOU,よう,you,волевая форма,volitional,MASHOU|ROU
+U,う,u,финальная う волевой формы,volitional,RU
+TAI,たい,tai,желание,desire,TAKUNAI|TAKATTA|TAKUTE|TAKEREBA
+TAKATTA,たかった,takatta,желание в прошлом,desire,TAI|TAKUNAI|TAKEREBA
+TAKUNAI,たくない,takunai,не хотеть,desire_negative,TAI|TAKATTA|TAKUNAKATTA
+TAKUNAKATTA,たくなかった,takunakatta,не хотел(а),desire_negative,TAKUNAI|TAKATTA
+TAKUTE,たくて,takute,〜たい в соединительной форме,desire,TAI|TAKEREBA|TAKUNAI
+TAKEREBA,たければ,takereba,если хочешь,desire,TAKATTA|TAKUTE|TAI
+NARANAI,ならない,naranai,обязанность,obligation,IKENAI|NARIMASEN
+NARIMASEN,なりません,narimasen,"обязанность, вежливо",obligation,NARANAI|IKENAI|MASEN
+IKENAI,いけない,ikenai,необходимо / нельзя оставлять так,obligation,NARANAI|NAI
+WA,は,wa,частица は в 〜なくてはいけない,particle,TO|BA
+TO,と,to,условие / связка в 〜ないと,particle,WA|BA
+IRU,いる,iru,〜ている,aspect,ITA|INAI|IMASU
+I_AUX,い,i,основа вспомогательного いる,aspect_stem,IRU|IMASU
+ITA,いた,ita,〜ていた,aspect,IRU|INAI|IMASHITA
+INAI,いない,inai,〜ていない,aspect_negative,IRU|INAKATTA|IMASEN
+INAKATTA,いなかった,inakatta,〜ていなかった,aspect_negative,INAI|INAKEREBA|IMASEN
+ITE,いて,ite,〜ていて,aspect,ITA|IRU|INAKUTE
+INAKUTE,いなくて,inakute,〜ていなくて,aspect_negative,INAI|INAKATTA|INAKEREBA
+IREBA,いれば,ireba,〜ていれば,aspect_conditional,ITARA|INAKEREBA
+INAKEREBA,いなければ,inakereba,〜ていなければ,aspect_conditional,IREBA|INAKATTA
+ITARA,いたら,itara,〜ていたら,aspect_conditional,IREBA|INAKATTA
+IMASU,います,imasu,〜ています,aspect_polite,IMASHITA|IMASEN|IRU
+IMASHITA,いました,imashita,〜ていました,aspect_polite,IMASU|IMASEN|ITA
+IMASEN,いません,imasen,〜ていません,aspect_polite,IMASU|IMASHITA|INAI
+IYOU,いよう,iyou,〜ていよう,aspect_volitional,IRU|IMASHOU
+IMASHOU,いましょう,imashou,〜ていましょう,aspect_volitional,IMASU|MASHOU
+INAKYA,いなきゃ,inakya,〜ていなきゃ,aspect_conditional,INAI|INAKEREBA
+MASEBA,ませば,maseba,редкая вежливая условная,polite_conditional,MASU|MASEN|MASHITA
+NARA,なら,nara,условное なら,conditional,BA|RA|TO
