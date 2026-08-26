@@ -51,3 +51,11 @@ IMASHOU,いましょう,imashou,〜ていましょう,aspect_volitional,IMASU|MA
 INAKYA,いなきゃ,inakya,〜ていなきゃ,aspect_conditional,INAI|INAKEREBA
 MASEBA,ませば,maseba,редкая вежливая условная,polite_conditional,MASU|MASEN|MASHITA
 NARA,なら,nara,условное なら,conditional,BA|RA|TO
+AGERU,あげる,ageru,сделать для кого-то,benefactive,KURERU|MORAU
+KURERU,くれる,kureru,кто-то делает для меня/нас,benefactive,AGERU|MORAU
+MORAU,もらう,morau,получить действие/помощь от кого-то,benefactive,AGERU|KURERU
+MORAE,もらえ,morae,потенциальная основа もらえる,benefactive_request,MORAU
+KA,か,ka,вопросительная частица,question,TO|WA
+II,いい,ii,хорошо / лучше,advice,DOU
+DOU,どう,dou,как / что если,advice,II
+TOKI,とき,toki,"когда / в момент, когда",time_clause,TO

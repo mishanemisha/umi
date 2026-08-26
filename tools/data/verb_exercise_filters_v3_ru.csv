@@ -1,0 +1,28 @@
+﻿filter_id,label_ru,kind,match_column,match_value,description_ru,sort_order
+dictionary,Словарная,form,filter_form_tags,dictionary,Словарная/непрошедшая база.,10
+masu,ます-формы,form,filter_form_tags,masu,Все вежливые ます-производные.,20
+te_form,て-форма,form,filter_form_tags,te_form,"Все конструкции, строящиеся через て/なくて: базовая て-форма, 〜ている, бенефактивы и совместимые конструкции.",30
+ta_form,た-форма,form,filter_form_tags,ta_form,"Прошедшие и конструкции, опирающиеся на た-форму, включая 〜たら.",40
+nai_form,ない-форма,form,filter_form_tags,nai_form,"Отрицательная база и конструкции, которые строятся от неё.",50
+conditional,Условные,form,filter_form_tags,conditional,"〜ば, 〜たら и производные условные конструкции.",60
+potential,Потенциальная,form,filter_form_tags,potential,Формы возможности/способности.,70
+passive,Пассив,form,filter_form_tags,passive,Пассивные формы; по умолчанию только для глаголов с естественным standalone-переводом.,80
+causative,Каузатив,form,filter_form_tags,causative,Заставить/разрешить сделать действие.,90
+causative_passive,Каузативно-пассивная,form,filter_form_tags,causative_passive,Быть вынужденным сделать действие.,100
+tai,〜たい,form,filter_form_tags,tai,Желание и производные от 〜たい.,110
+obligation,Нужно / должен,form,filter_form_tags,obligation,"Конструкции обязанности: 〜なければならない, 〜なくてはいけない, 〜ないといけない и др.",120
+teiru,〜ている,form,filter_form_tags,teiru,Процесс/состояние и все производные 〜ている.,130
+benefactive,Действие для кого-то,form,filter_form_tags,benefactive,〜てあげる / 〜てくれる / 〜てもらう.,140
+request,Просьбы,form,filter_form_tags,request,"Вежливые просьбы, например 〜てもらえませんか.",150
+advice,Советы,form,filter_form_tags,advice,〜たらいいですか / 〜たらどうですか.,160
+toki,〜とき,form,filter_form_tags,toki,Временные конструкции Vる/Vた/Vない + とき.,170
+volitional,Волевая,form,filter_form_tags,volitional,〜よう / 〜ましょう.,180
+imperative,Повелительная,form,filter_form_tags,imperative,Приказ и запрет.,190
+negative,Отрицания,modifier,filter_semantic_tags,negative,Смысловое отрицание. Не включает формально отрицательную вежливую просьбу 〜てもらえませんか.,210
+past,Прошедшее,modifier,filter_semantic_tags,past,Прошедшее значение.,220
+polite,Вежливые,modifier,filter_semantic_tags,polite,Вежливый стиль.,230
+progressive,Процесс / состояние,modifier,filter_semantic_tags,progressive,Семантика 〜ている.,240
+ability,Могу,modifier,filter_semantic_tags,ability,Возможность/способность.,250
+desire,Хочу,modifier,filter_semantic_tags,desire,Желание.,260
+question,Вопросы,modifier,filter_question,1,Вопросительные конструкции.,270
+colloquial,Разговорные,register,filter_register_tags,colloquial,Разговорные сокращения и варианты.,280
