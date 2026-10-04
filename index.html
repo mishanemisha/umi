@@ -7,6 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>日本語</title>
+<link rel="stylesheet" href="content/practice.css?v=20261004-beta1">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -49,8 +50,9 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 }
 .bnav-btn.active{color:var(--a)}
 .bnav-icon{
-  width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+  width:44px;height:44px;display:flex;align-items:center;justify-content:center;position:relative;
 }
+.bnav-beta{position:absolute;top:0;right:0;min-width:17px;height:17px;padding:0 3px;display:flex;align-items:center;justify-content:center;border:1px solid var(--al);border-radius:9px;background:var(--bg);color:var(--al);font-size:12px;line-height:1;font-weight:600}
 .bnav-icon img{width:100%;height:100%;object-fit:contain;display:block}
 .bnav-icon svg{width:28px;height:28px;stroke:currentColor;fill:none;stroke-linecap:round;stroke-linejoin:round}
 
@@ -381,7 +383,9 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 .confirm-yes{background:rgba(255,60,60,.15);color:var(--r)}
 
 /* ─── Import ─── */
-.dropzone{border:2px dashed var(--c2);border-radius:16px;padding:40px 20px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;margin:0 16px 10px}
+.dropzone{position:relative;border:2px dashed var(--c2);border-radius:16px;padding:40px 20px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;margin:0 16px 10px}
+.dropzone:focus-within{outline:2px solid var(--al);outline-offset:2px}
+.csv-file-input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
 .dropzone.over{border-color:var(--a);background:rgba(63,111,207,.07)}
 .dz-icon{font-size:36px;margin-bottom:8px}
 .dz-text{font-size:14px;font-weight:500;color:var(--t)}
@@ -426,8 +430,11 @@ td{padding:7px 10px;border-top:1px solid rgba(255,255,255,.05);white-space:nowra
 <body>
 <div id="app"></div>
 <div id="toast"></div>
+<script src="content/practice-data.js?v=20261004-beta1"></script>
+<script src="content/practice.js?v=20261004-beta1"></script>
 <script>
 'use strict';
+const practiceAvailable=Boolean(window.UMI_BANK&&typeof buildPractice==='function');
 const tg=window.Telegram?.WebApp;
 if(tg){tg.expand();tg.ready();}
 function haptic(t='light'){tg?.HapticFeedback?.impactOccurred(t);}
@@ -500,7 +507,7 @@ const S={
   cfgScreen:null,     // 'cards' | 'quiz' — экран настроек режима, открытый с главной
   confirmPending:null,
   screen:'main', importType:'words', importStep:'type',
-  importRaw:null, importMapping:[], importPreview:null, importErr:null,
+  importRaw:null, importMapping:[], importPreview:null, importErr:null, importReading:false,
   importFolder:'Общая', importNewFolder:false, importNewName:'',
 };
 
@@ -569,7 +576,8 @@ function save(){
       wordsCsv:S.wordsCsv,kanjiCsv:S.kanjiCsv,
       studyCfg:S.studyCfg,quizCfg:S.quizCfg,wordDisplay:S.wordDisplay,hintsEnabled:S.hintsEnabled,
     }));
-  }catch{}
+    return true;
+  }catch{return false;}
 }
 
 /* ── CSV parser ── */
@@ -1388,7 +1396,7 @@ function buildCardFront(word,frontField,dataType){
 /* ── Render ── */
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-function render(){document.getElementById('app').innerHTML=buildApp();bindAll();}
+function render(){document.getElementById('app').innerHTML=buildApp();bindAll();if(practiceAvailable)uBind();}
 
 function buildApp(){
   if(S.screen==='import')return buildImport();
@@ -1398,6 +1406,7 @@ function buildApp(){
   switch(S.tab){
     case'home':    return buildHome()+nav();
     case'words':   return buildWords()+nav();
+    case'practice':return (practiceAvailable?buildPractice():`<main class="up-page"><h1>Практика</h1><p class="up-sub">Не удалось загрузить учебную базу. Прогресс сохранён на устройстве. Обновите страницу, чтобы повторить загрузку.</p><button class="up-btn primary" onclick="location.reload()">Повторить загрузку</button></main>`)+nav();
     case'settings':return buildSettings()+nav();
   }
   return buildHome()+nav();
@@ -1407,14 +1416,15 @@ function buildApp(){
 const TABS=[
   {id:'home',    img:ASSETS.navHome, lbl:'Главная'  },
   {id:'words',   img:ASSETS.navDict, lbl:'Словарь'  },
+  {id:'practice',beta:true,svg:'<svg viewBox="0 0 24 24" stroke-width="1.7"><path d="M3 4h6a4 4 0 0 1 3 1.5A4 4 0 0 1 15 4h6v16h-6a4 4 0 0 0-3 1.5A4 4 0 0 0 9 20H3z"/><path d="M12 5.5v16M6 8h3M15 8h3M6 12h3M15 12h3"/></svg>',lbl:'Практика'},
   {id:'settings',img:ASSETS.navSet,  lbl:'Настройки'},
 ];
 function nav(){
   const cur=S.cfgScreen?'home':S.tab; // конфиг-экран открыт с главной
   return`<nav class="bnav">${TABS.map(t=>{
     const active=cur===t.id;
-    return`<button class="bnav-btn${active?' active':''}" data-a="tab:${t.id}">
-      <span class="bnav-icon"><img src="${t.img}" alt=""${active?'':' style="opacity:.5;filter:grayscale(.6)"'}></span>
+    return`<button class="bnav-btn${active?' active':''}" data-a="tab:${t.id}"${t.beta?' aria-label="Практика · бета"':''}>
+      <span class="bnav-icon">${t.svg||`<img src="${t.img}" alt=""${active?'':' style="opacity:.5;filter:grayscale(.6)"'}>`}${t.beta?'<span class="bnav-beta" aria-hidden="true">β</span>':''}</span>
       <span>${t.lbl}</span>
     </button>`;}).join('')}</nav>`;
 }
@@ -2107,8 +2117,10 @@ function buildUploadZone(){
       <div class="dz-icon">📂</div>
       <div class="dz-text">Нажмите или перетащите файл</div>
       <div class="dz-hint">CSV и TSV — с заголовками и без</div>
-      <input type="file" id="file-in" accept=".csv,.tsv,.txt" style="display:none">
+      <!-- Android document providers may report CSV as text/plain, octet-stream or no MIME. Let the native picker show all files; validate the content in parseFile. -->
+      <input type="file" id="file-in" class="csv-file-input" aria-label="Выбрать CSV или TSV для импорта">
     </div>
+    ${S.importReading?'<div class="dz-hint" role="status" style="margin:0 16px 10px">Читаем файл…</div>':''}
     ${S.importErr?`<div class="err-box">⚠️ ${esc(S.importErr)}</div>`:''}`;
 }
 function buildColMap(){
@@ -2172,6 +2184,7 @@ function act(action){
   const val=ci>-1?action.slice(ci+1):'';
 
   switch(type){
+    case'up':if(practiceAvailable)uAction(val);return;
     case'tab':
       S.tab=val;S.confirmPending=null;S.cfgScreen=null;
       S.studyQueue=[];S.studyResults=null;S.quizQ=null;S.quizDone=false;
@@ -2227,15 +2240,18 @@ function act(action){
     case'go-quiz':
       S.quizCfg.type=S.homeTab;S.quizQ=null;S.quizDone=false;S.cfgScreen='quiz';break;
     case'go-import-home':
+      csvReadRequest++;S.importReading=false;
       S.screen='import';S.importType=S.homeTab;S.importStep='type';S.importPreview=null;S.importErr=null;S.importRaw=null;
       S.importFolder='Общая';S.importNewFolder=false;S.importNewName='';break;
     case'words-import':
+      csvReadRequest++;S.importReading=false;
       S.screen='import';S.importType=S.wordsTab;S.importStep='type';S.importPreview=null;S.importErr=null;S.importRaw=null;
       S.importNewFolder=false;S.importNewName='';
       S.importFolder=(S.wordsFolder&&S.wordsFolder!=='all')?S.wordsFolder:'Общая';
       break;
 
     case'import-type':
+      csvReadRequest++;S.importReading=false;
       S.importType=val;
       // Если уже в шаге маппинга — обновить дефолтные подписи колонок
       if(S.importRaw)S.importMapping=defaultMapping(S.importRaw.colCount,val==='kanji');
@@ -2243,11 +2259,13 @@ function act(action){
     case'import-folder':S.importFolder=val;S.importNewFolder=false;break;
     case'import-folder-new':S.importNewFolder=true;break;
     case'back-import':
+      csvReadRequest++;S.importReading=false;
       if(S.importStep==='map'){S.importStep='type';S.importRaw=null;S.importMapping=[];}
       else if(S.importStep==='preview'){S.importStep=S.importRaw?'map':'type';S.importPreview=null;}
       else{S.screen='main';S.importStep='type';S.importPreview=null;S.importErr=null;S.importRaw=null;}
       break;
-    case'cancel-import':S.importPreview=null;S.importStep=S.importRaw?'map':'type';break;
+    case'cancel-import':
+      csvReadRequest++;S.importReading=false;S.importPreview=null;S.importStep=S.importRaw?'map':'type';break;
     case'apply-map':{
       if(!S.importRaw)break;
       const mapping=Array.from({length:S.importRaw.colCount},(_,i)=>{
@@ -2259,7 +2277,7 @@ function act(action){
       break;
     }
     case'confirm-import':
-      if(S.importPreview){
+      if(S.importPreview&&!S.importReading){
         const nw=S.importPreview.words;
         const itype=S.importType;
         const targetFolder=importTargetFolder();
@@ -2279,6 +2297,7 @@ function act(action){
         const list=itype==='kanji'?S.kanjiItems:S.words;
         const existing=new Set(list.filter(w=>(w.folder||'Общая')===targetFolder).map(w=>itemKey(w,itype)));
         const seen=new Set();
+        const oldLength=list.length,oldCsv=itype==='kanji'?S.kanjiCsv:S.wordsCsv;
         let added=0,skipped=0;
         for(const w of nw){
           const k=itemKey(w,itype);
@@ -2290,12 +2309,19 @@ function act(action){
         }
         if(itype==='kanji')S.kanjiCsv=S.importRawText||'';
         else S.wordsCsv=S.importRawText||'';
+        // localStorage setItem is atomic: on failure keep the old dictionary
+        // and the preview, rather than claiming an import that would disappear.
+        if(!save()){
+          list.length=oldLength;
+          if(itype==='kanji')S.kanjiCsv=oldCsv;else S.wordsCsv=oldCsv;
+          S.importErr='Не удалось сохранить импорт на устройстве. Прежний словарь сохранён. Попробуйте импортировать файл меньшего размера.';
+          toast('Импорт не сохранён — прежние данные сохранены');break;
+        }
         S.importRawText='';
         S.importPreview=null;S.importRaw=null;S.importStep='type';S.screen='main';
         S.importNewFolder=false;S.importNewName='';
         // Показать импортированную папку в разделе «Слова»
         S.tab='words';S.wordsTab=itype;S.wordsFolder=targetFolder;S.wordsSearch='';
-        save();
         toast(skipped?`Добавлено ${added}, пропущено дублей: ${skipped}`:`Добавлено ${added}`);
       }
       break;
@@ -2624,8 +2650,8 @@ function bindAll(){
   // File drop
   const dz=document.getElementById('dropzone'),fin=document.getElementById('file-in');
   if(dz&&fin){
-    dz.onclick=()=>fin.click();
-    fin.onchange=e=>{const f=e.target.files[0];if(f)readFile(f);};
+    // Native file input covers the target: no hidden-input click forwarding.
+    fin.onchange=e=>{const f=e.target.files?.[0];e.target.value='';if(f)readFile(f);};
     dz.ondragover=e=>{e.preventDefault();dz.classList.add('over');};
     dz.ondragleave=()=>dz.classList.remove('over');
     dz.ondrop=e=>{e.preventDefault();dz.classList.remove('over');const f=e.dataTransfer.files[0];if(f)readFile(f);};
@@ -2644,23 +2670,39 @@ function bindAll(){
     S._quizFocusedFor=null;
   }
 }
+let csvReadRequest=0;
 function readFile(file){
-  const reader=new FileReader();
-  reader.onload=e=>{
-    try{
-      const text=e.target.result;
-      S.importRawText=text;
-      const r=parseFile(text);
-      if(!r.hasHeaders){S.importRaw=r;S.importMapping=defaultMapping(r.colCount,S.importType==='kanji');S.importStep='map';S.importPreview=null;S.importErr=null;}
-      else{S.importPreview=r;S.importStep='preview';S.importRaw=null;S.importErr=null;}
-    }catch(err){S.importErr=err.message;S.importPreview=null;S.importRaw=null;S.importStep='type';}
-    render();
+  const request=++csvReadRequest,importType=S.importType;
+  S.importReading=true;S.importErr=null;S.importPreview=null;S.importRaw=null;S.importRawText='';S.importStep='type';render();
+  const current=()=>request===csvReadRequest&&S.screen==='import'&&S.importType===importType;
+  const failed=message=>{
+    if(!current())return;
+    S.importReading=false;S.importErr=message;S.importPreview=null;S.importRaw=null;S.importRawText='';S.importStep='type';render();
   };
-  reader.readAsText(file,'UTF-8');
+  try{
+    const reader=new FileReader();
+    reader.onerror=()=>failed('Не удалось прочитать файл. Скачайте CSV на устройство и выберите его снова.');
+    reader.onabort=()=>failed('Чтение файла прервано. Выберите CSV ещё раз.');
+    reader.onload=e=>{
+      if(!current())return;
+      try{
+        const text=e.target.result;
+        if(typeof text!=='string')throw new Error('Не удалось прочитать текст CSV.');
+        const r=parseFile(text);
+        S.importReading=false;S.importRawText=text;
+        if(!r.hasHeaders){S.importRaw=r;S.importMapping=defaultMapping(r.colCount,S.importType==='kanji');S.importStep='map';S.importPreview=null;S.importErr=null;}
+        else{S.importPreview=r;S.importStep='preview';S.importRaw=null;S.importErr=null;}
+        render();
+      }catch(err){failed(err.message);}
+    };
+    reader.readAsText(file,'UTF-8');
+  }catch{failed('Не удалось открыть файл. Скачайте CSV на устройство и выберите его снова.');}
 }
 
 /* ── Boot ── */
 load();
+if(practiceAvailable)uInit();
+if(practiceAvailable&&location.hash==='#practice')S.tab='practice';
 setupDelegation();
 render();
 </script>

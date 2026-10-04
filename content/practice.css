@@ -1,0 +1,71 @@
+/* Practice composes the existing nseg/nstat/nprog/cfg-card/chip/start-btn/quiz
+   components. Only layout and practice-specific interactions live here. */
+.bnav-btn{min-width:0;flex:1;padding:4px 3px;font-size:13px}
+.bnav{padding-bottom:max(18px,env(safe-area-inset-bottom))}
+.bnav-icon svg{width:30px;height:30px}
+.up-page{padding:0 0 16px;animation:up .16s ease}
+.up-inset{margin-left:16px;margin-right:16px}
+.up-header-meta{margin-left:auto;font-size:14px;white-space:nowrap;color:var(--al)}
+.up-context{padding:0 16px 16px;font-size:12px;color:var(--al)}
+.up-section-label{padding:16px 16px 8px;font-size:12px;color:var(--al)}
+.up-sub{font-size:14px;line-height:1.6;color:var(--t2);margin-top:8px;margin-bottom:16px}
+.up-sub a,.up-about a{color:var(--al)}
+.up-list{display:grid;gap:8px;margin-bottom:8px}
+.up-mode-cards{margin:8px 0}
+.up-mode-cards .ncard.on{outline:1px solid var(--a);outline-offset:-1px;background:var(--c2)}
+.up-lesson{display:flex;align-items:center;gap:16px;text-align:left;background:var(--card);border:1px solid var(--stroke);color:var(--t);border-radius:var(--rad);padding:16px;width:100%;cursor:pointer;font-family:inherit;min-width:0}
+.up-lesson:active{background:var(--c2)}
+.up-number{font-size:20px;font-weight:400;line-height:1;color:var(--al);font-variant-numeric:tabular-nums;min-width:24px}
+.up-lesson-main{flex:1;min-width:0}
+.up-lesson-title{display:block;font-size:16px;line-height:1.3;font-weight:400}
+.up-lesson-meta{display:block;font-size:12px;line-height:1.5;color:var(--t2);margin-top:8px}
+.up-mini-progress{display:block;margin-top:8px;height:4px}
+.up-arrow{color:var(--al);font-size:20px;margin-left:auto}
+.up-button{font-family:inherit;flex:initial}
+.up-button.wide{width:100%;margin-top:8px}
+.start-row .up-button.wide{margin-top:0}
+.up-button:disabled{opacity:.4;cursor:default}
+.up-page button:focus-visible,.up-about summary:focus-visible{outline:2px solid var(--al);outline-offset:2px}
+.up-actions{display:flex;gap:8px;margin-top:8px;margin-bottom:8px}
+.up-actions .up-button{flex:1;min-width:0;padding:8px}
+.up-page .chip{flex-basis:96px;min-height:50px;height:auto}
+.up-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:16px;margin-bottom:8px;font-size:12px;color:var(--al)}
+.up-heading .up-button{font-size:14px;min-height:40px;padding:8px 16px;flex:initial}
+.up-rule-card{padding:0}
+.up-rule{width:100%;display:flex;align-items:center;gap:16px;text-align:left;border:0;background:transparent;color:var(--t);padding:16px;cursor:pointer;font:inherit;font-size:16px}
+.up-rule-detail{border-top:1px solid var(--stroke);padding:16px;font-size:14px;line-height:1.65}
+.up-example{font-size:20px;color:var(--t);line-height:1.6;margin:8px 0;overflow-wrap:anywhere;white-space:pre-line}
+.up-word{display:flex;gap:8px;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid var(--stroke)}
+.up-word:last-child{border-bottom:0}
+.up-word .up-example{margin:0}
+.up-word .up-button{font-size:12px;padding:8px;min-height:40px;flex:0 0 auto;max-width:100px}
+.up-word rt{color:var(--al);font-size:10px}
+.up-muted{font-size:12px;color:var(--t2);line-height:1.5}
+.up-question{gap:16px;margin-top:8px}
+.up-instruction{font-size:16px;font-weight:400;line-height:1.5;white-space:pre-line}
+.up-translation{white-space:pre-line;line-height:1.6}
+.up-prompt{line-height:1.6;overflow-wrap:anywhere;white-space:pre-line}
+.up-prompt.quiz-qm:not(.sm){font-size:36px}
+.up-gap{display:inline-block;min-width:64px;color:var(--t);background:var(--c2);padding:0 8px;cursor:pointer;font:inherit;border:1px solid var(--stroke);border-bottom:2px solid var(--a);border-radius:var(--rad)}
+.up-gap.active{border-color:var(--a);background:var(--a)}
+.up-order{display:flex;gap:4px;flex-wrap:wrap;min-height:84px;padding:8px;background:var(--c);border:1px solid var(--a);border-radius:var(--rad);margin-bottom:12px}
+.up-order .chip{min-height:44px;height:auto;font-size:16px;padding:8px;flex:0 1 auto}
+.up-order-count{width:100%;text-align:right;align-self:flex-end}
+.up-input{font-size:20px;min-height:50px;line-height:1.5}
+.up-feedback,.up-help{font-size:14px;line-height:1.65;padding:16px;white-space:pre-line}
+.up-feedback p{margin-top:8px}
+.up-feedback .quiz-result{text-align:left;font-size:14px}
+.up-error{color:var(--r);padding:16px;font-size:14px;line-height:1.6}
+.up-about{margin-top:16px;padding:16px;font-size:14px;line-height:1.6}
+.up-about summary{cursor:pointer;color:var(--al);min-height:32px}
+.up-run,.up-review-row{padding:16px;font-size:14px;display:flex;flex-direction:column;gap:8px}
+.up-review-row{border-bottom:1px solid var(--stroke)}
+.up-file{position:absolute;width:1px;height:1px;opacity:0}
+@media(max-width:350px){.up-lesson{gap:8px;padding:12px}.up-page .cfg-hdr-title{font-size:20px}.up-actions .chip{font-size:13px}.up-word{flex-wrap:wrap}.up-page .nstat .n{font-size:30px}}
+
+.up-gap.ok{color:var(--g);border-color:var(--g);background:var(--c2)}
+.up-gap.bad{color:var(--r);border-color:var(--r)}
+.up-gap.ok:disabled{opacity:1;cursor:default}
+.up-mix-list{display:grid;gap:8px;margin:12px 0}
+.up-mix-list .chip{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:4px;padding:12px 16px}
+.up-mix-list small{font-size:12px;color:var(--t2);font-weight:400}
