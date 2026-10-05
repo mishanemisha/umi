@@ -46,8 +46,8 @@ test('starting an incomplete lesson resumes it instead of replacing its answers'
 test('legacy five-question saves migrate and retain progress and option order',()=>{
  const a=app();a.run(`UP.mode='grammar';UP.difficulty='basic';uStart('umi-l04');UP.session.exerciseIds=UP.session.exerciseIds.slice(0,5);uAction('pick:o1');uSave();`);const old=JSON.parse(a.storage.get('umi.practice.v1'));delete old.sessions;delete old.history;delete old.count;delete old.difficulty;a.storage.set('umi.practice.v1',JSON.stringify(old));const b=app(a.storage);assert.equal(b.run(`UP.count==='20'&&UP.session.exerciseIds.length===5&&UP.sessions['umi-l04'].id===UP.session.id&&uAnswer(uCurrent()).selection.answer==='o1'`),true);
 });
-test('wrong first attempt remains wrong after correction and cannot double count',()=>{
- const {run}=app();assert.equal(run(`const e=pickFixture('umi-l01.g01.gap'),a=uAnswer(e);a.selection.answer='o1';uCheck();a.selection.answer='o0';a.checked=false;uCheck();uCheck();UP.attempts.length===1&&!UP.attempts[0].firstAnswerCorrect&&UP.attempts[0].corrected&&Boolean(UP.mistakes[e.id])&&UP.skills[e.skillIds[0]].independentCorrect===0`),true);
+test('wrong answer finishes immediately, blocks corrections and records only one error',()=>{
+ const {run}=app();assert.equal(run(`const e=pickFixture('umi-l01.g01.gap'),a=uAnswer(e);uAction('pick:o1');uAction('check');const before=JSON.stringify(a.selection);const html=uSessionView();uAction('pick:o0');uAction('check');const blocked=JSON.stringify(a.selection)===before&&!a.correct&&a.checks===1&&html.includes('К итогу')&&!html.includes('up:check');uAction('next');blocked&&UP.attempts.length===1&&!UP.attempts[0].firstAnswerCorrect&&Boolean(UP.mistakes[e.id])&&UP.skills[e.skillIds[0]].independentCorrect===0&&uValidateProgress(JSON.parse(JSON.stringify(UP))).history.length===1`),true);
 });
 test('hint and reveal remain separate from independent knowledge',()=>{
  const {run}=app();assert.equal(run(`const e=pickFixture('umi-l02.g01.gap'),a=uAnswer(e);uAction('hint');a.selection.answer='o0';uCheck();UP.attempts[0].hintUsed&&UP.skills[e.skillIds[0]].independentCorrect===0&&Boolean(UP.mistakes[e.id])`),true);const b=app();assert.equal(b.run(`pickFixture('umi-l03.g01.gap');uAction('reveal');UP.attempts.length===1&&UP.attempts[0].revealedAnswer&&!UP.attempts[0].firstAnswerCorrect`),true);
@@ -97,8 +97,8 @@ test('paired situation translations preserve Russian agreement and do not cascad
  const {run}=app();assert.equal(run(`UEX['umi-l01.g03.situation'].translationRu==='Это мой журнал.'&&UEX['umi-l07.g04.situation'].translationRu==='Этот журнал дешёвый и интересный.'&&UEX['umi-l04.g05.situation'].translationRu==='Позавчера пил воду. Вежливо.'&&UEX['umi-l11.g02.situation'].translationRu.includes('читаю журналы')`),true);
 });
 
-test('two gaps credit the first correct answer, lock it and review only failed skill',()=>{
- const {run}=app();assert.equal(run(`const e=pickFixture('umi-l17.combine1'),a=uAnswer(e),left=e.slots[0],right=e.slots[1];a.selection={left:left.acceptedOptionIds[0],right:e.options.find(o=>!right.acceptedOptionIds.includes(o.id)&&o.id!==left.acceptedOptionIds[0]).id};uCheck();const first=UP.attempts[0];const partial=!a.correct&&uCleanUnits(first)===1&&UP.skills[left.skillIds[0]].independentCorrect===1&&UP.skills[right.skillIds[0]].errors===1&&UP.mistakes[e.id].skillIds.every(id=>right.skillIds.includes(id));uAction('slot:left');const locked=a.activeSlot==='right';uAction('pick:'+right.acceptedOptionIds[0]);uCheck();uAction('next');partial&&locked&&a.correct&&uCleanUnits(first)===1&&uResultView().includes('1 из 2 ответов')&&uValidateProgress(JSON.parse(JSON.stringify(UP))).attempts[0].slotResults.length===2`),true);
+test('two gaps credit the first correct answer and finish without requiring correction',()=>{
+ const {run}=app();assert.equal(run(`const e=pickFixture('umi-l17.combine1'),a=uAnswer(e),left=e.slots[0],right=e.slots[1];a.selection={left:left.acceptedOptionIds[0],right:e.options.find(o=>!right.acceptedOptionIds.includes(o.id)&&o.id!==left.acceptedOptionIds[0]).id};uCheck();const first=UP.attempts[0];const partial=!a.correct&&uCleanUnits(first)===1&&UP.skills[left.skillIds[0]].independentCorrect===1&&UP.skills[right.skillIds[0]].errors===1&&UP.mistakes[e.id].skillIds.every(id=>right.skillIds.includes(id));uAction('slot:left');const before=JSON.stringify(a.selection);uAction('pick:'+right.acceptedOptionIds[0]);uCheck();const locked=JSON.stringify(a.selection)===before;uAction('next');partial&&locked&&!a.correct&&uCleanUnits(first)===1&&uResultView().includes('1 из 2 ответов')&&uValidateProgress(JSON.parse(JSON.stringify(UP))).attempts[0].slotResults.length===2`),true);
 });
 test('old partial gap attempt migrates without losing its correct skill',()=>{
  const {run}=app();assert.equal(run(`const e=pickFixture('umi-l17.combine1'),a=uAnswer(e);a.selection={left:e.slots[0].acceptedOptionIds[0],right:e.options.find(o=>!e.slots[1].acceptedOptionIds.includes(o.id)&&o.id!==e.slots[0].acceptedOptionIds[0]).id};uCheck();const old=JSON.parse(JSON.stringify(UP));delete old.attempts[0].slotResults;const migrated=uValidateProgress(old);migrated.skills[e.slots[0].skillIds[0]].independentCorrect===1&&migrated.mistakes[e.id].skillIds.every(id=>e.slots[1].skillIds.includes(id))`),true);
@@ -112,4 +112,25 @@ test('single lesson excludes mixed texts; all topics have small Genki attributio
 
 test('partial errors repeat only failed skill and imports reject fabricated unit results',()=>{
  const {run}=app();run(`const e=pickFixture('umi-l17.combine1'),a=uAnswer(e);a.selection={left:e.slots[0].acceptedOptionIds[0],right:e.options.find(o=>!e.slots[1].acceptedOptionIds.includes(o.id)&&o.id!==e.slots[0].acceptedOptionIds[0]).id};uCheck();UP.mode='mistakes';const errors=uPool('umi-l17');`);assert.equal(run(`uCounts().independent===1&&errors.every(x=>x.skillIds.some(id=>e.slots[1].skillIds.includes(id)))`),true);assert.throws(()=>run(`const broken=JSON.parse(JSON.stringify(UP));broken.attempts[0].slotResults[0].skillIds=['invented'];uValidateProgress(broken)`));
+});
+
+test('selected blocks disappear from bank and return when removed from canvas',()=>{
+ const {run}=app();assert.equal(run(`const e=pickFixture('umi-l17.g03.variant.order'),a=uAnswer(e),id=e.acceptedSequences[0][0];uAction('pick:'+id);const hidden=!uSessionView().includes('data-a="up:pick:'+id+'"');uAction('undo:0');hidden&&a.selection.length===0&&uSessionView().includes('data-a="up:pick:'+id+'"')`),true);
+ const b=app();assert.equal(b.run(`const e=pickFixture('umi-l17.combine1'),a=uAnswer(e),id=e.slots[0].acceptedOptionIds[0];uAction('pick:'+id);const hidden=!uSessionView().includes('data-a="up:pick:'+id+'"')&&!uSessionView().includes('up-gap ok');uAction('slot:left');hidden&&!a.selection.left&&uSessionView().includes('data-a="up:pick:'+id+'"')`),true);
+});
+test('feedback contains one explanation and has no duplicate hint or option commentary',()=>{
+ const {run}=app();assert.equal(run(`const e=pickFixture('umi-l17.reading1');uAction('hint');answerCurrent();const html=uSessionView();html.split(esc(e.explanationRu)).length===2&&!html.includes('up-help')&&!html.includes('Ответ следует из текста')`),true);
+});
+test('word answers use Japanese only and punctuation duplicates are merged',()=>{
+ const {run}=app();assert.equal(run(`UMI.exercises.every(e=>e.type==='order'||new Set(e.options.map(o=>uNormalize(o.text))).size===e.options.length)&&UMI.exercises.filter(e=>e.legacyInput&&e.focus==='vocabulary').every(e=>e.options.length>=4&&e.options.every(o=>!/[А-Яа-яЁё]/.test(o.text)))`),true);
+});
+test('practice menu contains both modes and verb setup stays in practice',()=>{
+ const {run}=app();assert.equal(run(`buildPractice().includes('Формы глаголов')&&buildPractice().includes('Уроки Genki')&&!buildHome().includes('Формы глаголов')`),true);assert.equal(run(`act('open-cfg:quiz-verbs');S.tab==='practice'&&S.quizCfg.type==='words'&&S.quizCfg.mode==='verbs'&&nav().includes('bnav-btn active" data-a="tab:practice')`),true);
+});
+test('old options migrate in active and parked sessions without losing first results',()=>{
+ const {run}=app();assert.equal(run(`const e=UMI.exercises.find(e=>e.removedOptionIds?.length&&Object.keys(e.optionAliases).length),fixture=pickFixture(e.id);answerCurrent();const old=JSON.parse(JSON.stringify(UP));const session=old.session;session.optionOrders[e.id]=[...e.options.filter(o=>!o.id.startsWith('jp')).map(o=>o.id),...Object.keys(e.optionAliases),...e.removedOptionIds];const alias=Object.keys(e.optionAliases)[0];session.answers[e.id].selection.choice=alias;session.answers[e.id].checked=false;old.sessions[e.lessonId]=JSON.parse(JSON.stringify(session));const migrated=uValidateProgress(old);uValidSession(migrated.session)&&uValidSession(migrated.sessions[e.lessonId])&&migrated.session.answers[e.id].checked&&migrated.attempts.length===1&&migrated.session.answers[e.id].selection.choice===e.optionAliases[alias]`),true);
+});
+
+test('a wrong hinted answer remains an error in the summary',()=>{
+ const {run}=app();assert.equal(run(`pickFixture('umi-l17.reading1');uAction('hint');uAction('pick:o1');uAction('check');uAction('next');uResultView().includes('Ошибок: 1')&&!UP.history[0].independentCorrect`),true);
 });

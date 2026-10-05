@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>日本語</title>
-<link rel="stylesheet" href="content/practice.css?v=20261004-beta1">
+<link rel="stylesheet" href="content/practice.css?v=20261005-beta2">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -430,8 +430,8 @@ td{padding:7px 10px;border-top:1px solid rgba(255,255,255,.05);white-space:nowra
 <body>
 <div id="app"></div>
 <div id="toast"></div>
-<script src="content/practice-data.js?v=20261004-beta1"></script>
-<script src="content/practice.js?v=20261004-beta1"></script>
+<script src="content/practice-data.js?v=20261005-beta2"></script>
+<script src="content/practice.js?v=20261005-beta2"></script>
 <script>
 'use strict';
 const practiceAvailable=Boolean(window.UMI_BANK&&typeof buildPractice==='function');
@@ -1420,7 +1420,7 @@ const TABS=[
   {id:'settings',img:ASSETS.navSet,  lbl:'Настройки'},
 ];
 function nav(){
-  const cur=S.cfgScreen?'home':S.tab; // конфиг-экран открыт с главной
+  const cur=S.cfgScreen&&S.quizCfg.mode!=='verbs'?'home':S.tab; // формы глаголов открываются из практики
   return`<nav class="bnav">${TABS.map(t=>{
     const active=cur===t.id;
     return`<button class="bnav-btn${active?' active':''}" data-a="tab:${t.id}"${t.beta?' aria-label="Практика · бета"':''}>
@@ -1445,7 +1445,6 @@ function buildHome(){
       +`<button class="nimport" data-a="go-import-home"><img src="${ASSETS.cImport}" alt="">Импортировать</button>`
     : card(ASSETS.cCards,'Карточки','open-cfg:cards')
       +card(ASSETS.cQuiz,'Квиз','open-cfg:quiz')
-      +card(VERB_ICON,'Формы глаголов','open-cfg:quiz-verbs')
       +card(MATCH_ICON,'Сопоставь пары','open-cfg:quiz-match')
       +`<button class="nimport" data-a="go-import-home"><img src="${ASSETS.cImport}" alt="">Импортировать</button>`;
   return`
@@ -2186,7 +2185,7 @@ function act(action){
   switch(type){
     case'up':if(practiceAvailable)uAction(val);return;
     case'tab':
-      S.tab=val;S.confirmPending=null;S.cfgScreen=null;
+      S.tab=val;if(val==='practice'&&practiceAvailable)UP.view='menu';S.confirmPending=null;S.cfgScreen=null;
       S.studyQueue=[];S.studyResults=null;S.quizQ=null;S.quizDone=false;
       break;
     case'home-tab':   S.homeTab=val;break;
@@ -2196,7 +2195,8 @@ function act(action){
 
     // Открыть экран настроек режима с карточки на главной
     case'open-cfg':{
-      const type=S.homeTab;
+      const type=val==='quiz-verbs'?'words':S.homeTab;
+      if(val==='quiz-verbs'){S.tab='practice';if(practiceAvailable)UP.view='menu';}
       if(val==='cards'){
         if(S.studyCfg.type!==type){
           S.studyCfg.type=type;S.studyCfg.front=['kanji'];S.studyCfg.folders=[];

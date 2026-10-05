@@ -3,6 +3,7 @@ A family groups formats of the same example so the scheduler can space them apar
 """
 from copy import deepcopy
 import re
+import unicodedata
 from practice_variants import VARIANTS, READINGS, WORD_CONTEXTS
 
 VERBS=set('たべる のむ よむ いく まつ あける はいる すむ はたらく おもう はなす およぐ かう つくる あう ひく もつ てつだう おしえる さがす しまる しめる わすれる めしあがる いらっしゃる もうす うかがう つかう ぬすむ おく こまる やすむ つづける きめる'.split())
@@ -176,6 +177,35 @@ def expand_bank(bank):
             e=deepcopy(source);e.update(id=left['id']+'.'+right['id']+f'.mixed-reading{index+1}',familyId=left['id']+'.'+right['id']+'.mixed-reading',lessonIds=[left['id'],right['id']],mixedText=True,prompt=[{'text':passage,'reading':None}],instructionRu=('По тексту A: ' if index==0 else 'По тексту B: ')+source['instructionRu'])
             if e['id'] in existing:raise ValueError('Duplicate mixed reading')
             existing[e['id']]=e;bank['exercises'].append(e)
-    bank['contentVersion']=3
+    # Preserve option IDs and record aliases so existing local sessions migrate.
+    # Punctuation cannot turn an otherwise identical answer into a distractor.
+    def option_key(text):
+        return re.sub(r'[\s。．.!！?？]+', '', unicodedata.normalize('NFKC', text))
+    for e in bank['exercises']:
+        if e['type']=='order':continue  # Repeated sentence blocks are distinct tokens.
+        original=e['options'];kept=[];by_key={};remap={};removed=[]
+        accepted=set(e['acceptedChoiceIds']+[oid for slot in e['slots'] for oid in slot['acceptedOptionIds']])
+        accepted_keys={option_key(o['text']) for o in original if o['id'] in accepted}
+        for o in original:
+            if e.get('legacyInput') and (re.search(r'[А-Яа-яЁё]',o['text']) or e['focus']=='vocabulary' and option_key(o['text']) not in accepted_keys and option_key(o['text']) not in {option_key(w['reading']) for w in bank['words']}):
+                removed.append(o['id']);continue
+            key=option_key(o['text'])
+            if key in by_key:
+                remap[o['id']]=by_key[key]['id'];continue
+            if e['focus']=='vocabulary':o['text']=o['text'].rstrip('。．.!！?？')
+            by_key[key]=o;kept.append(o)
+        if e.get('legacyInput') and e['focus']=='vocabulary' and (removed or len(kept)<4):
+            for wid in lessons[e['lessonId']]['wordIds']:
+                if len(kept)>=8:break
+                text=words[wid]['reading'];key=option_key(text)
+                if key in by_key:continue
+                o={'id':'jp'+str(len(kept)), 'text':text, 'feedbackRu':'', 'misconceptionId':None}
+                kept.append(o);by_key[key]=o
+                if len(kept)>=8:break
+        e['options']=kept
+        e['optionAliases']=remap;e['removedOptionIds']=removed
+        if e['type']=='choice':e['acceptedChoiceIds']=[o['id'] for o in kept if option_key(o['text']) in accepted_keys]
+        for slot in e['slots']:slot['acceptedOptionIds']=list(dict.fromkeys(remap.get(oid,oid) for oid in slot['acceptedOptionIds']))
+    bank['contentVersion']=4
     bank['interactionTypes']=['choice','gap','order']
     return bank
