@@ -94,7 +94,7 @@ test('every available exercise can be checked, finished and restored, including 
 });
 
 test('paired situation translations preserve Russian agreement and do not cascade time replacements',()=>{
- const {run}=app();assert.equal(run(`UEX['umi-l01.g03.situation'].translationRu==='Это мой журнал.'&&UEX['umi-l07.g04.situation'].translationRu==='Этот журнал дешёвый и интересный.'&&UEX['umi-l04.g05.situation'].translationRu==='Позавчера пил воду. Вежливо.'&&UEX['umi-l11.g02.situation'].translationRu.includes('читаю журналы')`),true);
+ const {run}=app();assert.equal(run(`UEX['umi-l01.g03.situation'].translationRu==='Это мой журнал.'&&UEX['umi-l07.g04.situation'].translationRu==='Этот журнал дешёвый и интересный.'&&UEX['umi-l04.g05.situation'].translationRu==='Позавчера пил воду.'&&UEX['umi-l04.g05.situation'].conditionsRu.includes('Вежливый стиль')&&UEX['umi-l11.g02.situation'].translationRu.includes('читаю журналы')`),true);
 });
 
 test('two gaps credit the first correct answer and finish without requiring correction',()=>{
@@ -104,7 +104,7 @@ test('old partial gap attempt migrates without losing its correct skill',()=>{
  const {run}=app();assert.equal(run(`const e=pickFixture('umi-l17.combine1'),a=uAnswer(e);a.selection={left:e.slots[0].acceptedOptionIds[0],right:e.options.find(o=>!e.slots[1].acceptedOptionIds.includes(o.id)&&o.id!==e.slots[0].acceptedOptionIds[0]).id};uCheck();const old=JSON.parse(JSON.stringify(UP));delete old.attempts[0].slotResults;const migrated=uValidateProgress(old);migrated.skills[e.slots[0].skillIds[0]].independentCorrect===1&&migrated.mistakes[e.id].skillIds.every(id=>e.slots[1].skillIds.includes(id))`),true);
 });
 test('combined lessons restrict every source, include mixed texts and restore separately',()=>{
- const a=app();assert.equal(a.run(`UP.selectedLessons=['umi-l01','umi-l17'];const key=uMixKey();uStart(key);UP.session.exerciseIds.some(id=>UEX[id].mixedText)&&UP.session.exerciseIds.every(id=>(UEX[id].lessonIds||[UEX[id].lessonId]).every(l=>UP.selectedLessons.includes(l)))&&UP.session.exerciseIds.some(id=>UEX[id].lessonId==='umi-l01')&&UP.session.exerciseIds.some(id=>UEX[id].lessonId==='umi-l17')`),true);a.run('answerCurrent();uAction("next");uSave()');const b=app(a.storage);assert.equal(b.run(`UP.selectedLessons.length===2&&UP.session.position===1&&uValidSession(UP.session)&&uMixView().includes('Продолжить смешанную')`),true);assert.equal(b.run(`finishRun();UP.history.length===1&&uValidateProgress(JSON.parse(JSON.stringify(UP))).history.length===1`),true);
+ const a=app();assert.equal(a.run(`UP.selectedLessons=['umi-l01','umi-l17'];const key=uMixKey();uStart(key);UP.session.exerciseIds.some(id=>UEX[id].mixedText)&&UP.session.exerciseIds.every(id=>(UEX[id].lessonIds||[UEX[id].lessonId]).every(l=>UP.selectedLessons.includes(l)))&&UP.session.exerciseIds.some(id=>UEX[id].lessonId==='umi-l01')&&UP.session.exerciseIds.some(id=>UEX[id].lessonId==='umi-l17')`),true);a.run('answerCurrent();uAction("next");uSave()');const b=app(a.storage);assert.equal(b.run(`UP.selectedLessons.length===2&&UP.session.position===1&&uValidSession(UP.session)&&uMixView().includes('up:resume:'+uMixKey())`),true);assert.equal(b.run(`finishRun();UP.history.length===1&&uValidateProgress(JSON.parse(JSON.stringify(UP))).history.length===1`),true);
 });
 test('single lesson excludes mixed texts; all topics have small Genki attribution',()=>{
  const {run}=app();assert.equal(run(`!uPool('umi-l01').some(e=>e.mixedText)&&uCatalogView().includes('≈ Genki I · урок 1')&&uCatalogView().includes('покрытие грамматики, лексики и чтения частичное')`),true);
@@ -133,4 +133,39 @@ test('old options migrate in active and parked sessions without losing first res
 
 test('a wrong hinted answer remains an error in the summary',()=>{
  const {run}=app();assert.equal(run(`pickFixture('umi-l17.reading1');uAction('hint');uAction('pick:o1');uAction('check');uAction('next');uResultView().includes('Ошибок: 1')&&!UP.history[0].independentCorrect`),true);
+});
+
+test('saved basic run can be closed and a new run honours each selected difficulty',()=>{
+ for(const level of ['all','challenge']){
+  const a=app();a.run(`UP.difficulty='basic';uStart('umi-l13');const oldId=UP.session.id;answerCurrent();uAction('next');uAction('lesson:umi-l13');uAction('difficulty:${level}');`);
+  assert.equal(a.run(`uLessonView().includes('up:start:umi-l13')&&uLessonView().includes('up:resume:umi-l13')`),true);
+  a.run(`uAction('start:umi-l13')`);
+  assert.equal(a.run(`UP.session.id!==oldId&&UP.session.difficulty==='${level}'&&UP.history.find(h=>h.id===oldId).status==='stopped'&&UP.history[0].answerCount===1&&UP.attempts.length===1`),true);
+  const b=app(a.storage);assert.equal(b.run(`UP.session.difficulty==='${level}'&&UP.history.length===1&&uValidSession(UP.session)`),true);
+ }
+});
+test('explicit resume restores saved settings rather than pretending to change level',()=>{
+ const {run}=app();assert.equal(run(`UP.difficulty='challenge';UP.count='10';UP.mode='grammar';uStart('umi-l13');const id=UP.session.id;uAction('lesson:umi-l13');UP.difficulty='basic';UP.count='40';UP.mode='vocabulary';uAction('resume:umi-l13');UP.session.id===id&&UP.difficulty==='challenge'&&UP.count==='10'&&UP.mode==='grammar'`),true);
+});
+test('early finish keeps checked current answer, ignores unanswered questions and cannot resume after reload',()=>{
+ const a=app();a.run(`UP.count='10';uStart('umi-l13');const id=UP.session.id;answerCurrent();uAction('end');uAction('end');uSave();`);
+ assert.equal(a.run(`UP.session.position===0&&UP.history.length===1&&UP.history[0].answeredExerciseIds.length===1&&UP.history[0].answerCount===uUnits(UEX[UP.session.exerciseIds[0]],UP.attempts[0]).length&&UP.history[0].status==='stopped'&&uActiveSessions().length===0&&!uCurrent()&&uResultView().includes('неотвеченные вопросы не считаются ошибками')`),true);
+ const b=app(a.storage);assert.equal(b.run(`uAction('resume:umi-l13');UP.view==='menu'&&uActiveSessions().length===0&&UP.attempts.length===1&&UP.history.length===1`),true);
+});
+test('finish before answering produces an empty result, and retry opens setup without starting',()=>{
+ const {run}=app();assert.equal(run(`UP.difficulty='challenge';uStart('umi-l13');const id=UP.session.id;uAction('end');const html=uResultView();uAction('setup');html.includes('0 из 20 заданий')&&!html.includes('NaN')&&!html.includes('up:start:')&&UP.view==='lesson'&&UP.lessonId==='umi-l13'&&UP.difficulty==='challenge'&&UP.session.id===id&&uLessonView().includes('Сложнее')&&uLessonView().includes('Тренировка')&&UP.attempts.length===0`),true);
+});
+test('mixed retry opens same lesson combination and new selected difficulty',()=>{
+ const {run}=app();assert.equal(run(`UP.selectedLessons=['umi-l01','umi-l13'];UP.difficulty='basic';uStart(uMixKey());const key=UP.session.lessonId;uAction('end');UP.selectedLessons=['umi-l02','umi-l03'];uAction('setup');const same=uMixKey()===key&&UP.view==='mix';uAction('difficulty:challenge');uAction('start:'+key);same&&UP.session.difficulty==='challenge'&&UP.session.exerciseIds.every(id=>UEX[id].difficulty==='challenge')`),true);
+});
+test('every rule has a visible form, meaning, construction, example and nuance',()=>{
+ const {run}=app();assert.equal(run(`UMI.lessons.every(l=>l.rules.every((r,i)=>{UP.openRule=r.id;const html=uRuleView(r,i);return ['titleRu','form','meaningRu','applicationRu','nuanceRu'].every(k=>typeof r[k]==='string'&&r[k].length>0)&&html.includes('Что выражает')&&html.includes('Как построить')&&html.includes('up-rule-example')&&html.includes('Нюансы')&&!r.translationRu.includes('Вежливо.')&&!r.translationRu.includes('Выбери');}))`),true);
+});
+test('translations contain phrases while response conditions are separate and numbered',()=>{
+ const {run}=app();assert.equal(run(`UMI.exercises.every(e=>!/(Вежливо\\.|Выбери |Используй |Словарная форма\\.)/.test(e.translationRu||''))&&UMI.exercises.filter(e=>e.slots.length>1&&e.conditionsRu.length).every(e=>e.conditionsRu.every(n=>/^[①②]/.test(n)))&&UEX['umi-l13.g01.variant.input'].translationRu==='Я умею плавать.'&&UEX['umi-l13.g01.variant.input'].conditionsRu.includes('Вежливый стиль')&&UEX['umi-l13.g01.variant.input'].prompt.every(t=>!t.text.includes('つまり'))`),true);
+});
+test('swimming assembly translates one phrase and old active/parked blocks migrate with first results intact',()=>{
+ const a=app();a.run(`const e=pickFixture('umi-l13.g01.variant.order');answerCurrent();const old=JSON.parse(JSON.stringify(UP));for(const s of [old.session,old.sessions[e.lessonId]]){s.optionOrders[e.id]=e.previousOrder.ids.slice();s.answers[e.id].selection=['b0','b1','b2','b3','b4','b5'];}const migrated=uValidateProgress(old);`);
+ assert.equal(a.run(`uValidSession(migrated.session)&&uValidSession(migrated.sessions['umi-l13'])&&migrated.session.answers[e.id].selection.join(',')==='b0,b1,b2'&&migrated.attempts.length===1&&migrated.session.answers[e.id].first.id===UP.attempts[0].id&&e.requiredCount===3&&uSolution(e)==='わたし は およげます。'&&e.translationRu==='Я умею плавать.'`),true);
+ const b=app();assert.equal(b.run(`const e=pickFixture('umi-l13.g01.variant.order');const old=JSON.parse(JSON.stringify(UP));uAnswer(e);old.session.answers[e.id]=JSON.parse(JSON.stringify(uAnswer(e)));old.session.optionOrders[e.id]=e.previousOrder.ids.slice();old.session.answers[e.id].selection=['b0','b2'];old.sessions={};const migrated=uValidateProgress(old);migrated.session.answers[e.id].selection.join(',')==='b0'&&migrated.attempts.length===0`),true);
 });

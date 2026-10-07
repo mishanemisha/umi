@@ -31,9 +31,24 @@
 .up-page .chip{flex-basis:96px;min-height:50px;height:auto}
 .up-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:16px;margin-bottom:8px;font-size:12px;color:var(--al)}
 .up-heading .up-button{font-size:14px;min-height:40px;padding:8px 16px;flex:initial}
-.up-rule-card{padding:0}
+.up-page .up-rule-card{padding:0}
 .up-rule{width:100%;display:flex;align-items:center;gap:16px;text-align:left;border:0;background:transparent;color:var(--t);padding:16px;cursor:pointer;font:inherit;font-size:16px}
-.up-rule-detail{border-top:1px solid var(--stroke);padding:16px;font-size:14px;line-height:1.65}
+.up-rule-heading{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.up-rule-title{font-size:17px;font-weight:600;line-height:1.35}
+.up-rule-form{font-size:13px;line-height:1.5;color:var(--al);overflow-wrap:anywhere}
+.up-rule-detail{border-top:1px solid var(--stroke);padding:16px;display:grid;gap:18px;font-size:14px;line-height:1.65}
+.up-rule-detail h3,.up-rule-example figcaption{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--al);margin-bottom:6px}
+.up-rule-meaning{border-left:3px solid var(--a);padding-left:12px}
+.up-rule-meaning p{font-size:16px;color:var(--t)}
+.up-rule-application p{white-space:pre-line;overflow-wrap:anywhere}
+.up-rule-example{margin:0;background:var(--bg);border:1px solid var(--stroke);border-radius:8px;padding:14px 16px}
+.up-rule-example .up-example{font-size:23px;margin:8px 0 10px}
+.up-example-translation{font-size:14px;line-height:1.6;color:var(--t)}
+.up-rule-nuance{background:var(--c2);border-radius:6px;padding:12px 14px}
+.up-rule-nuance p{font-size:13px;color:var(--t2)}
+.up-conditions{list-style:none;display:flex;flex-wrap:wrap;gap:6px 12px;margin:4px 0 0;padding:0;font-size:12px;line-height:1.6;color:var(--al);text-align:left}
+.up-conditions li{overflow-wrap:anywhere}
+.up-conditions li::before{content:'· ';font-weight:700}
 .up-example{font-size:20px;color:var(--t);line-height:1.6;margin:8px 0;overflow-wrap:anywhere;white-space:pre-line}
 .up-word{display:flex;gap:8px;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid var(--stroke)}
 .up-word:last-child{border-bottom:0}
@@ -41,9 +56,12 @@
 .up-word .up-button{font-size:12px;padding:8px;min-height:40px;flex:0 0 auto;max-width:100px}
 .up-word rt{color:var(--al);font-size:10px}
 .up-muted{font-size:12px;color:var(--t2);line-height:1.5}
-.up-question{gap:16px;margin-top:8px}
-.up-instruction{font-size:16px;font-weight:400;line-height:1.5;white-space:pre-line}
-.up-translation{white-space:pre-line;line-height:1.6}
+.up-page .up-question{gap:12px;margin-top:8px;min-height:0;align-items:stretch;text-align:left;padding:20px}
+.up-question .quiz-ql{font-size:11px;line-height:1.4;text-align:left}
+.up-instruction{font-size:14px;font-weight:400;line-height:1.5;white-space:pre-line;color:var(--t2)}
+.up-translation{font-size:22px;font-weight:500;color:var(--t);white-space:pre-line;line-height:1.5;overflow-wrap:anywhere}
+.up-question .up-prompt{border-top:1px solid var(--stroke);padding-top:14px;text-align:left}
+.up-question .up-prompt.sm{font-size:20px}
 .up-prompt{line-height:1.6;overflow-wrap:anywhere;white-space:pre-line}
 .up-prompt.quiz-qm:not(.sm){font-size:36px}
 .up-gap{display:inline-block;min-width:64px;color:var(--t);background:var(--c2);padding:0 8px;cursor:pointer;font:inherit;border:1px solid var(--stroke);border-bottom:2px solid var(--a);border-radius:var(--rad)}

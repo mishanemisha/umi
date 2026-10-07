@@ -1,6 +1,7 @@
 """Original local practice bank. Rows are authored here; no textbook exercises copied."""
 import json
 from expand_practice import expand_bank
+from practice_editorial import edit_bank
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 # title | formation and meaning | prompt | required translation | correct;distractors
@@ -227,7 +228,7 @@ for lesson in lessons:
     exercise={'id':eid,'version':1,'status':'draft','type':'order','focus':'mixed','lessonId':lid,'skillIds':[rule['id']],'targetWordIds':[],'prerequisiteSkillIds':[],'instructionRu':f'Собери фразу. Начни с «{chunks[0]}», сказуемое поставь в конце. Используй все блоки.','prompt':[],'translationRu':translation,'options':options,'slots':[],'acceptedChoiceIds':[],'acceptedSequences':[[o['id'] for o in options]],'allowOptionReuse':False,'explanationRu':rule['formationRu'],'display':{'hideReadings':False},'provenance':provenance}
     exercises.append(exercise);lesson['exerciseIds'].append(eid)
 bank={'version':1,'titleRu':'umi · Практика','contentStatus':'local-pilot','provenance':provenance,'sources':[{'title':'Genki 3rd Edition — справочная программа тем','url':'https://bookclub2.japantimes.co.jp/download/files/genki3/genki-3rd_syllabus_E.pdf'}],'lessons':lessons,'words':list(words.values()),'exercises':exercises}
-bank=expand_bank(bank)
+bank=edit_bank(expand_bank(bank))
 # Intern repeated explanations at build time. The browser expands the complete
 # bank once at boot, preserving the public data contract and stable IDs.
 from collections import Counter

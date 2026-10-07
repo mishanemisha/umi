@@ -23,6 +23,7 @@ function uCleanUnits(a){return a?uUnits(UEX[a.exerciseId],a).filter(x=>x.indepen
 function uValidSession(s){
   return s && typeof s.id==='string' && Array.isArray(s.exerciseIds) && s.exerciseIds.length>0 && s.exerciseIds.length<=UMI.exercises.length && s.exerciseIds.every(id=>UEX[id]) && new Set(s.exerciseIds).size===s.exerciseIds.length && Number.isInteger(s.position) && s.position>=0 && s.position<=s.exerciseIds.length && s.answers && typeof s.answers==='object' && s.optionOrders && s.exerciseIds.every(id=>Array.isArray(s.optionOrders[id])&&s.optionOrders[id].length===UEX[id].options.length&&new Set(s.optionOrders[id]).size===UEX[id].options.length&&s.optionOrders[id].every(oid=>UEX[id].options.some(o=>o.id===oid)));
 }
+function uSessionDone(s){return Boolean(s&&(s.endedAt||s.position>=s.exerciseIds.length));}
 function uValidateProgress(d){
   const record=x=>x&&typeof x==='object'&&!Array.isArray(x);
   if(!record(d)||d.version!==1||!Array.isArray(d.attempts)||!record(d.skills)||!record(d.mistakes)||!record(d.wordLinks))throw Error('Это не файл прогресса umi версии 1.');
@@ -36,6 +37,16 @@ function uValidateProgress(d){
   for(const [id,m] of Object.entries(d.mistakes))if(!UEX[id]||!record(m)||!Array.isArray(m.skillIds)||!m.skillIds.every(s=>UEX[id].skillIds.includes(s))||!Number.isFinite(m.nextReviewAt))throw Error('Повреждена очередь повторений.');
   for(const [id,link] of Object.entries(d.wordLinks))if(!UWORDS[id]||typeof link!=='string')throw Error('Повреждены связи со словарём.');
   function validateSession(session){
+    if(session.endedAt!==undefined&&(!Number.isFinite(session.endedAt)||session.endedAt<=0))throw Error('Повреждена дата завершения тренировки.');
+    // Keep old results while removing the redundant paraphrase from one assembly.
+    for(const id of session.exerciseIds||[]){
+      const e=UEX[id],old=e?.previousOrder,order=session.optionOrders?.[id],a=session.answers?.[id];
+      if(old&&Array.isArray(order)&&order.length===old.ids.length&&new Set(order).size===old.ids.length&&order.every(oid=>old.ids.includes(oid))){
+        const migrate=ids=>ids.filter(oid=>!old.removed.includes(oid)).map(oid=>old.aliases[oid]||oid);
+        session.optionOrders[id]=migrate(order);
+        if(a){if(!Array.isArray(a.selection)||!a.selection.every(oid=>old.ids.includes(oid)))throw Error('Повреждена сохранённая сборка.');a.selection=migrate(a.selection);}
+      }
+    }
     // Upgrade retained input IDs before checking the current option contract.
     for(const id of session.exerciseIds||[]){const e=UEX[id],a=session.answers?.[id];if(!e?.legacyInput)continue;
       if(Array.isArray(session.optionOrders?.[id])&&!session.optionOrders[id].length)session.optionOrders[id]=e.options.map(o=>o.id);
@@ -102,6 +113,8 @@ function uBtn(label,action,cls='',disabled=false){
   const primary=cls.includes('primary'),wide=cls.includes('wide');
   return `<button class="${primary?'start-btn':'chip'} up-button ${wide?'wide':''}" data-a="up:${esc(action)}" ${disabled?'disabled':''}>${label}</button>`;
 }
+function uPlural(n,forms){const last=n%10,tail=n%100;return forms[tail>=11&&tail<=14?2:last===1?0:last>=2&&last<=4?1:2];}
+function uTaskCount(n){return `${n} ${uPlural(n,['задание','задания','заданий'])}`;}
 function uHeader(title,action='catalog',subtitle=''){
   return `<header class="cfg-hdr">${action?`<button class="cfg-hdr-back" data-a="up:${esc(action)}" aria-label="Назад">←</button>`:''}<span class="cfg-hdr-title">${esc(title)}</span>${subtitle?`<span class="up-header-meta">${esc(subtitle)}</span>`:''}</header>`;
 }
@@ -112,8 +125,17 @@ function uProgress(l){const ids=[...new Set(l.exerciseIds.flatMap(id=>UEX[id].sk
 function uCounts(){const independent=new Set(UP.attempts.flatMap(a=>uUnits(UEX[a.exerciseId],a).filter(unit=>unit.independent).map(unit=>a.exerciseId+'.'+unit.id))).size;return {independent,total:UP.attempts.length};}
 function uStats(items){return `<div class="nstats">${items.map(([value,label,tone])=>`<div class="nstat ${tone||''}"><div class="n">${value}</div><div class="l">${label}</div></div>`).join('')}</div>`;}
 function uBar(percent,left,right){return `<div class="nprog"><div class="nprog-bar" role="progressbar" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100" aria-label="${esc(left)}"><i style="width:${percent}%"></i></div><div class="nprog-info"><span>${esc(left)}</span><span>${esc(right)}</span></div></div>`;}
-function uActiveSessions(){return Object.values(UP.sessions).filter(s=>s.position<s.exerciseIds.length);}
-function uSessionLabel(s){return `${U_MODE_LABELS[s.mode]||'Практика'} · ${s.position+1} / ${s.exerciseIds.length}`;}
+function uActiveSessions(){return Object.values(UP.sessions).filter(s=>!uSessionDone(s));}
+function uSessionLabel(s){return `${U_MODE_LABELS[s.mode]||'Практика'} · ${U_LEVEL_LABELS[s.difficulty]||'Тренировка'} · ${s.position+1} / ${s.exerciseIds.length}`;}
+function uConditions(notes){return notes?.length?`<ul class="up-conditions" aria-label="Условия ответа">${notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:'';}
+function uRuleView(r,i){
+  const open=UP.openRule===r.id;
+  return `<section class="cfg-card up-rule-card"><button class="up-rule" aria-expanded="${open}" ${open?`aria-controls="${r.id}-detail"`:""} data-a="up:rule:${r.id}"><span class="up-number">${String(i+1).padStart(2,'0')}</span><span class="up-rule-heading"><span class="up-rule-title">${esc(r.titleRu)}</span><span class="up-rule-form">${esc(r.form)}</span></span><span class="up-arrow">${open?'−':'+'}</span></button>${open?`<div class="up-rule-detail" id="${r.id}-detail"><section class="up-rule-meaning"><h3>Что выражает</h3><p>${esc(r.meaningRu)}</p></section><section class="up-rule-application"><h3>Как построить</h3><p>${esc(r.applicationRu)}</p></section><figure class="up-rule-example"><figcaption>Пример</figcaption><div class="up-example" lang="ja">${esc(r.example)}</div><p class="up-example-translation">${esc(r.translationRu)}</p>${uConditions(r.conditionsRu)}</figure><aside class="up-rule-nuance"><h3>Нюансы</h3><p>${esc(r.nuanceRu)}</p></aside></div>`:''}</section>`;
+}
+function uPendingView(id){
+  const pending=UP.sessions[id];if(!pending||uSessionDone(pending))return '';
+  return `<section class="cfg-card up-help"><div class="cfg-lbl">Сохранённая тренировка</div><p>${esc(uSessionLabel(pending))}</p><div class="up-actions">${uBtn('Продолжить','resume:'+id)}${uBtn('Завершить','end:'+id)}</div><p class="up-muted">Продолжи с сохранённого места или заверши с итогом по отвеченным вопросам.</p></section>`;
+}
 function uLessonRuns(id){return UP.history.filter(h=>h.lessonId===id);}
 function buildPractice(){
   const error=uStorageError?`<div class="cfg-card up-error" role="alert">${esc(uStorageError)}</div>`:'';
@@ -136,28 +158,28 @@ function uCatalogView(){
     ${UP.mode==='mistakes'?`<div class="cfg-card up-help">${mistakes.length?'В первую очередь — другие примеры тех навыков, где были ошибки.':'Ошибок пока нет. Они появятся здесь после тренировок.'}${mistakes.length?uBtn('Повторить ошибки','start:all','primary wide',!uPool('all').length):''}${mistakes.length&&!uPool('all').length?'<p>Исходные вопросы будут доступны через 10 минут.</p>':''}</div>`:''}
     <section class="cfg-card"><div class="cfg-lbl">Несколько уроков вместе</div><p class="up-sub">Выбери темы для общей тренировки и смешанного чтения.</p>${uBtn('Комбинировать уроки','mix','primary wide')}</section>
     <div class="up-section-label">Темы · тренируйся сколько нужно</div>
-    <div class="up-list up-inset">${lessons.map(l=>{const pending=UP.sessions[l.id],runs=uLessonRuns(l.id),pct=uProgress(l);return `<button class="up-lesson" data-a="up:lesson:${l.id}"><span class="up-number">${String(l.number).padStart(2,'0')}</span><span class="up-lesson-main"><span class="up-lesson-title">${esc(l.titleRu)}</span><span class="up-lesson-meta">≈ Genki ${l.volume===1?'I':'II'} · урок ${l.number}<br>${l.exerciseIds.length} заданий · ${l.rules.length} правил${runs.length?' · тренировок: '+runs.length:''}${pending&&pending.position<pending.exerciseIds.length?' · есть сохранённая':''}</span><span class="nprog-bar up-mini-progress"><i style="width:${pct}%"></i></span></span><span class="up-arrow">›</span></button>`;}).join('')}</div>
+    <div class="up-list up-inset">${lessons.map(l=>{const pending=UP.sessions[l.id],runs=uLessonRuns(l.id),pct=uProgress(l);return `<button class="up-lesson" data-a="up:lesson:${l.id}"><span class="up-number">${String(l.number).padStart(2,'0')}</span><span class="up-lesson-main"><span class="up-lesson-title">${esc(l.titleRu)}</span><span class="up-lesson-meta">≈ Genki ${l.volume===1?'I':'II'} · урок ${l.number}<br>${uTaskCount(l.exerciseIds.length)} · ${l.rules.length} ${uPlural(l.rules.length,['правило','правила','правил'])}${runs.length?' · тренировок: '+runs.length:''}${pending&&!uSessionDone(pending)?' · есть сохранённая':''}</span><span class="nprog-bar up-mini-progress"><i style="width:${pct}%"></i></span></span><span class="up-arrow">›</span></button>`;}).join('')}</div>
     <details class="cfg-card up-about"><summary>О практике и сохранении</summary><p class="up-sub">${UMI.words.length} слов, ${UMI.lessons.reduce((n,l)=>n+l.rules.length,0)} правил. Собственные примеры по темам Genki 3rd Edition; Представлены темы всех 23 уроков, но покрытие грамматики, лексики и чтения частичное; это не полный курс учебника. Локальный пилот, редакторская проверка ещё не выполнена.</p><div class="chips">${uBtn('Экспорт прогресса','export')}${uBtn('Импорт прогресса','import')}</div><p class="up-sub"><a href="${esc(UMI.sources[0].url)}" target="_blank" rel="noopener noreferrer">Программа тем Genki ↗</a></p></details>`;
 }
 function uLessonView(){
-  const l=ULESSONS[UP.lessonId],pending=UP.sessions[l.id],hasPending=pending&&pending.position<pending.exerciseIds.length,runs=uLessonRuns(l.id),pool=uPool(l.id);
+  const l=ULESSONS[UP.lessonId],pending=UP.sessions[l.id],hasPending=pending&&!uSessionDone(pending),runs=uLessonRuns(l.id),pool=uPool(l.id);
   const available=uTargetCount(pool.length),seen=new Set(UP.attempts.filter(a=>UEX[a.exerciseId]?.lessonId===l.id).map(a=>a.exerciseId)).size;
   const fresh=pool.filter(e=>!UP.attempts.some(a=>a.exerciseId===e.id)).length;
   return `${uHeader(l.titleRu)}<div class="up-context">≈ Genki ${l.volume===1?'I':'II'} · урок ${l.number}</div>
     ${uStats([[l.exerciseIds.length,'В теме'],[seen,'Попробовал','y'],[runs.length,'Тренировки','g']])}
     ${uBar(uProgress(l),uProgress(l)+'% навыков','Правила, чтение и слова')}
-    ${hasPending?`<section class="cfg-card up-help"><div class="cfg-lbl">Сохранённая тренировка</div><p>${uSessionLabel(pending)}</p>${uBtn('Продолжить','resume:'+l.id,'primary wide')}</section>`:''}
-    ${uSettings()}<div class="up-inset up-sub">${UP.difficulty==='challenge'?'Выбор из расширенного набора вариантов, несколько пропусков, чтение текста и сборка с лишними блоками.':UP.difficulty==='basic'?'Узнавание слов, чтения и базовых форм.':'Слова, новые ситуации, формы, сборка и чтение.'}<br>${fresh} ещё не встречавшихся заданий в выбранном режиме.${hasPending?' Настройки применятся к следующей тренировке.':''}</div>
-    <div class="start-row">${uBtn(hasPending?'Продолжить сохранённую':`Начать · ${available} заданий`,hasPending?'resume:'+l.id:'start:'+l.id,'primary wide',!hasPending&&!pool.length)}</div>
+    ${uPendingView(l.id)}
+    ${uSettings()}<div class="up-inset up-sub">${UP.difficulty==='challenge'?'Выбор из расширенного набора вариантов, несколько пропусков, чтение текста и сборка с лишними блоками.':UP.difficulty==='basic'?'Узнавание слов, чтения и базовых форм.':'Слова, новые ситуации, формы, сборка и чтение.'}<br>Новых заданий в выбранном режиме: ${fresh}.${hasPending?' Новая тренировка завершит сохранённую; отвеченные вопросы останутся в истории.':''}</div>
+    <div class="start-row">${uBtn(`${hasPending?'Начать новую':'Начать'} · ${uTaskCount(available)}`,'start:'+l.id,'primary wide',!pool.length)}</div>
     <div class="up-section-label">Правила</div>
-    ${l.rules.map((r,i)=>`<div class="cfg-card up-rule-card"><button class="up-rule" aria-expanded="${UP.openRule===r.id}" data-a="up:rule:${r.id}"><span class="up-number">${String(i+1).padStart(2,'0')}</span><span>${esc(r.titleRu)}</span><span class="up-arrow">${UP.openRule===r.id?'−':'+'}</span></button>${UP.openRule===r.id?`<div class="up-rule-detail">${esc(r.formationRu)}<div class="up-example" lang="ja">${esc(r.example)}</div><p>${esc(r.translationRu)}</p></div>`:''}</div>`).join('')}
+    ${l.rules.map(uRuleView).join('')}
     <div class="up-heading up-inset"><span>Слова темы</span>${uBtn(UP.display==='kana'?'Кандзи':'Кана','display')}</div>
     <div class="cfg-card">${l.wordIds.map(id=>{const w=UWORDS[id],linked=UP.wordLinks[id]&&S.words.some(x=>x.id===UP.wordLinks[id]);return `<div class="up-word"><div><div class="up-example" lang="ja">${uWord(w)}</div><span class="up-muted">${esc(w.meaningsRu.join('; '))}</span></div>${uBtn(linked?'Добавлено ✓':'+ В словарь','word:'+id,'',linked)}</div>`;}).join('')}${uBtn('Добавить слова темы','words:'+l.id,'wide')}</div>
-    ${runs.length?`<div class="up-section-label">Последние тренировки</div>${runs.slice(-3).reverse().map(h=>`<div class="cfg-card up-run"><span>${U_MODE_LABELS[h.mode]||'Практика'} · ${h.exerciseIds.length} заданий</span><span class="up-muted">${h.independentCorrect} верно · ${new Date(h.completedAt).toLocaleDateString('ru-RU')}</span></div>`).join('')}`:''}`;
+    ${runs.length?`<div class="up-section-label">Последние тренировки</div>${runs.slice(-3).reverse().map(h=>`<div class="cfg-card up-run"><span>${U_MODE_LABELS[h.mode]||'Практика'} · ${uTaskCount(h.answeredExerciseIds?.length??h.exerciseIds.length)}</span><span class="up-muted">${h.independentCorrect} верно · ${U_LEVEL_LABELS[h.difficulty]||'Тренировка'}${h.status==='stopped'?' · завершена досрочно':''} · ${new Date(h.completedAt).toLocaleDateString('ru-RU')}</span></div>`).join('')}`:''}`;
 }
 function uMixView(){
   const key=uMixKey(),ids=UP.selectedLessons,pending=UP.sessions[key],pool=ids.length>=2?uPool(key):[],available=uTargetCount(pool.length);
-  return `${uHeader('Комбинировать уроки')}<section class="cfg-card"><div class="cfg-lbl">Выбери минимум две темы · выбрано ${ids.length}</div><div class="up-mix-list">${UMI.lessons.map(l=>`<button class="chip ${ids.includes(l.id)?'on':''}" aria-pressed="${ids.includes(l.id)}" data-a="up:select:${l.id}"><span>${l.number}. ${esc(l.titleRu)}</span><small>≈ Genki ${l.volume===1?'I':'II'} · урок ${l.number}</small></button>`).join('')}</div><div class="chips">${uBtn('Все темы','select-all')}${uBtn('Снять выбор','select-none')}</div></section>${uSettings()}<p class="up-sub up-inset">Вместе — задания выбранных тем и чтение двух отдельных ситуаций из разных уроков. Каждый отрывок подписан A или B; вопросы относятся к указанному тексту. Только материал выбранных тем.</p><div class="start-row">${uBtn(pending&&pending.position<pending.exerciseIds.length?'Продолжить смешанную':`Начать · ${available} заданий`,'start:'+key,'primary wide',ids.length<2||!pool.length)}</div>`;
+  return `${uHeader('Комбинировать уроки')}<section class="cfg-card"><div class="cfg-lbl">Выбери минимум две темы · выбрано ${ids.length}</div><div class="up-mix-list">${UMI.lessons.map(l=>`<button class="chip ${ids.includes(l.id)?'on':''}" aria-pressed="${ids.includes(l.id)}" data-a="up:select:${l.id}"><span>${l.number}. ${esc(l.titleRu)}</span><small>≈ Genki ${l.volume===1?'I':'II'} · урок ${l.number}</small></button>`).join('')}</div><div class="chips">${uBtn('Все темы','select-all')}${uBtn('Снять выбор','select-none')}</div></section>${uPendingView(key)}${uSettings()}<p class="up-sub up-inset">Вместе — задания выбранных тем и чтение двух отдельных ситуаций из разных уроков. Каждый отрывок подписан A или B; вопросы относятся к указанному тексту. Только материал выбранных тем.${pending&&!uSessionDone(pending)?' Новая тренировка завершит сохранённую; ответы останутся в истории.':''}</p><div class="start-row">${uBtn(`${pending&&!uSessionDone(pending)?'Начать новую':'Начать'} · ${uTaskCount(available)}`,'start:'+key,'primary wide',ids.length<2||!pool.length)}</div>`;
 }
 function uWord(w){return UP.display==='kana'?esc(w.reading):w.surface===w.reading?esc(w.surface):`<ruby>${esc(w.surface)}<rt>${esc(w.reading)}</rt></ruby>`;}
 function uFamily(e){return e.familyId||e.id;}
@@ -181,9 +203,9 @@ function uPool(lessonId){
     (seen.get(a.id)||0)-(seen.get(b.id)||0));
 }
 function uTargetCount(size){return UP.count==='all'?size:Math.min(Number(UP.count)||20,size);}
-function uStart(lessonId){
+function uStart(lessonId,replace=false){
   const saved=UP.sessions[lessonId];
-  if(saved&&saved.position<saved.exerciseIds.length){UP.session=saved;UP.view='session';uSave();return;}
+  if(saved&&!uSessionDone(saved)&&!replace){uResume(saved);uSave();return;}
   const pool=uPool(lessonId),target=uTargetCount(pool.length);
   if(!pool.length){toast(UP.mode==='mistakes'?'Для исходных ошибок выдерживаем интервал 10 минут. Попробуйте позже.':'Нет заданий с этими настройками');return;}
   const selected=[],remaining=pool.slice(),families=new Set();
@@ -207,17 +229,18 @@ function uStart(lessonId){
     let index=-1;for(const predicate of choices){index=remaining.findIndex(predicate);if(index>=0)break;}
     const e=remaining.splice(index,1)[0];selected.push(e);families.add(uFamily(e));
   }
+  if(saved&&!uSessionDone(saved)){UP.session=saved;uEnd();}
   UP.session={id:'session.'+uid(),lessonId,mode:UP.mode,difficulty:UP.difficulty,requestedCount:UP.count,createdAt:Date.now(),exerciseIds:selected.map(e=>e.id),position:0,answers:{},optionOrders:Object.fromEntries(selected.map(e=>[e.id,uShuffle(e.options.map(o=>o.id))]))};
   UP.sessions[lessonId]=UP.session;UP.view='session';uSave();
 }
 function uAnswer(e){const s=UP.session;return s.answers[e.id]||(s.answers[e.id]={selection:e.type==='order'?[]:e.type==='input'?{text:''}:{},hintUsed:false,revealedAnswer:false,first:null,checks:0,checked:false,correct:false,startedAt:Date.now()});}
-function uCurrent(){return UP.session?UEX[UP.session.exerciseIds[UP.session.position]]:null;}
+function uCurrent(){return UP.session&&!uSessionDone(UP.session)?UEX[UP.session.exerciseIds[UP.session.position]]:null;}
 function uNormalize(s){return String(s||'').normalize('NFKC').trim().replace(/[\s。．.!！?？]+/g,'').replace(/[ァ-ヶ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60));}
 function uReady(e,a){return e.type==='input'?Boolean(uNormalize(a.selection.text)):e.type==='order'?a.selection.length===(e.requiredCount||e.acceptedSequences[0].length):e.type==='gap'?e.slots.every(slot=>a.selection[slot.id]):Boolean(a.selection.choice);}
 function uCorrect(e,a){return e.type==='input'?e.acceptedTexts.some(t=>uNormalize(t)===uNormalize(a.selection.text)):e.type==='order'?e.acceptedSequences.some(seq=>seqEq(seq,a.selection)):e.type==='gap'?e.slots.every(slot=>slot.acceptedOptionIds.includes(a.selection[slot.id])):e.acceptedChoiceIds.includes(a.selection.choice);}
 function uSolution(e){return e.type==='input'?e.acceptedTexts[0]:e.type==='order'?e.acceptedSequences[0].map(id=>e.options.find(o=>o.id===id).text).join(' '):e.type==='gap'?e.prompt.map(t=>t.text).join('').replace(/\{\{([^}]+)\}\}/g,(_,slot)=>{const id=e.slots.find(s=>s.id===slot).acceptedOptionIds[0];return e.options.find(o=>o.id===id).text;}):e.options.find(o=>e.acceptedChoiceIds.includes(o.id)).text;}
 function uSessionView(){
-  const s=UP.session;if(s.position>=s.exerciseIds.length)return uResultView();
+  const s=UP.session;if(uSessionDone(s))return uResultView();
   const e=uCurrent(),a=uAnswer(e),n=s.exerciseIds.length,complete=a.checked;
   const opts=s.optionOrders[e.id].map(id=>e.options.find(o=>o.id===id));
   const selected=id=>e.type==='order'?a.selection.includes(id):e.type==='input'?false:Object.values(a.selection).includes(id);
@@ -225,16 +248,21 @@ function uSessionView(){
   if(e.type==='gap')prompt=prompt.replace(/\{\{([^}]+)\}\}/g,(_,id)=>`<button class="up-gap ${a.lockedSlots?.includes(id)?'ok':a.checked&&a.selection[id]?'bad':''} ${(a.activeSlot||e.slots[0].id)===id?'active':''}" aria-label="Пропуск ${id==='right'?'2':'1'}" data-a="up:slot:${id}" ${complete||a.lockedSlots?.includes(id)?'disabled':''}>${esc(e.options.find(o=>o.id===a.selection[id])?.text||'···')}</button>`);
   const feedback=a.checked?`<section class="cfg-card up-feedback" aria-live="polite"><div class="quiz-result ${a.correct&&!a.revealedAnswer?'ok':'bad'}">${a.revealedAnswer?'Ответ открыт':a.correct?(a.hintUsed?'Верно · с подсказкой':'Верно'):'Неверно'}</div>${!a.correct?`<div class="up-example" lang="ja">${esc(uSolution(e))}</div>`:''}<details class="up-about"><summary>Разбор</summary><p>${esc(e.explanationRu)}</p></details></section>`:'';
   return `${uHeader(uScopeTitle(s.lessonId),uScopeBack(s.lessonId),s.position+1+' / '+n)}<div class="up-context">≈ ${esc((e.lessonIds||[e.lessonId]).map(id=>{const l=ULESSONS[id];return 'Genki '+(l.volume===1?'I':'II')+' · урок '+l.number;}).join(' + '))}</div>${uBar(Math.round(s.position/n*100),s.position+' завершено',U_LEVEL_LABELS[s.difficulty]||'Тренировка')}
-    <section class="quiz-q up-question"><div class="quiz-ql">${esc(e.labelRu||'Практика')}</div><h2 class="up-instruction">${esc(e.instructionRu)}</h2>${e.translationRu?`<p class="quiz-qh up-translation">${esc(e.translationRu)}</p>`:''}${prompt?`<div class="${e.focus==='vocabulary'&&e.type!=='gap'?'quiz-qm':'quiz-qm sm'} up-prompt" lang="ja">${prompt}</div>`:''}</section>
+    <section class="quiz-q up-question"><div class="quiz-ql">${esc(e.labelRu||'Практика')}</div><h2 class="up-instruction">${esc(e.instructionRu)}</h2>${e.translationRu?`<p class="up-translation">${esc(e.translationRu)}</p>`:''}${uConditions(e.conditionsRu)}${prompt?`<div class="${e.focus==='vocabulary'&&e.type!=='gap'?'quiz-qm':'quiz-qm sm'} up-prompt" lang="${e.promptLanguage||'ja'}">${prompt}</div>`:''}</section>
     ${e.type==='order'?`<div class="up-order up-inset" aria-label="Собранная фраза">${a.selection.length?a.selection.map((id,i)=>uBtn(esc(e.options.find(o=>o.id===id).text),'undo:'+i,'',complete)).join(''):'<span class="up-muted">Нажимай на блоки ниже. Нажатие на выбранный блок отменяет его.</span>'}<span class="up-muted up-order-count">${a.selection.length} / ${e.requiredCount||e.acceptedSequences[0].length} блоков</span></div>`:''}
     ${e.type==='input'?`<section class="quiz-panel"><label class="quiz-panel-lbl" for="up-text-answer">Твой ответ · кана</label><input id="up-text-answer" class="quiz-inp up-input ${a.checked?(a.correct?'ok':'bad'):''}" lang="ja" type="text" value="${esc(a.selection.text)}" placeholder="Введи ответ" autocomplete="off" autocorrect="off" spellcheck="false" ${complete?'disabled':''}></section>`:`<section class="quiz-panel"><div class="quiz-panel-lbl">${e.type==='order'?'Банк блоков':'Варианты ответа'}</div><div class="quiz-opts">${opts.filter(o=>!((e.type==='order'||e.type==='gap'&&!e.allowOptionReuse)&&selected(o.id))).map(o=>`<button class="qopt ${selected(o.id)?a.checked?(e.type==='gap'?e.slots.some(slot=>a.selection[slot.id]===o.id&&slot.acceptedOptionIds.includes(o.id))?'ok':'bad':a.correct?'ok':'bad'):'sel':''}" data-a="up:pick:${o.id}" aria-pressed="${selected(o.id)}" ${complete||(e.type==='order'&&selected(o.id))?'disabled':''}>${esc(o.text)}</button>`).join('')}</div></section>`}
     ${feedback}${a.hintUsed&&!a.checked&&!e.display.hideReadings?`<div class="cfg-card up-help">${esc(e.explanationRu)}</div>`:''}
     <div class="start-row">${complete?uBtn(s.position===n-1?'К итогу':'Далее','next','primary wide'):uBtn('Проверить','check','primary wide',!uReady(e,a))}</div>
-    ${!complete?`<div class="up-actions up-inset">${!e.display.hideReadings?uBtn('Подсказка','hint','',a.hintUsed):''}${uBtn('Показать ответ','reveal')}</div>`:''}<div class="up-actions up-inset">${uBtn('Сохранить и выйти',uScopeBack(s.lessonId))}</div>`;
+    ${!complete?`<div class="up-actions up-inset">${!e.display.hideReadings?uBtn('Подсказка','hint','',a.hintUsed):''}${uBtn('Показать ответ','reveal')}</div>`:''}<div class="up-actions up-inset">${uBtn('Сохранить и выйти',uScopeBack(s.lessonId))}${uBtn('Завершить тренировку','end')}</div>`;
 }
+function uRestoreSettings(s){UP.mode=s.mode;UP.difficulty=s.difficulty||'all';UP.count=s.requestedCount||'20';}
+function uResume(s){UP.session=s;uRestoreSettings(s);UP.view='session';}
+function uEnd(){const s=UP.session;if(!s||uSessionDone(s))return;s.endedAt=Date.now();uFinish();UP.view='session';}
+function uAnsweredIds(s){return s.exerciseIds.filter(id=>s.answers[id]?.first);}
 function uFinish(){
-  const s=UP.session;if(!s||s.position<s.exerciseIds.length||UP.history.some(h=>h.id===s.id))return;
-  UP.history.push({id:s.id,lessonId:s.lessonId,mode:s.mode,difficulty:s.difficulty||'all',exerciseIds:s.exerciseIds.slice(),completedAt:Date.now(),independentCorrect:s.exerciseIds.reduce((n,id)=>n+uCleanUnits(s.answers[id]?.first),0),answerCount:s.exerciseIds.reduce((n,id)=>n+(UEX[id].type==='gap'?UEX[id].slots.length:1),0)});
+  const s=UP.session;if(!uSessionDone(s)||UP.history.some(h=>h.id===s.id))return;
+  const ids=uAnsweredIds(s);
+  UP.history.push({id:s.id,lessonId:s.lessonId,mode:s.mode,difficulty:s.difficulty||'all',exerciseIds:s.exerciseIds.slice(),answeredExerciseIds:ids,status:s.position>=s.exerciseIds.length?'completed':'stopped',completedAt:s.endedAt||Date.now(),independentCorrect:ids.reduce((n,id)=>n+uCleanUnits(s.answers[id]?.first),0),answerCount:ids.reduce((n,id)=>n+(UEX[id].type==='gap'?UEX[id].slots.length:1),0)});
 }
 function uRecord(e,a,correct){
   const s=UP.session,id=s.id+'.'+e.id;
@@ -249,16 +277,16 @@ function uRecord(e,a,correct){
 }
 function uCheck(){const e=uCurrent();if(!e)return;const a=uAnswer(e);if(a.checked||!uReady(e,a))return;a.correct=uCorrect(e,a);a.checked=true;if(e.type==='gap'){a.lockedSlots=e.slots.filter(slot=>slot.acceptedOptionIds.includes(a.selection[slot.id])).map(slot=>slot.id);a.activeSlot=e.slots.find(slot=>!a.lockedSlots.includes(slot.id))?.id||e.slots[0].id;}a.checks++;if(!a.first)uRecord(e,a,a.correct);else{const record=UP.attempts.find(x=>x.id===a.first.id);if(record){record.checks=a.checks;record.corrected=a.correct;}}haptic(a.correct?'light':'medium');uSave();}
 function uResultView(){
-  const s=UP.session,answers=s.exerciseIds.map(id=>s.answers[id]);
-  const clean=answers.reduce((n,a)=>n+uCleanUnits(a?.first),0),total=s.exerciseIds.reduce((n,id)=>n+(UEX[id].type==='gap'?UEX[id].slots.length:1),0);
+  const s=UP.session,ids=uAnsweredIds(s),answers=ids.map(id=>s.answers[id]);
+  const clean=answers.reduce((n,a)=>n+uCleanUnits(a?.first),0),total=ids.reduce((n,id)=>n+(UEX[id].type==='gap'?UEX[id].slots.length:1),0);
   const hint=answers.reduce((n,a)=>n+(a?.correct&&a.hintUsed&&!a.revealedAnswer?uUnits(UEX[a.first.exerciseId],a.first).filter(unit=>!unit.independent).length:0),0);
   const reveal=answers.reduce((n,a)=>n+(a?.revealedAnswer?uUnits(UEX[a.first.exerciseId],a.first).filter(unit=>!unit.independent).length:0),0);
-  const wordIds=[...new Set(s.exerciseIds.flatMap(id=>UEX[id].targetWordIds))];
+  const wordIds=[...new Set(ids.flatMap(id=>UEX[id].targetWordIds))];
   return `${uHeader('Тренировка завершена',uScopeBack(s.lessonId))}${uStats([[clean,'С первого раза','g'],[hint,'С подсказкой','y'],[total-clean-hint,'Повторить','r']])}
-    ${uBar(Math.round(clean/total*100),clean+' из '+total+' ответов','Без подсказки')}
-    <div class="cfg-card up-help">${s.exerciseIds.length} заданий · ${total} отдельных ответов. Пропуски оцениваются независимо.<br>Ошибок: ${total-clean-hint-reveal}<br>Ответ открыт: ${reveal}<br>В следующей тренировке сначала будут новые вопросы. К этой теме можно вернуться в любой момент.</div>
-    <div class="start-row">${uBtn('Тренироваться ещё','start:'+s.lessonId,'primary wide')}</div><div class="up-actions up-inset">${uBtn('К темам',uScopeBack(s.lessonId))}${uBtn('Все темы','catalog')}</div>
-    <details class="cfg-card up-about"><summary>Разбор · ${s.exerciseIds.length} заданий</summary>${s.exerciseIds.map(id=>{const e=UEX[id],a=s.answers[id];return `<div class="up-review-row"><span>${esc(e.labelRu||'Грамматика')}</span><span class="up-muted">${a.revealedAnswer?'Ответ открыт':a.hintUsed?'С подсказкой':e.slots.length>1?uCleanUnits(a.first)+' / '+e.slots.length+' с первой попытки':a.first.firstAnswerCorrect?'С первой попытки':'Неверно'}</span><div class="up-example" lang="ja">${esc(uSolution(e))}</div></div>`;}).join('')}</details>
+    ${uBar(total?Math.round(clean/total*100):0,clean+' из '+total+' ответов','Без подсказки')}
+    <div class="cfg-card up-help">${ids.length} из ${s.exerciseIds.length} заданий выполнено · ${total} ответов.${s.endedAt?' Тренировка закрыта; неотвеченные вопросы не считаются ошибками.':''}<br>Ошибок: ${total-clean-hint-reveal}<br>Ответ открыт: ${reveal}<br>Ответы сохранены. Для следующего прохода выбери режим и сложность.</div>
+    <div class="start-row">${uBtn('Тренироваться ещё','setup','primary wide')}</div><div class="up-actions up-inset">${uBtn('К теме',uScopeBack(s.lessonId))}${uBtn('Все темы','catalog')}</div>
+    ${ids.length?`<details class="cfg-card up-about"><summary>Разбор · ${ids.length} заданий</summary>${ids.map(id=>{const e=UEX[id],a=s.answers[id];return `<div class="up-review-row"><span>${esc(e.labelRu||'Грамматика')}</span><span class="up-muted">${a.revealedAnswer?'Ответ открыт':a.hintUsed?'С подсказкой':e.slots.length>1?uCleanUnits(a.first)+' / '+e.slots.length+' с первой попытки':a.first.firstAnswerCorrect?'С первой попытки':'Неверно'}</span><div class="up-example" lang="ja">${esc(uSolution(e))}</div></div>`;}).join('')}</details>`:''}
     ${wordIds.length?`<div class="up-section-label">Слова тренировки</div><div class="cfg-card">${wordIds.map(id=>`<div class="up-word"><div><div class="up-example" lang="ja">${uWord(UWORDS[id])}</div><span class="up-muted">${esc(UWORDS[id].meaningsRu.join('; '))}</span></div>${uBtn('+ В словарь','word:'+id)}</div>`).join('')}</div>`:''}`;
 }
 function uAddWord(id){
@@ -285,8 +313,10 @@ function uAction(value){
     case 'volume':if(['all','1','2'].includes(v))UP.volume=v;break;
     case 'display':UP.display=UP.display==='kana'?'kanji':'kana';break;
     case 'rule':UP.openRule=UP.openRule===v?null:v;break;
-    case 'start':if(uScopeValid(v)&&(!v.startsWith('mix,')||uScope(v).length>=2))uStart(v);break;
-    case 'resume':if(v&&UP.sessions[v])UP.session=UP.sessions[v];if(UP.session)UP.view='session';break;
+    case 'start':if(uScopeValid(v)&&(!v.startsWith('mix,')||uScope(v).length>=2))uStart(v,true);break;
+    case 'resume':{const saved=v?UP.sessions[v]:UP.session;if(saved&&!uSessionDone(saved))uResume(saved);}break;
+    case 'end':if(v&&UP.sessions[v])UP.session=UP.sessions[v];uEnd();break;
+    case 'setup':if(UP.session){uRestoreSettings(UP.session);const id=UP.session.lessonId;if(id.startsWith('mix,')){UP.selectedLessons=uScope(id);UP.view='mix';}else if(ULESSONS[id]){UP.lessonId=id;UP.view='lesson';}else UP.view='catalog';}break;
     case 'slot':if(e?.type==='gap'&&!complete&&e.slots.some(s=>s.id===v)&&!a.lockedSlots?.includes(v)){if(a.selection[v])delete a.selection[v];a.activeSlot=v;}break;
     case 'pick':if(e&&!complete&&e.options.some(o=>o.id===v)){
       if(e.type==='order'){if(a.selection.includes(v))a.selection.splice(a.selection.indexOf(v),1);else if(a.selection.length<(e.requiredCount||e.acceptedSequences[0].length))a.selection.push(v);}
