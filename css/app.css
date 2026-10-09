@@ -1,0 +1,415 @@
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#000;
+  --c:#1c1c1c;        /* card surface */
+  --card:#161616;     /* новый дизайн: поверхность блоков */
+  --stroke:#303030;   /* новый дизайн: обводка */
+  --rad:4px;          /* новый дизайн: скругление */
+  --c2:#272727;       /* darker surface / progress bg */
+  --nav:#161616;      /* tab bar bg */
+  --a:#3f6fcf;        /* accent */
+  --al:#6998d5;       /* accent-light / section labels */
+  --t:#fff;           /* text */
+  --t2:#6998d5;       /* secondary text */
+  --ic:#434343;       /* inactive icon */
+  --g:#7aff78;        /* green / знаю */
+  --y:#fff285;        /* yellow / учу */
+  --r:#ff3c3c;        /* red / не знаю */
+}
+html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+#app{max-width:480px;margin:0 auto;padding-bottom:110px;min-height:100vh}
+@keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.pg{animation:up .16s ease;padding:0 16px}
+
+/* ─── Tab bar ─── */
+.bnav{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:480px;
+  background:var(--bg);
+  display:flex;align-items:flex-start;justify-content:space-around;
+  padding:8px 8px 22px;z-index:200;
+}
+.bnav-btn{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  background:none;border:none;cursor:pointer;
+  color:var(--ic);font-size:13px;font-weight:500;
+  padding:4px 12px;transition:color .15s;
+  min-width:64px;
+}
+.bnav-btn.active{color:var(--a)}
+.bnav-icon{
+  width:44px;height:44px;display:flex;align-items:center;justify-content:center;position:relative;
+}
+.bnav-beta{position:absolute;top:0;right:0;min-width:17px;height:17px;padding:0 3px;display:flex;align-items:center;justify-content:center;border:1px solid var(--al);border-radius:9px;background:var(--bg);color:var(--al);font-size:12px;line-height:1;font-weight:600}
+.bnav-icon img{width:100%;height:100%;object-fit:contain;display:block}
+.bnav-icon svg{width:28px;height:28px;stroke:currentColor;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+/* ─── top_icon ─── */
+.top-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--a);line-height:1;flex-shrink:0}
+.top-icon img{width:100%;height:100%;object-fit:contain;display:block}
+.hero-icon{display:flex;justify-content:center;padding:16px 16px 12px}
+.hero-icon img{width:60px;height:auto;display:block}
+
+/* ─── Page header ─── */
+.phdr{padding:16px 16px 8px;display:flex;align-items:center;gap:12px}
+.phdr-title{font-size:24px;font-weight:700;flex:1}
+.phdr-back{background:var(--c);border:none;color:var(--t);font-size:13px;cursor:pointer;padding:7px 14px;border-radius:300px}
+
+/* ─── Type tabs (Слова | Кандзи) ─── */
+.ttabs{display:flex;gap:8px;padding:4px 16px 12px}
+.ttab{padding:8px 20px;border-radius:300px;border:none;font-size:14px;font-weight:500;cursor:pointer;transition:all .15s;background:var(--c);color:var(--t)}
+.ttab.on{background:var(--a);color:#fff}
+
+/* ─── Stats row ─── */
+.stats{display:flex;gap:8px;padding:0 16px 12px}
+.sbox{flex:1;background:var(--c);border-radius:16px;padding:14px 10px;text-align:center}
+.snum{font-size:36px;font-weight:400;line-height:1}
+.slbl{font-size:12px;color:var(--t);margin-top:4px}
+.sbox.g .snum{color:var(--g)}
+.sbox.y .snum{color:var(--y)}
+.sbox.r .snum{color:var(--r)}
+
+/* ─── Progress card ─── */
+.prog-card{margin:0 16px 12px;background:var(--c);border-radius:16px;padding:14px 16px}
+.prog-bar-wrap{height:6px;background:var(--c2);border-radius:300px;overflow:hidden;margin-bottom:8px}
+.prog-bar{height:100%;background:var(--al);border-radius:300px;transition:width .4s}
+.prog-info{display:flex;justify-content:space-between;font-size:12px;color:var(--al)}
+
+/* ─── Action grid (Главная) ─── */
+.act-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px 12px}
+.act-btn{background:var(--c);border:none;color:var(--t);border-radius:16px;padding:14px;cursor:pointer;text-align:left;transition:background .15s;min-height:58px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500}
+.act-btn:active{background:var(--c2)}
+.act-btn.primary{background:var(--a)}
+.act-btn.primary:active{background:#2f5fbd}
+
+/* ─── New home (redesign: radius 4, #161616, обводки) ─── */
+.nlogo{display:flex;justify-content:center;padding:24px 0 18px}
+.nlogo img{width:52px;height:52px;object-fit:contain;display:block}
+.nseg{display:flex;gap:8px;padding:0 16px 8px}
+.nseg-btn{flex:1;height:60px;border:1px solid var(--stroke);border-radius:var(--rad);background:var(--card);color:var(--t);font-size:16px;font-weight:400;cursor:pointer;transition:background .15s,border-color .15s}
+.nseg-btn.on{background:var(--a);border-color:var(--a);color:#fff}
+.nstats{display:flex;gap:8px;padding:0 16px 8px}
+.nstat{flex:1;background:var(--card);border-radius:var(--rad);padding:8px;height:104px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.nstat .n{font-size:36px;font-weight:400;line-height:1}
+.nstat .l{font-size:12px;color:var(--t)}
+.nstat.g .n{color:var(--g)}.nstat.y .n{color:var(--y)}.nstat.r .n{color:var(--r)}
+.nprog{background:var(--card);border-radius:var(--rad);padding:8px;margin:0 16px 8px;display:flex;flex-direction:column;gap:4px}
+.nprog-bar{height:6px;background:var(--c2);border-radius:300px;overflow:hidden}
+.nprog-bar>i{display:block;height:100%;background:var(--al);border-radius:300px;transition:width .4s}
+.nprog-info{display:flex;justify-content:space-between;font-size:12px}
+.nprog-info span:first-child{color:var(--al)}.nprog-info span:last-child{color:var(--t)}
+.ncards{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px}
+.ncard{display:flex;align-items:center;gap:10px;background:var(--card);border:none;border-radius:var(--rad);padding:8px 16px;height:84px;cursor:pointer;text-align:left;transition:background .15s}
+.ncard:active{background:#202020}
+.ncard img{width:52px;height:42px;object-fit:contain;flex-shrink:0}
+.ncard b{font-size:16px;font-weight:400;color:var(--t)}
+.nimport{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:10px;background:var(--card);border:none;border-radius:var(--rad);padding:18px;cursor:pointer;color:var(--t);font-size:16px;font-weight:400}
+.nimport img{width:26px;height:26px;object-fit:contain}
+/* config screen header (open from home card) */
+.cfg-hdr{display:flex;align-items:center;gap:12px;padding:16px 16px 12px}
+.cfg-hdr-back{background:var(--card);border:1px solid var(--stroke);color:var(--t);font-size:20px;cursor:pointer;width:40px;height:40px;border-radius:var(--rad);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cfg-hdr-title{font-size:22px;font-weight:700}
+
+/* ─── Config card (redesign: #1d1d1d, крупные чипы h50, обводки) ─── */
+.cfg-card{background:#1d1d1d;border-radius:var(--rad);padding:8px;margin:0 16px 8px}
+.cfg-lbl{font-size:12px;color:var(--al);margin-bottom:8px;text-align:center}
+.chips{display:flex;flex-wrap:wrap;gap:4px;justify-content:center}
+.chip{padding:8px 16px;height:50px;border-radius:8px;border:1px solid var(--stroke);font-size:16px;cursor:pointer;background:#1d1d1d;color:var(--t);transition:all .15s;font-weight:400;display:flex;align-items:center;justify-content:center;flex:1 1 120px;min-width:0}
+.chip.on{background:var(--a);border-color:var(--a);color:#fff}
+/* side-by-side config (filter + count) */
+.cfg-row{display:flex;gap:8px;padding:0 16px 8px}
+.cfg-row .cfg-card{flex:1;margin:0}
+
+/* ─── Start button (full-width, крупная) ─── */
+.start-row{padding:8px 16px 0}
+.start-btn{width:100%;height:60px;background:var(--a);border:none;color:#fff;border-radius:var(--rad);font-size:22px;cursor:pointer;transition:opacity .15s}
+.start-btn:active{opacity:.8}
+
+/* ─── Full-width button ─── */
+.btn{display:flex;align-items:center;justify-content:center;padding:14px;border-radius:300px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s;width:100%}
+.btn:active{opacity:.75}
+.btn-p{background:var(--a);color:#fff}
+.btn-s{background:var(--c);color:var(--t)}
+.btn-d{background:rgba(255,60,60,.15);color:var(--r)}
+.btn-row{display:flex;gap:8px;margin-top:8px}
+.btn-row .btn{flex:1}
+
+/* ─── Flashcard ─── */
+.fc-counter{font-size:18px;text-align:center;padding:8px 16px 12px}
+.fc-wrap{perspective:1000px;min-height:260px;margin:0 16px 14px;cursor:pointer}
+.fc{width:100%;display:grid;position:relative;transform-style:preserve-3d;transition:transform .45s cubic-bezier(.4,0,.2,1)}
+.fc.flipped{transform:rotateY(180deg)}
+.fc-face{grid-area:1/1;background:var(--c);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;backface-visibility:hidden;-webkit-backface-visibility:hidden;min-height:260px}
+.fc-back{transform:rotateY(180deg);background:var(--c2)}
+.fc-sbar{position:absolute;top:0;left:0;right:0;height:4px;border-radius:16px 16px 0 0}
+.fc-sbar.g{background:var(--g)}.fc-sbar.y{background:var(--y)}.fc-sbar.r{background:var(--c2)}
+/* Kanji card face */
+.fc-kanji{font-size:76px;font-weight:400;color:var(--a);line-height:1}
+.fc-kana{font-size:36px;font-weight:400;color:var(--a);line-height:1;margin-top:4px}
+.fc-meanings{margin-top:12px;text-align:center}
+.fc-mn{font-size:12px;color:var(--t);line-height:1.6}
+.fc-tap{font-size:12px;color:var(--t2);margin-top:12px}
+/* Word card face (non-kanji) */
+.fc-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--t2);margin-bottom:8px}
+.fc-main{font-size:60px;line-height:1;color:var(--t);text-align:center}
+.fc-main.sm{font-size:22px}
+/* Back side rows */
+.fc-back-body{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
+/* On/kun label (legacy, kept for compat) */
+.fc-onkun{display:flex;flex-direction:column;gap:4px;align-items:center;margin-top:6px}
+.fc-okrow{font-size:12px;color:var(--t)}
+.fc-okrow span{color:var(--a);font-size:16px;margin-left:4px}
+
+/* ─── Card Variant System (Figma 31:112 / 33:235) ─── */
+.cv-root{width:100%;display:flex;flex-direction:column;align-items:center;gap:20px}
+.cv-top{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap}
+.cv-main{font-size:52px;line-height:1;color:var(--t);font-weight:400}
+.cv-readings{display:flex;flex-direction:column;gap:12px}
+.cv-rread{display:flex;flex-direction:column;gap:2px}
+.cv-rl{font-size:12px;color:var(--t);line-height:1.2}
+.cv-rv{font-size:20px;color:var(--a);line-height:1.2;word-break:break-word}
+.cv-kana-lg{font-size:36px;color:var(--a);line-height:1}
+.cv-meanings{width:280px;max-width:100%;display:flex;flex-direction:column;gap:4px}
+.cv-mn{display:flex;flex-direction:row;align-items:baseline;gap:6px}
+.cv-mi{font-size:12px;color:var(--t);line-height:1.2;flex-shrink:0}
+.cv-mt{font-size:16px;color:var(--t);line-height:1.3;word-break:break-word}
+
+/* ─── Mark buttons ─── */
+.mark-row{display:flex;gap:8px;padding:0 16px;margin-bottom:8px}
+.mbtn{flex:1;height:36px;border-radius:300px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500;transition:opacity .15s}
+.mbtn:active{opacity:.7}
+.mbtn.r{background:rgba(255,60,60,.15);color:var(--r)}
+.mbtn.y{background:rgba(255,242,133,.15);color:var(--y)}
+.mbtn.g{background:rgba(122,255,120,.15);color:var(--g)}
+
+/* ─── Stop/Skip row ─── */
+.stop-row{display:flex;gap:8px;padding:0 16px}
+.stop-btn{flex:1;height:27px;background:var(--c);border:none;color:var(--t);border-radius:16px;font-size:12px;cursor:pointer;transition:opacity .15s}
+.stop-btn:active{opacity:.7}
+
+/* ─── Quiz score badges (Figma: pill 100×20, border) ─── */
+.qscore{display:flex;align-items:center;justify-content:center;gap:4px;padding:0 16px;margin-bottom:12px;flex-wrap:wrap}
+.qbadge{display:flex;align-items:center;justify-content:center;gap:10px;min-width:100px;height:20px;padding:6px 8px;border-radius:16px;border:1px solid var(--a);font-size:12px;color:var(--t);background:transparent;line-height:1}
+.qbadge.qbad{border-color:#ff4f4f}
+.qbadge.qok{border-color:#7aff78}
+
+/* ─── Quiz question card (Figma: h280, p16, gap20) ─── */
+.quiz-q{background:var(--c);border-radius:16px;padding:16px;margin:0 16px 12px;min-height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;text-align:center}
+.quiz-ql{font-size:12px;color:var(--al)}
+.quiz-qm{font-size:52px;line-height:1}
+.quiz-qm.sm{font-size:20px}
+.quiz-qh{font-size:14px;color:var(--t2)}
+
+/* ─── Quiz options panel (Figma: card wrap + label) ─── */
+.quiz-panel{background:var(--c);border-radius:16px;padding:8px;margin:0 16px 12px;display:flex;flex-direction:column;gap:16px;align-items:center}
+.quiz-panel-lbl{font-size:12px;color:var(--al);text-align:center}
+.quiz-opts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px;width:100%}
+.qopt{background:var(--c);border:1px solid var(--a);color:var(--t);border-radius:4px;padding:8px 6px;font-size:16px;cursor:pointer;text-align:center;line-height:1.3;overflow-wrap:anywhere;min-width:0;min-height:54px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;align-content:center;gap:0 2px;transition:background .15s,border-color .15s}
+.qopt.sel{background:var(--a);color:#fff}
+.qopt.ok{background:rgba(122,255,120,.18);border-color:var(--g);color:var(--g)}
+.qopt.bad{background:rgba(255,60,60,.18);border-color:var(--r);color:var(--r)}
+.qopt:disabled{cursor:default}
+
+/* ─── Quiz input (Figma: pill, border, 12px) ─── */
+.quiz-inp{width:100%;background:transparent;border:1px solid var(--a);border-radius:300px;color:var(--t);font-size:13px;padding:6px 12px;outline:none;font-family:inherit;text-align:center;transition:border-color .15s,box-shadow .15s}
+.quiz-inp::placeholder{color:#5a5a5a}
+.quiz-inp:focus{box-shadow:0 0 0 2px rgba(63,111,207,.4)}
+.quiz-inp.ok{border-color:var(--g);color:var(--g)}
+.quiz-inp.bad{border-color:var(--r);color:var(--r)}
+.quiz-inp:disabled{opacity:.9;cursor:default}
+.quiz-result{font-size:13px;text-align:center}
+.quiz-result.ok{color:var(--g)}
+.quiz-result.bad{color:var(--r)}
+
+/* ─── Quiz bottom actions (Стоп / Пропустить) ─── */
+.quiz-actions{display:flex;gap:4px;justify-content:center;padding:0 16px;margin-bottom:10px}
+.qact-btn{min-width:100px;height:27px;padding:6px 8px;background:var(--c);border:1px solid var(--a);color:var(--t);border-radius:16px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity .15s}
+.qact-btn:active{opacity:.7}
+
+/* ─── Next button (quiz) ─── */
+.next-btn{margin:0 16px 10px;background:var(--a);border:none;color:#fff;border-radius:16px;padding:10px;font-size:13px;font-weight:500;width:calc(100% - 32px);cursor:pointer;transition:opacity .15s}
+.next-btn:active{opacity:.8}
+
+/* ─── Big kanji option (compose / pairs) ─── */
+.qopt.kanji{font-size:24px;font-weight:400;min-height:47px}
+.qopt.kanji .qopt-on{font-size:11px;color:var(--a);margin-left:5px}
+/* Card border feedback (canvas result) */
+.quiz-q.ok{border:2px solid var(--g)}
+.quiz-q.bad{border:2px solid var(--r)}
+
+/* ─── Kanji hints (Figma: Подсказка_квиз_кандзи) ─── */
+.hint-btn{display:flex;align-items:center;justify-content:center;width:calc(100% - 32px);margin:0 16px 12px;height:47px;background:var(--c);border:1px solid var(--a);color:var(--t);border-radius:16px;font-size:14px;cursor:pointer;transition:opacity .15s}
+.hint-btn.on{background:var(--a);color:#fff}
+.hint-btn:active{opacity:.7}
+.hint-row{display:flex;flex-wrap:wrap;gap:8px;margin:0 16px 12px}
+.hint-chip{flex:1 1 calc(50% - 4px);min-width:0;min-height:47px;background:var(--c);border:1px solid var(--a);border-radius:16px;padding:6px 10px;display:flex;align-items:center;justify-content:center;gap:8px;overflow:hidden}
+.hint-word{font-size:18px;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hint-read{font-size:11px;color:var(--t2);white-space:nowrap;flex-shrink:0}
+.hint-read b{color:var(--a);font-weight:400}
+.hint-empty{flex:1 1 100%;text-align:center;font-size:12px;color:var(--t2);padding:8px}
+
+/* ─── Compose word mode (Figma: Составить слова) ─── */
+.cmp-canvas{width:100%;display:flex;flex-direction:column;align-items:center;gap:16px}
+.cmp-build{display:flex;gap:8px;justify-content:center;align-items:center;min-height:66px;flex-wrap:wrap}
+.cmp-ch{font-size:56px;line-height:1;color:var(--t)}
+.cmp-slot{width:44px;height:60px;border-bottom:2px solid var(--c2);display:inline-block}
+.cmp-line{font-size:14px;color:var(--t);text-align:center}
+.cmp-line .lbl{color:var(--t)}
+.cmp-line .val{color:var(--a)}
+.cmp-correct{font-size:15px;color:var(--g);text-align:center}
+.cmp-correct span{font-size:22px;color:var(--g);margin-left:4px}
+/* Формы глаголов */
+.vb-task{font-size:22px;color:var(--t);text-align:center;line-height:1.3}
+.vb-gram{font-size:13px;color:var(--a);text-align:center;line-height:1.3;opacity:.85}
+.vb-word{display:flex;align-items:flex-end;justify-content:center;flex-wrap:wrap;gap:2px;min-height:64px}
+.vb-base{font-size:48px;line-height:1;color:var(--t)}
+.vb-base ruby{ruby-position:over;-webkit-ruby-position:before}
+.vb-base rt{font-size:15px;color:var(--a);line-height:1.2}
+.vb-suf{font-size:48px;line-height:1;color:var(--a)}
+.vb-suf.ok{color:var(--g)}.vb-suf.bad{color:var(--r)}
+.vb-slot{min-width:38px;height:50px;border-bottom:2px dashed var(--a);display:inline-block}
+/* банк окончаний — hug-content чипы (дуалинго) */
+.quiz-bank{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;width:100%}
+.qchip{background:var(--c);border:1px solid var(--a);color:var(--t);border-radius:12px;padding:9px 16px;font-size:20px;line-height:1;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.qchip.on{background:var(--a);color:#fff}
+.qchip.ok{background:rgba(122,255,120,.18);border-color:var(--g);color:var(--g)}
+.qchip.bad{background:rgba(255,60,60,.18);border-color:var(--r);color:var(--r)}
+.qchip:disabled{cursor:default}
+.cmp-switch{display:flex;gap:8px;margin:0 16px 12px}
+.cmp-sw{flex:1;height:47px;border:1px solid var(--a);background:var(--c);color:var(--t);border-radius:16px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s}
+.cmp-sw.on{background:var(--a);color:#fff}
+.cmp-sw:active{opacity:.8}
+.cmp-arrow{font-size:15px;line-height:1}
+/* reverse: кандзи-слово как подсказка, собираем кану */
+.cmp-word{font-size:48px;line-height:1;color:var(--t);text-align:center}
+.cmp-kana{font-size:30px;line-height:1;color:var(--t)}
+/* финал: фуригана (чтение над иероглифом) */
+.furi{display:flex;gap:12px;justify-content:center;align-items:flex-end;flex-wrap:wrap}
+.furi ruby{font-size:52px;line-height:1;color:var(--t);ruby-position:over;-webkit-ruby-position:before}
+.furi rt{font-size:15px;color:var(--a);line-height:1.3;text-align:center}
+
+/* ─── Choose pair mode (Figma: Выбери пару) ─── */
+.pair-count{display:flex;justify-content:center;margin:0 16px 12px}
+.pair-count-pill{min-width:47px;height:24px;padding:2px 16px;border-radius:16px;background:var(--a);color:#fff;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.pair-canvas{width:100%;display:flex;flex-direction:column;align-items:center;gap:18px}
+.pair-slots{display:flex;justify-content:center;align-items:flex-start;gap:52px}
+.pair-slot{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:80px}
+.pair-slot .pk{font-size:52px;line-height:1;color:var(--t)}
+.pair-slot .pm{font-size:12px;color:var(--t)}
+.pair-slot .pm b{color:var(--a);font-weight:400}
+.pair-on{font-size:12px;color:var(--t);text-align:center;line-height:1.4}
+.pair-on .lbl{color:var(--t)}
+.pair-on .val{color:var(--a);font-size:20px}
+.pair-hint{font-size:13px;color:var(--t2);text-align:center;padding:0 20px;line-height:1.5}
+
+/* ─── Match pairs (сопоставление 6 пар) ─── */
+.mt-hint{font-size:12px;color:var(--al);text-align:center;margin:0 16px 10px}
+.mt-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin:0 16px 12px}
+.mt-col{display:flex;flex-direction:column;gap:8px;min-width:0}
+.mtile{background:var(--c);border:1px solid var(--a);color:var(--t);border-radius:4px;padding:10px 8px;min-height:58px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;text-align:center;
+  line-height:1.25;overflow-wrap:anywhere;min-width:0;transition:background .15s,border-color .15s,opacity .15s}
+.mtile .mt-main{font-size:17px}
+.mtile .mt-main.jp{font-size:24px}
+.mtile .mt-sub{font-size:12px;color:var(--t2)}
+.mtile.sel{background:var(--a);border-color:var(--a);color:#fff}
+.mtile.sel .mt-sub{color:#d6e3fb}
+.mtile.bad{background:rgba(255,60,60,.18);border-color:var(--r);color:var(--r)}
+.mtile.bad .mt-sub{color:var(--r)}
+.mtile.done{background:rgba(122,255,120,.14);border-color:var(--g);color:var(--g);opacity:.5}
+.mtile.done .mt-sub{color:var(--g)}
+.mtile:disabled{cursor:default}
+
+/* ─── Words list ─── */
+.wfilter{display:flex;gap:6px;padding:0 16px 10px;align-items:center}
+.wf-tab{padding:9px 20px;border-radius:var(--rad);border:1px solid var(--stroke);font-size:15px;background:var(--card);color:var(--t);cursor:pointer}
+.wf-tab.on{background:var(--a);border-color:var(--a);color:#fff}
+.wf-import{padding:8px 12px;border-radius:var(--rad);border:1px solid var(--stroke);font-size:13px;background:var(--card);color:var(--t);cursor:pointer;display:flex;align-items:center;gap:5px;margin-left:auto}
+.wf-search{padding:8px 12px;border-radius:var(--rad);border:1px solid var(--stroke);font-size:13px;background:var(--card);color:var(--t);cursor:pointer;display:flex;align-items:center;gap:5px}
+.wsearch-wrap{padding:0 16px 10px;position:relative}
+.wsearch{width:100%;background:var(--card);border:1px solid var(--stroke);border-radius:var(--rad);color:var(--t);font-size:14px;padding:10px 16px 10px 36px;outline:none;font-family:inherit}
+.wsearch::placeholder{color:var(--t2)}
+.wsearch-icon{position:absolute;left:28px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none}
+/* ─── Словарь (редизайн: поиск + карточки с обводкой + фуригана) ─── */
+.dsearch{position:relative;margin:0 16px 10px}
+.dsearch-ic{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:22px;height:22px;object-fit:contain;pointer-events:none}
+.dsearch-inp{width:100%;height:50px;background:#1d1d1d;border:1px solid var(--stroke);border-radius:var(--rad);color:var(--t);font-size:16px;padding:0 16px 0 44px;outline:none;font-family:inherit}
+.dsearch-inp::placeholder{color:var(--t2)}
+.dlist{padding:0 16px;display:flex;flex-direction:column;gap:4px}
+.ditem{display:flex;align-items:center;gap:12px;background:#1d1d1d;border:1px solid var(--a);border-radius:var(--rad);padding:7px 12px}
+.ditem-k{font-size:24px;color:var(--t);line-height:1.1;flex-shrink:0;min-width:40px}
+.ditem-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.ditem-r{font-size:12px;color:var(--al);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ditem-m{font-size:13px;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ditem-st{flex-shrink:0;width:18px;display:flex;align-items:center;justify-content:center}
+.ditem-st .dot{width:9px;height:9px;border-radius:50%;background:var(--c2)}
+.ditem-st.learning .dot{background:var(--y)}
+.dfolder{font-size:11px;color:var(--al);margin-top:1px}
+.wlist{background:var(--card);border-radius:var(--rad);margin:0 16px 10px;overflow:hidden}
+.witem{display:flex;align-items:center;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.05);gap:12px}
+.witem:last-child{border-bottom:none}
+.wkanji{font-size:24px;min-width:40px;text-align:center}
+.winfo{flex:1;min-width:0}
+.wreading{font-size:12px;color:var(--al)}
+.wtrans{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wdot{width:9px;height:9px;border-radius:50%;background:var(--c2);flex-shrink:0}
+.wdot.g{background:var(--g)}.wdot.y{background:var(--y)}.wdot.r{background:var(--r)}
+.wok{font-size:11px;color:var(--al)}
+
+/* ─── Settings ─── */
+.sset{background:var(--card);border-radius:var(--rad);overflow:hidden;margin:0 16px 12px}
+.sset-lbl{font-size:12px;color:var(--al);padding:0 16px;margin-bottom:6px}
+.srow{display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer}
+.srow:last-child{border-bottom:none}
+.srow-l{flex:1;font-size:14px}
+.srow-r{font-size:13px;color:var(--al)}
+.confirm-row{display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.05);gap:8px}
+.confirm-row:last-child{border-bottom:none}
+.confirm-text{flex:1;font-size:13px}
+.confirm-no,.confirm-yes{border:none;border-radius:300px;padding:6px 16px;font-size:12px;cursor:pointer}
+.confirm-no{background:var(--c2);color:var(--t)}
+.confirm-yes{background:rgba(255,60,60,.15);color:var(--r)}
+
+/* ─── Import ─── */
+.dropzone{position:relative;border:2px dashed var(--c2);border-radius:16px;padding:40px 20px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;margin:0 16px 10px}
+.dropzone:focus-within{outline:2px solid var(--al);outline-offset:2px}
+.csv-file-input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.dropzone.over{border-color:var(--a);background:rgba(63,111,207,.07)}
+.dz-icon{font-size:36px;margin-bottom:8px}
+.dz-text{font-size:14px;font-weight:500;color:var(--t)}
+.dz-hint{font-size:12px;color:var(--t2);margin-top:4px}
+.tbl-wrap{overflow-x:auto;border-radius:12px;overflow:hidden;margin:0 16px 10px}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--c)}
+th{background:var(--c2);padding:8px 10px;text-align:left;font-weight:600;color:var(--al);font-size:11px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+td{padding:7px 10px;border-top:1px solid rgba(255,255,255,.05);white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis}
+
+/* ─── Empty ─── */
+.empty{text-align:center;padding:60px 20px;color:var(--t2)}
+.ei{font-size:56px;margin-bottom:14px}
+.et{font-size:18px;font-weight:700;color:var(--t);margin-bottom:6px}
+.eb{font-size:13px;margin-bottom:20px}
+
+/* ─── Done ─── */
+.done{text-align:center;padding:40px 16px}
+.done-i{font-size:56px;margin-bottom:12px}
+.res-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0}
+.rc{border-radius:16px;padding:14px;text-align:center}
+.rc.g{background:rgba(122,255,120,.12);color:var(--g)}
+.rc.y{background:rgba(255,242,133,.12);color:var(--y)}
+.rc.r{background:rgba(255,60,60,.12);color:var(--r)}
+.rn{font-size:32px;font-weight:700}.rl{font-size:12px;margin-top:3px;opacity:.8}
+
+/* ─── Sub-tabs (Карточки / Квиз) ─── */
+.sub-tabs{display:flex;background:var(--card);border-radius:var(--rad);padding:4px;gap:4px;margin:0 16px 14px}
+.stab{flex:1;padding:8px;border-radius:300px;border:none;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;background:none;color:var(--t2)}
+.stab.on{background:var(--c2);color:var(--t)}
+
+/* ─── Toast ─── */
+#toast{position:fixed;top:14px;left:50%;transform:translate(-50%,-20px);background:transparent;color:var(--t2);font-size:12px;z-index:300;opacity:0;transition:opacity .25s, transform .25s;white-space:nowrap;pointer-events:none;padding:4px 10px;letter-spacing:.2px}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* ─── Error box ─── */
+.err-box{background:rgba(255,60,60,.1);border:1px solid var(--r);border-radius:12px;padding:11px 14px;color:var(--r);font-size:13px;margin:0 16px 10px}
+
+/* ─── Mono ─── */
+.mono{font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;color:var(--al);line-height:1.7}

@@ -6,8 +6,7 @@ function app(storage=new Map()){
  const nodes={app:{innerHTML:''},toast:{textContent:'',classList:{add(){},remove(){}}}};
  const document={getElementById:id=>nodes[id]||null,addEventListener(){},querySelector(){return null},activeElement:null};
  const ctx=vm.createContext({window:{},document,location:{hash:''},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},setTimeout(){},console,Blob,URL});
- for(const file of ['content/practice-data.js','content/practice.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),ctx);
- const main=[...fs.readFileSync(path.join(root,'index.html'),'utf8').matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/g)].at(-1)[1];vm.runInContext(main,ctx);
+ require('../load-app.cjs').runApp(ctx);
  vm.runInContext(`
  function answerCurrent(){const e=uCurrent(),a=uAnswer(e);if(e.type==='order')a.selection=e.acceptedSequences[0].slice();else if(e.type==='input')a.selection.text=e.acceptedTexts[0];else if(e.type==='gap')a.selection=Object.fromEntries(e.slots.map(s=>[s.id,s.acceptedOptionIds[0]]));else a.selection.choice=e.acceptedChoiceIds[0];uCheck();}
  function finishRun(){while(uCurrent()){answerCurrent();uAction('next');}}

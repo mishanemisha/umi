@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const {execFileSync}=require('node:child_process');
 const root=path.resolve(__dirname,'..');
-const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+const {runApp}=require('./load-app.cjs');
 const legacyHtml=execFileSync('git',['show','22778b8:index.html'],{cwd:root,maxBuffer:3000000}).toString();
 function app({storage=new Map(),legacy=false,quota=false}={}){
  const nodes={app:{innerHTML:''},toast:{textContent:'',classList:{add(){},remove(){}}}},readers=[],writes=[];
@@ -13,9 +13,8 @@ function app({storage=new Map(),legacy=false,quota=false}={}){
   readAsText(file,encoding){this.file=file;this.encoding=encoding;if(file.throw)throw Error('provider inaccessible');if(file.delay)return;if(file.error){this.onerror({target:this});return;}this.onload({target:{result:file.text}});}
  }
  const ctx=vm.createContext({window:{},document,location:{hash:''},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>{if(quota)throw Error('QuotaExceededError');storage.set(k,v);writes.push(k);}},FileReader,setTimeout(){},clearTimeout(){},console,Blob,URL});
- if(!legacy)for(const file of ['content/practice-data.js','content/practice.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),ctx);
- const main=[...(legacy?legacyHtml:html).matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/g)].at(-1)[1];
- vm.runInContext(main,ctx);
+ if(legacy)vm.runInContext([...legacyHtml.matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/g)].at(-1)[1],ctx);
+ else runApp(ctx);
  const run=code=>vm.runInContext(code,ctx);
  return {run,storage,readers,writes,nodes};
 }

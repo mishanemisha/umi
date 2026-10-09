@@ -13,9 +13,8 @@
 
 Как обновить банк в приложении:
   1) положить новые CSV в tools/data/ (те же имена/колонки);
-  2) python3 tools/gen_verbs.py > /tmp/verbs_data.js   # проверит 0 mismatches
-  3) заменить в index.html 4 строки `const VERB_CH=…`…`const VERB_BANK=…`
-     содержимым /tmp/verbs_data.js.
+  2) python3 tools/gen_verbs.py   # проверит 0 mismatches и перезапишет js/data/verbs.js
+  3) поднять ?v= у скриптов в index.html, чтобы сбросить кеш.
 Токен-семантика шаблона: | = новая карточка, + = склейка в одну,
 пустые/∅ карточки отбрасываются, внутренний | в hard-кусках дробит ещё раз.
 Логика v3 описана в tools/verb_training_logic_v3.md.
@@ -137,4 +136,8 @@ for v in verbs:
     VB.append(e)
 
 J = lambda n, o: f"const {n}=" + json.dumps(o, ensure_ascii=False, separators=(',', ':')) + ";"
-print("\n".join([J("VERB_CH", VC), J("VERB_RULES", VR), J("VERB_CATS_DATA", CATS), J("VERB_BANK", VB)]))
+OUT = os.path.join(HERE, "..", "js", "data", "verbs.js")
+with open(OUT, "w", encoding="utf-8") as f:
+    f.write("// Сгенерировано tools/gen_verbs.py — не править вручную\n")
+    f.write("\n".join([J("VERB_CH", VC), J("VERB_RULES", VR), J("VERB_CATS_DATA", CATS), J("VERB_BANK", VB)]) + "\n")
+print("written", os.path.relpath(OUT, os.path.join(HERE, "..")))
