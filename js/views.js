@@ -95,6 +95,7 @@ function backAction(){
   if(S.studyQueue.length&&!S.studyResults)return'stop-study';
   if(S.quizQ)return'stop-quiz';
   if(S.cfgScreen)return'close-cfg';
+  if(S.tab==='words'&&S.selecting)return S.selSheet?'sel-sheet-close':'sel-cancel';
   if(S.tab==='practice'&&practiceAvailable){const a=uBackAction();return a?'up:'+a:null;}
   return null;
 }
@@ -693,47 +694,100 @@ function buildWords(){
       <button class="wf-tab${wf==='all'?' on':''}" style="flex:none" data-a="words-folder:all">Все папки</button>
       ${folders.map(f=>`<button class="wf-tab${wf===f?' on':''}" style="flex:none" data-a="words-folder:${esc(f)}">${esc(f)}</button>`).join('')}
     </div>`:'';
+  const tools=ds(type).length?`<div class="dtools">
+      <button class="dtool${S.selecting?' on':''}" data-a="${S.selecting?'sel-cancel':'sel-start'}">${S.selecting?'Отменить выбор':'Выбрать'}</button>
+      ${type==='kanji'?`<span class="dtools-sp"></span>
+      <button class="dtool${S.kanjiView==='grid'?' on':''}" data-a="kanji-view:grid">▦ Сетка</button>
+      <button class="dtool${S.kanjiView==='single'?' on':''}" data-a="kanji-view:single">▭ По одному</button>`:''}
+    </div>`:'';
   return`
     ${seg}
     ${importBtn}
     ${search}
     ${folderTabs}
-    <div id="words-results">${buildWordsResults()}</div>`;
+    ${tools}
+    <div id="words-results">${buildWordsResults()}</div>
+    ${S.selecting?buildSelBar():''}`;
 }
-// Список отдельно от поля поиска: при вводе обновляется только он (фокус и IME не сбрасываются)
-function buildWordsResults(){
-  const type=S.wordsTab,d=ds(type),p=pr(type);
+function wordsList(){
+  const type=S.wordsTab,d=ds(type);
   const{folders,wf}=wordsFolderState();
-  const base=wf==='all'?d:d.filter(w=>(w.folder||'Общая')===wf);
+  const base=wf==='all'?d:d.filter(w=>inFolder(w,wf));
   const q=S.wordsSearch.toLowerCase();
   const list=q
     ?base.filter(w=>[w.kanji,w.reading,w.on_reading,w.kun_reading,w.meaning,w.translation]
         .some(v=>String(v||'').toLowerCase().includes(q)))
     :base;
+  return{type,d,folders,wf,base,list};
+}
+const CHECK_SVG=`<svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5l4 4L13 1" stroke="#7aff78" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+function statusMark(s){return s==='know'?`<span class="ditem-st know">${CHECK_SVG}</span>`:`<span class="ditem-st ${s}"><span class="dot"></span></span>`;}
+function folderTag(w,show){
+  const f=itemFolders(w).filter(x=>x!=='Общая');
+  return show&&f.length?`<div class="dfolder">📁 ${f.map(esc).join(' · ')}</div>`:'';
+}
+function selAttrs(w){
+  const sel=S.selecting&&S.selIds.includes(w.id);
+  return{sel,attrs:S.selecting?` data-a="sel-toggle:${esc(w.id)}" role="checkbox" aria-checked="${sel}"`:'',mark:S.selecting?`<span class="ksel">${sel?'✓':''}</span>`:''};
+}
+// Карточка кандзи: крупный знак, он/кун, значение и по примеру слова на каждое чтение
+function kanjiCard(w,p,single,showFolder){
+  const{sel,attrs,mark}=selAttrs(w);
+  const senses=mSplit(w.meaning||w.translation||'');
+  const ex=kanjiExamples(w);
+  const exRow=(lbl,e)=>e?`<div class="kex"><span class="kex-l">${lbl}</span><span class="kex-w">${esc(e.word)}</span><span class="kex-r">${e.html}</span></div>`:'';
+  return`<div class="kcard${single?' kpage':''}${sel?' sel':''}"${attrs}>
+      ${mark}${statusMark(statusOf(p,w.id))}
+      <div class="kcard-k">${esc(w.kanji)}</div>
+      ${w.on_reading?`<div class="kcard-r"><span class="kcard-l">on</span>${esc(w.on_reading)}</div>`:''}
+      ${w.kun_reading?`<div class="kcard-r"><span class="kcard-l">kun</span>${renderKun(w.kun_reading)}</div>`:''}
+      ${senses.length?`<div class="kcard-m">${esc((single?senses:senses.slice(0,2)).join(', '))}</div>`:''}
+      ${exRow('on',ex.on)}${exRow('kun',ex.kun)}
+      ${folderTag(w,showFolder)}
+    </div>`;
+}
+// Список отдельно от поля поиска: при вводе обновляется только он (фокус и IME не сбрасываются)
+function buildWordsResults(){
+  const{type,d,folders,wf,base,list}=wordsList(),p=pr(type);
   const showFolderTag=wf==='all'&&folders.length>1;
-  const checkSvg=`<svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5l4 4L13 1" stroke="#7aff78" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   const item=w=>{
-    const s=statusOf(p,w.id);
-    const st=s==='know'?`<span class="ditem-st know">${checkSvg}</span>`:`<span class="ditem-st ${s}"><span class="dot"></span></span>`;
-    const ft=showFolderTag&&(w.folder||'Общая')!=='Общая'?`<div class="dfolder">📁 ${esc(w.folder)}</div>`:'';
-    let reading;
-    if(type==='kanji'){
-      const parts=[];if(w.on_reading)parts.push('он '+esc(w.on_reading));if(w.kun_reading)parts.push('кун '+esc(w.kun_reading));
-      reading=parts.join(' · ');
-    }else reading=esc(w.reading||'');
+    const{sel,attrs,mark}=selAttrs(w);
+    const reading=esc(w.reading||'');
     const meaning=esc(w.meaning||w.translation||'');
-    return`<div class="ditem">
-        <span class="ditem-k">${esc(w.kanji)}</span>
-        <span class="ditem-info">${reading?`<span class="ditem-r">${reading}</span>`:''}${meaning?`<span class="ditem-m">${meaning}</span>`:''}${ft}</span>
-        ${st}
+    return`<div class="ditem${sel?' sel':''}"${attrs}>
+        ${mark}<span class="ditem-k">${esc(w.kanji)}</span>
+        <span class="ditem-info">${reading?`<span class="ditem-r">${reading}</span>`:''}${meaning?`<span class="ditem-m">${meaning}</span>`:''}${folderTag(w,showFolderTag)}</span>
+        ${statusMark(statusOf(p,w.id))}
       </div>`;
   };
   if(!d.length)return`<div class="empty"><div class="ei">${type==='kanji'?'㊙️':'📖'}</div><div class="et">Нет ${type==='kanji'?'кандзи':'слов'}</div><div class="eb">Импортируйте CSV/TSV файл</div><button class="btn btn-p" style="margin:0 16px;width:calc(100% - 32px)" data-a="words-import">Импортировать</button></div>`;
   if(!base.length)return`<div class="empty"><div class="ei">📁</div><div class="et">Папка пуста</div><div class="eb">В папке «${esc(wf)}» пока нет ${type==='kanji'?'кандзи':'слов'}</div></div>`;
   const shown=list.slice(0,S.wordsLimit);
   const more=list.length>shown.length?`<button class="btn btn-s" style="margin:8px 16px;width:calc(100% - 32px)" data-a="words-more">Показать ещё (${list.length-shown.length})</button>`:'';
-  return`<div class="dlist">${shown.map(item).join('')}</div>${more}
+  const body=type==='kanji'
+    ?(S.kanjiView==='single'
+      ?`<div class="kpages">${shown.map(w=>kanjiCard(w,p,true,showFolderTag)).join('')}</div>`
+      :`<div class="kgrid">${shown.map(w=>kanjiCard(w,p,false,showFolderTag)).join('')}</div>`)
+    :`<div class="dlist">${shown.map(item).join('')}</div>`;
+  return`${body}${more}
     ${list.length!==base.length?`<div style="font-size:12px;color:var(--al);text-align:center;padding:6px">Найдено: ${list.length} из ${base.length}</div>`:''}`;
+}
+// Панель выбора: счётчик → «В папку» → существующая или новая папка
+function buildSelBar(){
+  const n=S.selIds.length,type=S.wordsTab;
+  if(!S.selSheet)return`<div class="selbar">
+      <span class="selbar-n">Выбрано: ${n}</span>
+      <button class="dtool" data-a="sel-all">Все</button>
+      <button class="dtool on" data-a="sel-sheet"${n?'':' disabled'}>В папку</button>
+    </div>`;
+  const existing=foldersOf(type).filter(f=>f!=='Общая');
+  return`<div class="selbar sheet">
+      <div class="selbar-t">Добавить ${n} в папку</div>
+      ${existing.length?`<div class="chips">${existing.map(f=>`<button class="chip" data-a="sel-to-folder:${esc(f)}">${esc(f)}</button>`).join('')}</div>`:''}
+      <input id="sel-folder-name" class="quiz-inp" type="text" placeholder="Новая папка" autocomplete="off" autocorrect="off" autocapitalize="off">
+      <div class="btn-row"><button class="btn btn-s" data-a="sel-sheet-close">Назад</button><button class="btn btn-p" data-a="sel-new-folder">Создать</button></div>
+      <div class="selbar-hint">Записи остаются и в своих папках, прогресс общий</div>
+    </div>`;
 }
 
 /* ── SETTINGS ── */
@@ -845,7 +899,7 @@ function buildPreview(){
   return`
     <div class="cfg-card">
       <div class="cfg-lbl">Предпросмотр — ${words.length} записей</div>
-      <div style="font-size:12px;color:var(--al);margin-bottom:8px">Папка: ${esc(importTargetFolder())} · дубли (слово + чтение) пропускаются</div>
+      <div style="font-size:12px;color:var(--al);margin-bottom:8px">Папка: ${esc(importTargetFolder())} · уже известные ${S.importType==='kanji'?'кандзи':'слова'} не дублируются: значение обновится, прогресс сохранится</div>
       <div class="tbl-wrap" style="margin:0 0 10px">
         <table><thead><tr>${headers.map(h=>`<th>${fldShort(h,S.importType)}</th>`).join('')}</tr></thead>
         <tbody>${show.map(w=>`<tr>${headers.map(h=>`<td>${esc(w[h]||'')}</td>`).join('')}</tr>`).join('')}</tbody></table>

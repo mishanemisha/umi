@@ -71,16 +71,17 @@ test('production-to-beta upgrade preserves 1000 words, IDs, folders, raw CSV and
  assert.equal(dictionary(next),snapshot);assert.equal(storage.get('jl4'),before);assert(next.writes.every(k=>k==='umi.practice.v1'));
  const reload=app({storage});assert.equal(dictionary(reload),snapshot);
 });
-test('confirming a new CSV appends words and skips duplicates without changing existing IDs or SRS',()=>{
+test('confirming a new CSV appends words and updates known meanings without changing IDs, folders or SRS',()=>{
  const storage=importedSnapshot(),a=app({storage}),old=a.run('JSON.stringify(S.words)'),progress=a.run('JSON.stringify(S.progress)');
  a.run(`act('words-import');S.importFolder='Genki';readFile({text:'kanji,reading,meaning\\n単語0,たんご,изменённое значение\\n犬,いぬ,собака'});act('confirm-import');`);
- assert.equal(a.run('JSON.stringify(S.words.slice(0,1000))'),old);assert.equal(a.run('JSON.stringify(S.progress)'),progress);assert.equal(a.run(`S.words.length===1001&&S.words.at(-1).folder==='Genki'`),true);
+ const expected=JSON.parse(old);expected[0].meaning='изменённое значение';
+ assert.equal(a.run('JSON.stringify(S.words.slice(0,1000))'),JSON.stringify(expected));assert.equal(a.run('JSON.stringify(S.progress)'),progress);assert.equal(a.run(`S.words.length===1001&&S.words.at(-1).folder==='Genki'`),true);
  const reload=app({storage});assert.equal(dictionary(reload),dictionary(a));assert.equal(reload.run(`UP.attempts.length`),0);
 });
-test('kanji import preserves earlier words, kanji, readings and progress',()=>{
+test('kanji import preserves earlier words, IDs, readings and progress and updates the meaning',()=>{
  const storage=importedSnapshot(),a=app({storage}),words=a.run('JSON.stringify(S.words)'),kanji=a.run('JSON.stringify(S.kanjiItems[0])'),progress=a.run('JSON.stringify(S.kanjiProgress)');
  a.run(`act('words-import');act('import-type:kanji');S.importFolder='Кандзи';readFile({text:'kanji,on,kun,meaning\\n日,ニチ,ひ,changed\\n月,ゲツ,つき,луна'});act('confirm-import');`);
- assert.equal(a.run('JSON.stringify(S.words)'),words);assert.equal(a.run('JSON.stringify(S.kanjiItems[0])'),kanji);assert.equal(a.run('JSON.stringify(S.kanjiProgress)'),progress);assert.equal(a.run('S.kanjiItems.length'),2);assert.equal(dictionary(app({storage})),dictionary(a));
+ assert.equal(a.run('JSON.stringify(S.words)'),words);assert.equal(a.run('JSON.stringify(S.kanjiItems[0])'),JSON.stringify({...JSON.parse(kanji),meaning:'changed'}));assert.equal(a.run('JSON.stringify(S.kanjiProgress)'),progress);assert.equal(a.run('S.kanjiItems.length'),2);assert.equal(dictionary(app({storage})),dictionary(a));
 });
 test('quota failure rolls back only the pending import and retains the stored CSV and preview',()=>{
  for(const type of ['words','kanji']){

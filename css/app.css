@@ -318,6 +318,11 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 .mtile.bad .mt-sub{color:var(--r)}
 .mtile.done{background:rgba(122,255,120,.14);border-color:var(--g);color:var(--g);opacity:.5}
 .mtile.done .mt-sub{color:var(--g)}
+/* собранная пара сжимается, чтобы не занимать экран */
+.mtile.done{min-height:30px;padding:3px 8px}
+.mtile.done .mt-main{font-size:13px}
+.mtile.done .mt-main.jp{font-size:16px}
+.mtile.done .mt-sub{display:none}
 .mtile:disabled{cursor:default}
 
 /* ─── Words list ─── */
@@ -345,6 +350,44 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 .ditem-st .dot{width:9px;height:9px;border-radius:50%;background:var(--c2)}
 .ditem-st.learning .dot{background:var(--y)}
 .dfolder{font-size:11px;color:var(--al);margin-top:1px}
+/* ─── Словарь: инструменты, выбор, кандзи-карточки ─── */
+.dtools{display:flex;gap:6px;align-items:center;margin:0 16px 8px}
+.dtools-sp{flex:1}
+.dtool{background:var(--card);border:1px solid var(--stroke);color:var(--t);border-radius:var(--rad);padding:7px 12px;font-size:13px;cursor:pointer}
+.dtool.on{border-color:var(--a);color:var(--al)}
+.dtool:disabled{opacity:.4}
+.ditem.sel,.kcard.sel{border-color:var(--g);background:rgba(122,255,120,.08)}
+.ksel{width:20px;height:20px;border:1px solid var(--a);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--g);flex-shrink:0}
+.sel .ksel{border-color:var(--g)}
+.selbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(104px + env(safe-area-inset-bottom));width:calc(100% - 32px);max-width:448px;z-index:150;
+  background:var(--card);border:1px solid var(--a);border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px;box-shadow:0 6px 24px rgba(0,0,0,.6)}
+.selbar-n{flex:1;font-size:14px}
+.selbar.sheet{flex-direction:column;align-items:stretch;gap:10px;padding:12px}
+.selbar-t{font-size:14px;color:var(--al);text-align:center}
+.selbar-hint{font-size:11px;color:var(--al);text-align:center}
+.selbar .chip{height:40px;font-size:14px}
+.kgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding:0 16px}
+.kcard{position:relative;background:#1d1d1d;border:1px solid var(--a);border-radius:var(--rad);padding:12px 10px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.kcard .ditem-st{position:absolute;top:10px;right:10px}
+.kcard .ksel{position:absolute;top:8px;left:8px}
+.kcard-k{font-size:56px;line-height:1.1;text-align:center;margin:4px 0 6px}
+.kcard-r{font-size:13px;color:var(--t);overflow-wrap:anywhere}
+.kcard-l{display:inline-block;min-width:26px;color:var(--al);font-size:11px;margin-right:4px}
+.kcard-m{font-size:13px;color:var(--al);overflow-wrap:anywhere}
+.kex{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 6px;font-size:13px;border-top:1px solid var(--stroke);padding-top:4px;margin-top:2px}
+.kex-l{color:var(--al);font-size:11px;min-width:26px}
+.kex-w{font-size:16px}
+.kex-r{color:#9a9a9a}
+.kex-r b{color:var(--y);font-weight:600}
+/* по одному: карточка на экран, листание вниз с доводкой */
+html:has(.kpages){scroll-snap-type:y proximity}
+.kpages{display:flex;flex-direction:column;gap:12px;padding:0 16px}
+.kcard.kpage{min-height:calc(100dvh - 190px);justify-content:center;padding:24px 18px;gap:10px;scroll-snap-align:start;scroll-margin-top:12px}
+.kpage .kcard-k{font-size:140px}
+.kpage .kcard-r{font-size:18px}
+.kpage .kcard-m{font-size:17px}
+.kpage .kex{font-size:16px;padding-top:8px}
+.kpage .kex-w{font-size:22px}
 .wlist{background:var(--card);border-radius:var(--rad);margin:0 16px 10px;overflow:hidden}
 .witem{display:flex;align-items:center;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.05);gap:12px}
 .witem:last-child{border-bottom:none}

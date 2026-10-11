@@ -40,7 +40,8 @@ const MATCH_ICON='assets/match.png';
 /* ── State ── */
 const S={
   tab:'home', homeTab:'words', testsSubTab:'cards',
-  wordsTab:'words', wordsSearch:'', wordsFolder:'all', wordsLimit:300,
+  wordsTab:'words', wordsSearch:'', wordsFolder:'all', wordsLimit:300, kanjiView:'grid',
+  selecting:false, selIds:[], selSheet:false,
   words:[], progress:{},
   kanjiItems:[], kanjiProgress:{},
   wordsCsv:'', kanjiCsv:'',
@@ -49,7 +50,7 @@ const S={
   quizCfg:{type:'words',mode:'choice6',question:['kanji'],answer:['reading'],filter:'all',count:'all',folders:[],composeShow:{reading:true,meaning:false},composeMode:'normal',ultraDifficulty:'all',
     verbStyle:'both',verbMode:'A',verbLevel:'medium',verbSource:'all',verbCats:VERB_CATS_DEFAULT.slice(),
     matchLeft:['meaning'],matchRight:['kanji','reading'],matchSenses:'one'},
-  quizQ:null, quizLimit:null, quizScore:{ok:0,bad:0}, quizDone:false, quizSel:-1, quizInputVal:'',
+  quizQ:null, quizLimit:null, quizSeen:{}, quizRound:0, quizScore:{ok:0,bad:0}, quizDone:false, quizSel:-1, quizInputVal:'',
   quizHint:false, cardHint:false, quizRecent:[],
   wordDisplay:'full', // 'full' — слово целиком (кандзи), 'kana' — только кана
   hintsEnabled:true,  // подсказки в квизе/карточках кандзи (можно выключить в настройках)
@@ -342,15 +343,19 @@ function dueOf(p,id){const v=p[id];if(!v||typeof v==='string')return 0;return v.
 function ds(type){return type==='kanji'?S.kanjiItems:S.words;}
 function pr(type){return type==='kanji'?S.kanjiProgress:S.progress;}
 /* ── Папки ── */
+// Запись живёт в основной папке (folder) и может входить в дополнительные (folders) —
+// их создаёт выбор в словаре и повторный импорт той же записи в другую папку.
+function itemFolders(w){const f=[w.folder||'Общая'];(w.folders||[]).forEach(x=>{if(!f.includes(x))f.push(x);});return f;}
+function inFolder(w,f){return itemFolders(w).includes(f);}
+function addToFolder(w,f){if(inFolder(w,f))return false;(w.folders=w.folders||[]).push(f);return true;}
 function foldersOf(type){
   const set=new Set(['Общая']);
-  ds(type).forEach(w=>set.add(w.folder||'Общая'));
+  ds(type).forEach(w=>itemFolders(w).forEach(f=>set.add(f)));
   return[...set];
 }
 function allFolders(){
   const set=new Set(['Общая']);
-  S.words.forEach(w=>set.add(w.folder||'Общая'));
-  S.kanjiItems.forEach(w=>set.add(w.folder||'Общая'));
+  [...S.words,...S.kanjiItems].forEach(w=>itemFolders(w).forEach(f=>set.add(f)));
   return[...set];
 }
 /* ── Ключ дедупликации: слово + чтение ── */
@@ -360,11 +365,12 @@ function itemKey(w,type){
     ?normKey(w.kanji)+'\u0000'+normKey(w.on_reading)+'\u0000'+normKey(w.kun_reading)
     :normKey(w.kanji)+'\u0000'+normKey(w.reading);
 }
+function importMatchKey(w,type){return type==='kanji'?normKey(w.kanji):itemKey(w,'words');}
 function importTargetFolder(){return(S.importNewFolder?(S.importNewName||'').trim():S.importFolder)||'Общая';}
 function filtered(type,filter,count,folders){
   const p=pr(type);
   let arr=[...ds(type)];
-  if(folders&&folders.length)arr=arr.filter(w=>folders.includes(w.folder||'Общая'));
+  if(folders&&folders.length)arr=arr.filter(w=>folders.some(f=>inFolder(w,f)));
   if(filter!=='all')arr=arr.filter(w=>statusOf(p,w.id)===filter);
   // SM-2: для лимита берём сначала просроченные (due<=now), затем добиваем случайными
   if(count&&count!=='all'){
@@ -375,17 +381,30 @@ function filtered(type,filter,count,folders){
   }
   return arr;
 }
-// «Количество» в квизе: набор записей фиксируется на всю сессию (до «Стоп» / нового старта).
-// Внутри набора сначала просроченные по SM-2, затем случайные.
+// Набор квиза фиксируется при старте сессии (до «Стоп» / нового старта): фильтр статуса
+// и «Количество» применяются один раз. Иначе ответы переводят записи из «Не знаю» в «Учу»,
+// и набор тает посреди тренировки. Внутри лимита — сначала просроченные по SM-2.
 function quizLimit(pool,p){
-  const count=S.quizCfg.count;
-  if(!count||count==='all')return pool;
   if(!S.quizLimit){
-    const now=Date.now();
-    const due=shuffle(pool.filter(w=>dueOf(p,w.id)<=now)),rest=shuffle(pool.filter(w=>dueOf(p,w.id)>now));
-    S.quizLimit={ids:new Set([...due,...rest].slice(0,parseInt(count)).map(w=>w.id))};
+    const{filter,count}=S.quizCfg;
+    let arr=filter&&filter!=='all'?pool.filter(w=>statusOf(p,w.id)===filter):pool;
+    if(count&&count!=='all'){
+      const now=Date.now();
+      const due=shuffle(arr.filter(w=>dueOf(p,w.id)<=now)),rest=shuffle(arr.filter(w=>dueOf(p,w.id)>now));
+      arr=[...due,...rest].slice(0,parseInt(count));
+    }
+    S.quizLimit={ids:new Set(arr.map(w=>w.id))};
   }
   return pool.filter(w=>S.quizLimit.ids.has(w.id));
+}
+// Давно не показанные — первыми (для раундов из нескольких записей: пары, сопоставление)
+function leastRecent(pool){
+  const seen=S.quizSeen||{};
+  return shuffle(pool).sort((a,b)=>(seen[a.id]||0)-(seen[b.id]||0));
+}
+function markSeen(ids){
+  S.quizSeen=S.quizSeen||{};S.quizRound=(S.quizRound||0)+1;
+  ids.forEach(id=>{S.quizSeen[id]=S.quizRound;});
 }
 function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function buildStudyQueue(){

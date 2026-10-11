@@ -23,7 +23,7 @@ function buildQuizQ(){
   const af=arr(S.quizCfg.answer)[0];
   const qFields=arr(S.quizCfg.question);
   const optN=(mode==='choice4'?4:6);
-  const pool=quizLimit(filtered(type,filter,'all',S.quizCfg.folders).filter(w=>w[af]&&qFields.some(f=>w[f])),pr(type));
+  const pool=quizLimit(filtered(type,'all','all',S.quizCfg.folders).filter(w=>w[af]&&qFields.some(f=>w[f])),pr(type));
   if(pool.length<2)return null;
   const all=ds(type).filter(w=>w[af]);
   if(all.length<optN)return null;
@@ -55,7 +55,7 @@ function buildMultiQ(){
   const aFields=arr(S.quizCfg.answer).filter(Boolean);
   const optN=mode==='choice4'?4:6;
   const all=ds(type);
-  const pool=quizLimit(filtered(type,filter,'all',S.quizCfg.folders)
+  const pool=quizLimit(filtered(type,'all','all',S.quizCfg.folders)
     .filter(w=>qFields.some(f=>w[f])&&aFields.some(f=>w[f])),pr(type));
   if(pool.length<2)return null;
   const qw=rankPool(pool,type)[0];
@@ -96,6 +96,61 @@ function userKanjiSet(){
 function wordMatchesKanji(word,ks){
   const kc=kanjiChars(word);
   return kc.length>0&&kc.every(c=>ks.has(c));
+}
+/* ── Примеры слов к кандзи: одно на он-чтение, одно на кун-чтение ──
+ * Источники: свои слова (одиночный кандзи + кана, напр. 見る, 先), затем встроенные банки
+ * с посимвольной разбивкой чтения. В чтении слова выделяется часть, которую даёт этот кандзи. */
+function toHira(s){return String(s||'').replace(/[ァ-ヶ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60));}
+function readingTokens(s){return String(s||'').split(/[、・,;\s]+/).map(t=>toHira(t.replace(/^-|-$/g,'').split('.')[0])).filter(Boolean);}
+// рендаку и сокращения: がく→がっ, せい→ぜい
+function readingVariants(r){
+  const v=[r],first=r[0].normalize('NFD').replace(/[゙゚]/g,'').normalize('NFC');
+  if(first!==r[0])v.push(first+r.slice(1));
+  if(r.endsWith('っ'))'つくちき'.split('').forEach(c=>v.push(r.slice(0,-1)+c));
+  return v;
+}
+// разбивка чтения слова по символам: [{c, r}], либо null, если разбить нельзя
+function segmentWord(word,reading,seg){
+  const chars=[...word],r=toHira(reading);
+  if(seg&&seg.length){
+    const parts=[];let si=0;
+    for(const c of chars){
+      if(isKanjiChar(c)){const s=seg[si++];if(!s||s.c!==c)return null;parts.push({c,r:s.r});}
+      else parts.push({c,r:toHira(c)});
+    }
+    return parts.map(p=>p.r).join('')===r?parts:null;
+  }
+  // одиночный кандзи: снимаем кану по краям
+  const ki=chars.findIndex(isKanjiChar);
+  if(ki<0||chars.filter(isKanjiChar).length!==1)return null;
+  const pre=toHira(chars.slice(0,ki).join('')),suf=toHira(chars.slice(ki+1).join(''));
+  if(!r.startsWith(pre)||!r.endsWith(suf)||r.length<=pre.length+suf.length)return null;
+  return[...[...pre].map(c=>({c,r:c})),{c:chars[ki],r:r.slice(pre.length,r.length-suf.length)},...[...suf].map(c=>({c,r:c}))];
+}
+const _kexCache=new Map();
+function kanjiExamples(item){
+  const ch=String(item.kanji||'');
+  const key=[ch,item.on_reading,item.kun_reading,S.words.length].join('|');
+  if(_kexCache.has(key))return _kexCache.get(key);
+  const on=new Set(readingTokens(item.on_reading)),kun=new Set(readingTokens(item.kun_reading));
+  const cands=[
+    ...S.words.map(w=>({w:String(w.kanji||''),r:w.reading,k:null})),
+    ...BUILTIN_WORDS.map(w=>({w:w.w,r:w.r,k:w.k})),
+    ...ADDITIONAL_WORDS.map(w=>({w:w.w,r:w.r,k:w.k})),
+  ].filter(x=>x.r&&x.w.includes(ch));
+  const out={on:null,kun:null};
+  for(const x of cands){
+    if(out.on&&out.kun)break;
+    const parts=segmentWord(x.w,x.r,x.k);if(!parts)continue;
+    const mine=parts.find(p=>p.c===ch);if(!mine)continue;
+    const vs=readingVariants(mine.r);
+    const kind=vs.some(v=>on.has(v))?'on':vs.some(v=>kun.has(v))?'kun':null;
+    if(!kind||out[kind])continue;
+    out[kind]={word:x.w,html:parts.map(p=>p.c===ch?`<b>${esc(p.r)}</b>`:esc(p.r)).join('')};
+  }
+  if(_kexCache.size>2000)_kexCache.clear();
+  _kexCache.set(key,out);
+  return out;
 }
 // Пример-слова для иероглифа: только встроенный банк из CSV (по загруженным кандзи)
 function exampleWords(ch){
@@ -143,7 +198,6 @@ function buildComposeQ(){
   // reverse (собрать кану) требует сегментов чтения по кандзи
   if(reverse)matched=matched.filter(w=>w.seg&&w.seg.length>=2);
   let pool=matched;
-  if(filter!=='all')pool=pool.filter(w=>statusOf(p,w.id)===filter);
   pool=quizLimit(pool,p);
   if(!pool.length)return null;
   const qw=rankPool(pool,'words')[0];
@@ -191,13 +245,16 @@ function onKey(s){
   return[...t].map(c=>{const cc=c.charCodeAt(0);return(cc>=0x3041&&cc<=0x3096)?String.fromCharCode(cc+0x60):c;}).join('');
 }
 function buildPairsQ(){
-  const{filter}=S.quizCfg;
-  const pool=quizLimit(filtered('kanji',filter,'all',S.quizCfg.folders).filter(w=>w.on_reading&&onKey(w.on_reading)),pr('kanji'));
+  const pool=quizLimit(filtered('kanji','all','all',S.quizCfg.folders).filter(w=>w.on_reading&&onKey(w.on_reading)),pr('kanji'));
   const groups={};
-  shuffle(pool).forEach(w=>{const k=onKey(w.on_reading);(groups[k]=groups[k]||[]).push(w);});
-  let pairs=Object.values(groups).filter(g=>g.length>=2).map(g=>shuffle(g).slice(0,2));
+  pool.forEach(w=>{const k=onKey(w.on_reading);(groups[k]=groups[k]||[]).push(w);});
+  // группы, которые давно не показывались, — первыми: иначе одни и те же пары повторяются
+  const seen=S.quizSeen||{},age=g=>Math.max(...g.map(w=>seen[w.id]||0));
+  let pairs=shuffle(Object.values(groups).filter(g=>g.length>=2).map(g=>leastRecent(g).slice(0,2)))
+    .sort((a,b)=>age(a)-age(b));
   if(pairs.length<2)return null;
-  pairs=shuffle(pairs).slice(0,5);
+  pairs=pairs.slice(0,5);
+  markSeen(pairs.flat().map(w=>w.id));
   const options=[];
   pairs.forEach((g,pi)=>g.forEach(w=>options.push({
     id:w.id,kanji:w.kanji,on:onKey(w.on_reading),onRaw:w.on_reading,
@@ -235,26 +292,29 @@ function mSide(w,fields){
     if(v)parts.push({f,v});
   });
   if(!parts.length)return null;
+  // кун: окончание после точки — серым, как в квизе
+  const txt=p=>p.f==='kun_reading'?renderKun(p.v):esc(p.v);
   const html=parts.map((p,i)=>i
-    ?`<span class="mt-sub">${esc(p.v)}</span>`
-    :`<span class="mt-main${p.f==='kanji'?' jp':''}">${esc(p.v)}</span>`).join('');
+    ?`<span class="mt-sub">${txt(p)}</span>`
+    :`<span class="mt-main${p.f==='kanji'?' jp':''}">${txt(p)}</span>`).join('');
   return{key:parts.map(p=>p.f+'\u0001'+p.v).join('\u0002'),html};
 }
 function buildMatchQ(){
-  const{type,filter}=S.quizCfg;
+  const{type}=S.quizCfg;
   const left=arr(S.quizCfg.matchLeft),right=arr(S.quizCfg.matchRight);
   if(!left.length||!right.length)return null;
-  const base=quizLimit(filtered(type,filter,'all',S.quizCfg.folders).filter(w=>left.some(f=>w[f])&&right.some(f=>w[f])),pr(type));
+  const base=quizLimit(filtered(type,'all','all',S.quizCfg.folders).filter(w=>left.some(f=>w[f])&&right.some(f=>w[f])),pr(type));
   // сначала записи, где заполнены все выбранные поля; если таких мало — добираем частичными
   const full=base.filter(w=>left.every(f=>w[f])&&right.every(f=>w[f]));
-  let pool=full;
+  let pool=leastRecent(full);
   if(full.length<MATCH_MAX){
     const has=new Set(full.map(w=>w.id));
-    pool=[...full,...base.filter(w=>!has.has(w.id)&&left.some(f=>w[f])&&right.some(f=>w[f]))];
+    pool=[...pool,...leastRecent(base.filter(w=>!has.has(w.id)))];
   }
-  // дубли по тексту любой из сторон исключаем — иначе пара неоднозначна
+  // дубли по тексту любой из сторон исключаем — иначе пара неоднозначна.
+  // Порядок пула — давно не показанные первыми, поэтому раунды проходят весь набор.
   const seenL=new Set(),seenR=new Set(),items=[];
-  for(const w of shuffle(pool)){
+  for(const w of pool){
     const l=mSide(w,left),r=mSide(w,right);
     if(!l||!r||l.key===r.key||seenL.has(l.key)||seenR.has(r.key))continue;
     seenL.add(l.key);seenR.add(r.key);
@@ -262,6 +322,7 @@ function buildMatchQ(){
     if(items.length>=MATCH_MAX)break;
   }
   if(items.length<3)return null;
+  markSeen(items.map(it=>it.id));
   const ids=items.map((_,i)=>i);
   return{match:true,items,colL:shuffle(ids),colR:shuffle(ids),
          solved:[],selL:null,selR:null,bad:null,miss:{},wrong:0};

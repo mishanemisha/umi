@@ -13,9 +13,22 @@ function act(action){
       S.studyQueue=[];S.studyResults=null;S.quizQ=null;S.quizDone=false;
       break;
     case'home-tab':   S.homeTab=val;break;
-    case'words-tab':  S.wordsTab=val;S.wordsSearch='';S.wordsFolder='all';S.wordsLimit=300;break;
+    case'words-tab':  S.wordsTab=val;S.wordsSearch='';S.wordsFolder='all';S.wordsLimit=300;S.selecting=false;S.selIds=[];S.selSheet=false;break;
     case'words-folder':S.wordsFolder=val;S.wordsLimit=300;break;
     case'words-more':S.wordsLimit+=300;break;
+    case'kanji-view':S.kanjiView=val==='single'?'single':'grid';break;
+    // выбор записей в словаре → своя папка для тренировок
+    case'sel-start':S.selecting=true;S.selIds=[];S.selSheet=false;break;
+    case'sel-cancel':S.selecting=false;S.selIds=[];S.selSheet=false;break;
+    case'sel-toggle':S.selIds=S.selIds.includes(val)?S.selIds.filter(x=>x!==val):[...S.selIds,val];haptic('light');break;
+    case'sel-all':{const ids=wordsList().list.map(w=>w.id);S.selIds=ids.every(id=>S.selIds.includes(id))?[]:ids;break;}
+    case'sel-sheet':if(S.selIds.length)S.selSheet=true;break;
+    case'sel-sheet-close':S.selSheet=false;break;
+    case'sel-to-folder':addSelectionToFolder(val);break;
+    case'sel-new-folder':{
+      const name=(document.getElementById('sel-folder-name')?.value||'').trim();
+      if(!name){toast('Введите название папки');return;}
+      addSelectionToFolder(name);break;}
 
     // Открыть экран настроек режима с карточки на главной
     case'open-cfg':{
@@ -112,20 +125,27 @@ function act(action){
             }
           });
         }
-        // Дедупликация в пределах целевой папки по ключу «слово + чтение».
-        // Существующие записи не трогаем (прогресс сохраняется), дубли пропускаем.
+        // Уже известная запись (кандзи — по самому знаку, слово — по «слово + чтение», в любой папке)
+        // не дублируется: ID, папка и прогресс остаются, значение обновляется из файла
+        // (например, английское → русское), а запись добавляется в целевую папку.
         const list=itype==='kanji'?S.kanjiItems:S.words;
-        const existing=new Set(list.filter(w=>(w.folder||'Общая')===targetFolder).map(w=>itemKey(w,itype)));
+        const existing=new Map();list.forEach(w=>{const k=importMatchKey(w,itype);if(!existing.has(k))existing.set(k,w);});
         const seen=new Set();
         const oldLength=list.length,oldCsv=itype==='kanji'?S.kanjiCsv:S.wordsCsv;
-        let added=0,skipped=0;
+        const before=new Map(); // запись → её копия до импорта (для отката при нехватке места)
+        let added=0,updated=0,skipped=0;
         for(const w of nw){
-          const k=itemKey(w,itype);
-          if(existing.has(k)||seen.has(k)){skipped++;continue;}
+          const k=importMatchKey(w,itype);
+          if(seen.has(k)){skipped++;continue;}
           seen.add(k);
-          w.folder=targetFolder;
-          list.push(w);
-          added++;
+          const old=existing.get(k);
+          if(!old){w.folder=targetFolder;list.push(w);added++;continue;}
+          const copy=JSON.stringify(old);
+          let changed=false;
+          for(const f of['meaning','translation','notes'])if(w[f]&&w[f]!==old[f]){old[f]=w[f];changed=true;}
+          for(const f of itype==='kanji'?['on_reading','kun_reading']:['reading'])if(w[f]&&!old[f]){old[f]=w[f];changed=true;}
+          if(addToFolder(old,targetFolder))changed=true;
+          if(changed){before.set(old,copy);updated++;}else skipped++;
         }
         if(itype==='kanji')S.kanjiCsv=S.importRawText||'';
         else S.wordsCsv=S.importRawText||'';
@@ -133,6 +153,7 @@ function act(action){
         // and the preview, rather than claiming an import that would disappear.
         if(!save()){
           list.length=oldLength;
+          before.forEach((copy,w)=>{Object.keys(w).forEach(k=>delete w[k]);Object.assign(w,JSON.parse(copy));});
           if(itype==='kanji')S.kanjiCsv=oldCsv;else S.wordsCsv=oldCsv;
           S.importErr='Не удалось сохранить импорт на устройстве. Прежний словарь сохранён. Попробуйте импортировать файл меньшего размера.';
           toast('Импорт не сохранён — прежние данные сохранены');break;
@@ -142,7 +163,7 @@ function act(action){
         S.importNewFolder=false;S.importNewName='';
         // Показать импортированную папку в разделе «Слова»
         S.tab='words';S.wordsTab=itype;S.wordsFolder=targetFolder;S.wordsSearch='';
-        toast(skipped?`Добавлено ${added}, пропущено дублей: ${skipped}`:`Добавлено ${added}`);
+        toast([`Добавлено ${added}`,updated&&`обновлено ${updated}`,skipped&&`без изменений ${skipped}`].filter(Boolean).join(', '));
       }
       break;
 
@@ -197,7 +218,7 @@ function act(action){
       const mode=S.quizCfg.mode;
       const fieldModes=mode==='pairs'||mode==='compose'||mode==='verbs'||mode==='match6';
       if(!fieldModes&&!aFields.some(f=>d.some(w=>w[f]))){toast(`Поле "${fldShort(aFields[0],S.quizCfg.type)}" пустое во всех записях`);break;}
-      S.quizRecent=[];S.quizLimit=null;
+      S.quizRecent=[];S.quizLimit=null;S.quizSeen={};S.quizRound=0;
       S.quizScore={ok:0,bad:0};S.quizQ=nextQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';S.quizHint=false;
       if(!S.quizQ)toast(startQuizError());
       break;}
@@ -367,7 +388,7 @@ function act(action){
       if(!S.quizQ)toast(startQuizError());break;
     case'stop-quiz':
       S.quizQ=null;S.quizDone=false;S.quizInputVal='';S.quizHint=false;
-      S.quizScore={ok:0,bad:0};S.quizSel=-1;S.quizRecent=[];S.quizLimit=null;
+      S.quizScore={ok:0,bad:0};S.quizSel=-1;S.quizRecent=[];S.quizLimit=null;S.quizSeen={};S.quizRound=0;
       S.cfgScreen='quiz';break;
 
     case'download-csv':{
@@ -391,6 +412,14 @@ function act(action){
   render();
 }
 
+function addSelectionToFolder(name){
+  const items=ds(S.wordsTab).filter(w=>S.selIds.includes(w.id));
+  const before=items.map(w=>w.folders?w.folders.slice():undefined);
+  const added=items.filter(w=>addToFolder(w,name)).length;
+  if(!save()){items.forEach((w,i)=>{if(before[i])w.folders=before[i];else delete w.folders;});return;}
+  S.selecting=false;S.selIds=[];S.selSheet=false;S.wordsFolder=name;S.wordsLimit=300;
+  toast(added?`Папка «${name}»: добавлено ${added}`:`Уже в папке «${name}»`);
+}
 /* ── Events ── */
 function setupDelegation(){
   document.addEventListener('click',e=>{

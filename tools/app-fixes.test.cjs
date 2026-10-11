@@ -8,7 +8,7 @@ function app({storage=new Map(),tg=null,canStore=()=>true}={}){
  const handlers={};
  const nodes={app:{innerHTML:''},toast:{textContent:'',classList:{add(){},remove(){}}}};
  const document={getElementById:id=>nodes[id]||null,addEventListener(){},querySelector(){return null},activeElement:null};
- const ctx=vm.createContext({window:tg?{Telegram:{WebApp:tg}}:{},document,navigator:{},location:{hash:''},localStorage:{getItem:k=>storage.has(k)?storage.get(k):null,setItem:(k,v)=>{if(!canStore(k,v))throw Error('QuotaExceededError');storage.set(k,v);}},setTimeout(){},clearTimeout(){},console,Blob,URL,atob});
+ const ctx=vm.createContext({window:tg?{Telegram:{WebApp:tg}}:{},document,navigator:{},location:{hash:''},localStorage:{getItem:k=>storage.has(k)?storage.get(k):null,setItem:(k,v)=>{if(!canStore(k,v))throw Error('QuotaExceededError');storage.set(k,v);}},setTimeout(){},clearTimeout(){},console,Blob,URL,atob,FileReader:class{readAsText(f){this.onload({target:{result:f.text}});}}});
  runApp(ctx);
  return {run:code=>vm.runInContext(code,ctx),nodes,storage,handlers};
 }
@@ -141,4 +141,79 @@ test('Telegram BackButton mirrors in-app navigation',()=>{
 
 test('source files contain no raw NUL bytes',()=>{
  assert(!source.includes('\0'));
+});
+
+/* ── Апдейт 11.10: словарь, папки, сопоставление ── */
+const manyKanji=(n,extra='')=>`S.kanjiItems=Array.from({length:${n}},(_,i)=>({id:'k'+i,kanji:String.fromCodePoint(0x4e00+i*7),on_reading:'オン'+i,kun_reading:'くん.'+i,meaning:'смысл '+i,folder:'Общая'${extra}}));`;
+function solveMatch(a){a.run(`(()=>{const q=S.quizQ;q.items.forEach((_,i)=>{act('match-pick:L:'+i);act('match-pick:R:'+i);});})()`);}
+
+test('match session survives rounds even when filter «Не знаю» empties out',()=>{
+ const a=app();
+ a.run(manyKanji(8)+`S.quizCfg={...S.quizCfg,type:'kanji',mode:'match6',matchLeft:['meaning'],matchRight:['kanji'],filter:'unknown',count:'50',folders:[]};act('start-quiz');`);
+ for(let r=0;r<4;r++){assert(a.run('Boolean(S.quizQ&&S.quizQ.match)'),'round '+r+' must have a question');solveMatch(a);a.run(`act('next-q')`);}
+});
+
+test('match rounds cycle through the pool before repeating',()=>{
+ const a=app();
+ a.run(manyKanji(30)+`S.quizCfg={...S.quizCfg,type:'kanji',mode:'match6',matchLeft:['meaning'],matchRight:['kanji'],filter:'all',count:'all',folders:[]};act('start-quiz');`);
+ const seen=new Set();
+ for(let r=0;r<5;r++){for(const id of JSON.parse(a.run('JSON.stringify(S.quizQ.items.map(x=>x.id))')))seen.add(id);solveMatch(a);a.run(`act('next-q')`);}
+ assert.equal(seen.size,30);
+});
+
+test('pairs rounds cycle through on-reading groups before repeating',()=>{
+ const a=app();
+ a.run(`S.kanjiItems=Array.from({length:20},(_,i)=>({id:'k'+i,kanji:String.fromCodePoint(0x4e00+i),on_reading:'オン'+Math.floor(i/2),meaning:'m',folder:'Общая'}));S.quizCfg={...S.quizCfg,type:'kanji',mode:'pairs',filter:'all',count:'all',folders:[]};act('start-quiz');`);
+ const groups=new Set();
+ for(let r=0;r<2;r++){for(const on of JSON.parse(a.run('JSON.stringify(S.quizQ.options.map(o=>o.on))')))groups.add(on);a.run(`act('skip-q')`);}
+ assert.equal(groups.size,10);
+});
+
+test('kun readings keep the grey okurigana in match tiles',()=>{
+ const a=app();
+ a.run(`S.kanjiItems=['見','早','先','空'].map((c,i)=>({id:'k'+i,kanji:c,kun_reading:'み.る・はや.い',meaning:'m'+i,folder:'Общая'}));S.quizCfg={...S.quizCfg,type:'kanji',mode:'match6',matchLeft:['kun_reading'],matchRight:['kanji'],filter:'all',count:'all'};`);
+ a.run(`S.kanjiItems.forEach((w,i)=>w.kun_reading='み.る'+i)`);a.run(`act('start-quiz')`);
+ assert.match(a.run('buildMatchActive(S.quizQ)'),/color:#636363/);
+});
+
+test('re-importing a kanji updates its meaning and keeps id, folder and progress',()=>{
+ const a=app();
+ a.run(`S.kanjiItems=[{id:'old',kanji:'日',on_reading:'ニチ',kun_reading:'ひ',meaning:'day',folder:'Кандзи'}];S.kanjiProgress={old:{reps:3,lapses:0,ef:2.5,interval:9,due:1,lastSeen:1}};
+  act('go-import-home');act('import-type:kanji');S.importFolder='Новая';readFile({text:'kanji,on,kun,meaning\\n日,ニチ・ジツ,ひ,день\\n月,ゲツ,つき,луна'});act('confirm-import');`);
+ assert.equal(a.run('S.kanjiItems.length'),2);
+ assert.equal(a.run(`JSON.stringify(S.kanjiItems[0])`),JSON.stringify({id:'old',kanji:'日',on_reading:'ニチ',kun_reading:'ひ',meaning:'день',folder:'Кандзи',folders:['Новая']}));
+ assert.equal(a.run('S.kanjiProgress.old.interval'),9);
+ assert.match(a.nodes.toast.textContent,/обновлено 1/);
+});
+
+test('selected dictionary words become a native folder without leaving their own',()=>{
+ const a=app();
+ a.run(manyWords(5)+`S.tab='words';act('sel-start');act('sel-toggle:w1');act('sel-toggle:w3');act('sel-sheet');`);
+ a.nodes['sel-folder-name']={value:'  Сложные '};
+ a.run(`act('sel-new-folder')`);
+ assert.deepEqual(JSON.parse(a.run(`JSON.stringify(foldersOf('words'))`)),['Общая','Сложные']);
+ assert.equal(a.run(`filtered('words','all','all',['Сложные']).map(w=>w.id).join()`),'w1,w3');
+ assert.equal(a.run(`filtered('words','all','all',['Общая']).length`),5);
+ assert.equal(a.run(`S.selecting`),false);assert.equal(a.run('S.wordsFolder'),'Сложные');
+ a.run(`act('sel-start');act('sel-toggle:w1');act('sel-sheet');act('sel-to-folder:Сложные')`);
+ assert.equal(a.run(`JSON.stringify(S.words[1].folders)`),'["Сложные"]','no duplicate membership');
+});
+
+test('kanji dictionary has a 2-column grid and a one-per-page view with example words',()=>{
+ const a=app();
+ a.run(`S.tab='words';S.wordsTab='kanji';S.kanjiItems=[{id:'k1',kanji:'先',on_reading:'セン',kun_reading:'さき・ま.ず',meaning:'перед',folder:'Общая'}];S.words=[{id:'w1',kanji:'先',reading:'さき',meaning:'конец',folder:'Общая'}];`);
+ const grid=a.run('buildWordsResults()');
+ assert.match(grid,/class="kgrid"/);
+ assert.match(grid,/kex-l">on<\/span><span class="kex-w">先.<\/span><span class="kex-r"><b>せん<\/b>/,'on example with highlighted reading');
+ assert.match(grid,/<b>さき<\/b>/,'kun example from own words');
+ a.run(`act('kanji-view:single')`);
+ assert.match(a.run('buildWordsResults()'),/class="kpages"/);
+});
+
+test('Telegram back leaves dictionary selection first',()=>{
+ const tg=fakeTelegram();const a=app({tg});
+ a.run(manyWords(3)+`act('tab:words');act('sel-start');act('sel-toggle:w0');act('sel-sheet')`);
+ assert.equal(tg.BackButton.visible,true);
+ tg.BackButton.cb();assert.equal(a.run('S.selSheet'),false);assert.equal(a.run('S.selecting'),true);
+ tg.BackButton.cb();assert.equal(a.run('S.selecting'),false);assert.equal(tg.BackButton.visible,false);
 });
