@@ -1,0 +1,11 @@
+umi-digits.woff2 — подмножество (только цифры) шрифта 源暎ぽっぷる Pw Black / GenEi POPle Pw Black
+под новым именем «Umi Digits», как требует пункт о зарезервированном имени.
+
+Copyright (c) 2022-2023, o_tamon, with Reserved Font Name 'GenEi'.
+Copyright (c) 2020, FONTDASU. Copyright (c) 2022, LINE (https://seed.line.me/).
+Copyright (c) 2014, Indian Type Foundry (info@indiantypefoundry.com).
+Copyright (c) 2017, Adobe Systems Incorporated (http://www.adobe.com/), with Reserved Font Name 'Source'.
+Copyright (c) 2015, Google Inc.
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+Full license text: https://openfontlicense.org/open-font-license-official-text/

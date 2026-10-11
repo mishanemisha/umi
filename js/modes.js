@@ -127,16 +127,20 @@ function segmentWord(word,reading,seg){
   if(!r.startsWith(pre)||!r.endsWith(suf)||r.length<=pre.length+suf.length)return null;
   return[...[...pre].map(c=>({c,r:c})),{c:chars[ki],r:r.slice(pre.length,r.length-suf.length)},...[...suf].map(c=>({c,r:c}))];
 }
+// порядок: сначала слова из EXAMPLE_FOR для этого знака, затем остальные в исходном порядке
+function examplePri(ch,w,i){const f=EXAMPLE_FOR[ch];const j=f?f.indexOf(w):-1;return j>=0?j:1e4+i;}
 const _kexCache=new Map();
 function kanjiExamples(item){
   const ch=String(item.kanji||'');
   const key=[ch,item.on_reading,item.kun_reading,S.words.length].join('|');
   if(_kexCache.has(key))return _kexCache.get(key);
   const on=new Set(readingTokens(item.on_reading)),kun=new Set(readingTokens(item.kun_reading));
+  // встроенные слова — по частотности для этого знака
+  const bank=[...BUILTIN_WORDS,...ADDITIONAL_WORDS].filter(w=>w.w.includes(ch))
+    .map((w,i)=>({w:w.w,r:w.r,k:w.k,m:w.m,o:examplePri(ch,w.w,i)})).sort((a,b)=>a.o-b.o);
   const cands=[
     ...S.words.map(w=>({w:String(w.kanji||''),r:w.reading,k:null,m:w.meaning||w.translation})),
-    ...BUILTIN_WORDS.map(w=>({w:w.w,r:w.r,k:w.k,m:w.m})),
-    ...ADDITIONAL_WORDS.map(w=>({w:w.w,r:w.r,k:w.k,m:w.m})),
+    ...bank,
   ].filter(x=>x.r&&x.w.includes(ch));
   const out={on:null,kun:null};
   for(const x of cands){

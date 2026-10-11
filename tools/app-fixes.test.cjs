@@ -204,7 +204,8 @@ test('kanji dictionary has a 2-column grid and a one-per-page view with example 
  a.run(`S.tab='words';S.wordsTab='kanji';S.kanjiItems=[{id:'k1',kanji:'先',on_reading:'セン',kun_reading:'さき・ま.ず',meaning:'перед',folder:'Общая'}];S.words=[{id:'w1',kanji:'先',reading:'さき',meaning:'конец',folder:'Общая'}];`);
  const grid=a.run('buildWordsResults()');
  assert.match(grid,/class="kgrid"/);
- assert.match(grid,/kex-l">on<\/span><span class="kex-w">先.<\/span><span class="kex-r"><b>せん<\/b>/,'on example with highlighted reading');
+ // он-пример — самое частотное слово (先生), со значением и выделенной частью чтения
+ assert.match(grid,/он-чтение:<\/span><span class="kc-t">учитель<\/span><span class="kc-t">先生<\/span><span class="kc-t kc-yomi"><b>せん<\/b>せい/,'on example with meaning and highlighted reading');
  assert.match(grid,/<b>さき<\/b>/,'kun example from own words');
  a.run(`act('kanji-view:single')`);
  assert.match(a.run('buildWordsResults()'),/class="kpages"/);
@@ -250,4 +251,44 @@ test('sessions started from a home card return to it, with results on top',()=>{
  // формы глаголов из практики меняют режим квиза — раскрытая карточка «Квиз» его возвращает
  a.run(`act('home-open:quiz');act('open-cfg:quiz-verbs');act('tab:home')`);
  assert.equal(a.run('S.quizCfg.mode'),'choice6');
+});
+
+test('word bank: every reading split matches the word, no artificial «X и Y» pairs, preferred examples exist',()=>{
+ const a=app();
+ const r=JSON.parse(a.run(`(()=>{
+  const all=[...BUILTIN_WORDS,...ADDITIONAL_WORDS];
+  const bad=all.filter(w=>w.k&&!segmentWord(w.w,w.r,w.k)).map(w=>w.w);
+  const dropped=['海山','春夏','秋冬','山野','上見','小方','小人','間男','自殺','早起','気持','食物','買物'].filter(x=>all.some(w=>w.w===x));
+  const missing=Object.entries(EXAMPLE_FOR).flatMap(([k,ws])=>ws.filter(x=>!x.includes(k)||!all.some(w=>w.w===x)));
+  const umi=kanjiExamples({kanji:'海',on_reading:'カイ',kun_reading:'うみ'});
+  const eat=kanjiExamples({kanji:'食',on_reading:'ショク',kun_reading:'た.べる'});
+  return JSON.stringify({bad,dropped,missing,on:umi.on&&umi.on.word,kun:umi.kun&&umi.kun.word,eatOn:eat.on.word,eatKun:eat.kun.word});
+ })()`));
+ assert.deepEqual(r.bad,[],'reading splits must rebuild the reading');
+ assert.deepEqual(r.dropped,[],'removed words must stay removed');
+ assert.deepEqual(r.missing,[]);
+ assert.equal(r.on,'海外');assert.equal(r.kun,'海辺');
+ assert.equal(r.eatOn,'食事');assert.equal(r.eatKun,'食べ物');
+});
+
+test('quiz options show the first meaning with a «more» mark; the rest is kept for the long-press bubble',()=>{
+ const a=app();
+ a.run(manyWords(10)+`S.words[0].meaning='есть; кушать; питаться';`);
+ const html=a.run(`firstSense('есть; кушать; питаться')+'|'+moreAttr('есть; кушать; питаться')+'|'+firstSense('море')+'|'+moreAttr('море')`);
+ const [first,more,single,noMore]=html.split('|');
+ assert.match(first,/^есть<i class="more-i"/);
+ assert.equal(more,' data-more="есть\nкушать\nпитаться"');
+ assert.equal(single,'море');assert.equal(noMore,'');
+});
+
+test('training screens: Стоп / Пропустить / Дальше in one row and the tab bar collapses',()=>{
+ const a=app();
+ a.run(manyWords(20)+`act('home-open:quiz');act('start-quiz')`);
+ let html=a.run('buildApp()');
+ assert.match(html,/data-a="stop-quiz">Стоп[\s\S]*data-a="skip-q">Пропустить[\s\S]*aria-disabled="true"[^>]*>Дальше/);
+ assert.match(html,/class="bnav mini"/);
+ a.run(`act('quiz-ans:0')`);
+ assert.match(a.run('buildApp()'),/class="qact-btn primary" data-a="next-q">Дальше/);
+ a.run(`act('stop-quiz')`);
+ assert.doesNotMatch(a.run('buildApp()'),/class="bnav mini"/);
 });

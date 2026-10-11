@@ -1,11 +1,11 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-/* Шрифт крупных иероглифов (Figma «Обновление дизайна»): 源暎ぽっぷる Pw Black, SIL OFL 1.1 */
-@font-face{font-family:'GenEi POPle Pw';font-weight:900;font-style:normal;font-display:swap;
-  src:local('GenEi POPle Pw Black'),local('GenEiPOPlePw-Bk'),url('../assets/fonts/GenEiPOPlePw-Bk.woff2') format('woff2')}
+/* Цифры статистики на главной — подмножество 源暎ぽっぷる Pw Black (SIL OFL 1.1, см. assets/fonts/OFL.txt) */
+@font-face{font-family:'Umi Digits';font-weight:900;font-style:normal;font-display:swap;
+  src:url('../assets/fonts/umi-digits.woff2') format('woff2')}
 :root{
   --f:'Inter',-apple-system,BlinkMacSystemFont,'Noto Sans JP',system-ui,sans-serif; /* интерфейс */
   --fjp:'Noto Sans JP','Hiragino Sans',sans-serif;                                 /* кана и чтения */
-  --fkj:'GenEi POPle Pw','Noto Sans JP','Hiragino Sans',sans-serif;                /* крупные кандзи */
+  --fkj:'Noto Sans JP','Hiragino Sans',sans-serif;                                 /* иероглифы: Noto Sans JP Bold */
   --cv:#111;          /* канвас и карточки (новый дизайн) */
   --cv2:#1d1d1d;      /* «Выбор меню», варианты ответа */
   --rd:#3974ff;       /* чтения и значения на канвасе */
@@ -46,7 +46,14 @@ button,input,select{font-family:inherit}
 .bnav-btn.active{color:var(--a)}
 .bnav-icon{width:32px;height:32px;display:flex;align-items:center;justify-content:center}
 .bnav-icon svg{display:block;flex:none}
-.bnav-lbl{font-size:10px;font-weight:500;color:var(--t);line-height:normal;white-space:nowrap}
+.bnav-lbl{font-size:10px;font-weight:500;color:var(--t);line-height:normal;white-space:nowrap;max-height:13px;overflow:hidden;transition:max-height .25s,opacity .2s}
+.bnav-btn[data-tab="practice"]:not(.active){color:#3e3e3e}
+.bnav-glass{transform-origin:50% 100%;transition:transform .28s cubic-bezier(.2,.8,.2,1)}
+.bnav-btn{transition:color .15s,gap .25s}
+/* во время задания и при прокрутке вниз: без подписей, ×0.7 и ниже */
+.bnav.mini .bnav-glass{transform:translateY(19px) scale(.7)}
+.bnav.mini .bnav-btn{gap:0}
+.bnav.mini .bnav-lbl{max-height:0;opacity:0}
 
 /* ─── top_icon ─── */
 .top-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--a);line-height:1;flex-shrink:0}
@@ -118,7 +125,7 @@ button,input,select{font-family:inherit}
 .hstats{background:var(--cv);border-radius:16px;padding:8px;display:flex;flex-direction:column;align-items:center;gap:16px}
 .hstats-row{display:flex;align-items:center;justify-content:center;gap:16px}
 .hstat{width:60px;display:flex;flex-direction:column;align-items:center;gap:4px;white-space:nowrap}
-.hstat .n{font-family:var(--fkj);font-weight:900;font-size:36px;line-height:normal}
+.hstat .n{font-family:'Umi Digits',var(--fkj);font-weight:900;font-size:36px;line-height:normal}
 .hstat .l{font-size:12px;font-weight:500}
 .hstat.g .n{color:var(--g)}.hstat.y .n{color:var(--y)}.hstat.r .n{color:var(--r)}
 .hstat-sep{width:1px;height:60px;border-radius:300px;background:var(--stroke)}
@@ -136,8 +143,12 @@ button,input,select{font-family:inherit}
 .mcard-d{font-size:14px;font-weight:300}
 .mcard-ic{width:104px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .mcard-ic img{display:block;max-width:104px;max-height:84px}
+.mcard{scroll-margin-top:12px}
+/* векторная иконка режима (Figma 157:4714…): плашки с поворотом, непрозрачность 0.9 */
+.micon{position:relative;display:block;flex:none}
+.micon i{position:absolute;display:flex;align-items:center;justify-content:center}
+.micon b{display:block;flex:none;opacity:.9}
 .mcard-bd{display:flex;flex-direction:column;gap:10px}
-.mcard.anim .mcard-bd{animation:up .2s ease}
 .mcard-sub{font-size:14px;font-weight:500;text-align:center}
 .mrows{display:flex;flex-direction:column;gap:16px}
 .mrow{display:flex;gap:4px;align-items:flex-start}
@@ -186,35 +197,46 @@ button,input,select{font-family:inherit}
  * #111, радиус 16, 361×420: счёт пилюлями сверху, содержимое по центру. */
 /* Flashcard */
 .fc-wrap{position:relative;perspective:1000px;cursor:pointer}
-.fc-score{position:absolute;top:8px;left:0;right:0;z-index:2;pointer-events:none}
 .fc{width:100%;display:grid;position:relative;transform-style:preserve-3d;transition:transform .45s cubic-bezier(.4,0,.2,1)}
 .fc.flipped{transform:rotateY(180deg)}
-.fc-face{grid-area:1/1;background:var(--cv);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:36px 8px 16px;backface-visibility:hidden;-webkit-backface-visibility:hidden;min-height:420px}
+.fc-face{grid-area:1/1;background:var(--cv);border-radius:16px;display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px;
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;height:360px}
 .fc-back{transform:rotateY(180deg)}
+/* невидимая сторона не ловит нажатия (кнопка подсказок есть на обеих) */
+.fc:not(.flipped) .fc-back,.fc.flipped .fc-face:not(.fc-back){pointer-events:none}
 .fc-tap{font-size:12px;color:#8b8b8b}
 .fc-back-body{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center}
 /* Kanji card face (legacy builders) */
-.fc-kanji{font-family:var(--fkj);font-weight:900;font-size:90px;color:var(--t);line-height:normal}
-.fc-kana{font-family:var(--fjp);font-size:32px;color:var(--rd);line-height:normal}
+.fc-kanji{font-family:var(--fkj);font-weight:700;font-size:90px;color:var(--t);line-height:normal}
+.fc-kana{font-family:var(--fjp);font-weight:500;font-size:32px;color:var(--rd);line-height:normal}
 .fc-lbl{font-size:12px;font-weight:500;color:var(--t);margin-bottom:2px}
-.fc-main{font-family:var(--fkj);font-weight:900;font-size:90px;line-height:normal;color:var(--t);text-align:center}
+.fc-main{font-family:var(--fkj);font-weight:700;font-size:90px;line-height:normal;color:var(--t);text-align:center}
 .fc-main.sm{font-family:var(--f);font-weight:500;font-size:22px}
 
 /* ─── Варианты карточек (Figma 155:3624 / 155:3669) ─── */
 .cv-root{width:100%;display:flex;flex-direction:column;align-items:center;gap:20px}
 .cv-top{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;max-width:100%}
 .cv-top.col{flex-direction:column}
-.cv-main{font-family:var(--fkj);font-weight:900;font-size:90px;line-height:normal;color:var(--t);text-align:center;overflow-wrap:anywhere}
+.cv-main{font-family:var(--fkj);font-weight:700;font-size:90px;line-height:normal;color:var(--t);text-align:center;overflow-wrap:anywhere}
 .cv-readings{display:flex;flex-direction:column;gap:4px;min-width:0}
 .cv-rread{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
 .cv-kana{display:flex;align-items:center;gap:2px;flex-wrap:wrap;justify-content:center}
 .cv-rl{font-size:12px;font-weight:500;color:var(--t);line-height:normal}
-.cv-rv{font-family:var(--fjp);font-size:32px;color:var(--rd);line-height:normal;word-break:break-word}
-.cv-kana-lg{font-family:var(--fjp);font-size:32px;color:var(--rd);line-height:normal}
+.cv-rv{font-family:var(--fjp);font-weight:500;font-size:32px;color:var(--rd);line-height:normal;word-break:break-word}
+.cv-kana-lg{font-family:var(--fjp);font-weight:500;font-size:32px;color:var(--rd);line-height:normal}
 .cv-meanings{width:280px;max-width:100%;display:flex;flex-direction:column;align-items:center;gap:10px}
 .cv-mn{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:10px;width:100%}
 .cv-mi{font-size:12px;font-weight:400;color:var(--t);line-height:normal;flex-shrink:0}
 .cv-mt{font-size:16px;font-weight:500;color:var(--t);line-height:normal;text-align:center;word-break:break-word}
+.cv-meanings.one .cv-mt{font-size:20px}
+/* «!» после первого значения: есть ещё — смотреть по лонгтапу. Не выше строки текста */
+.more-i{display:inline-flex;align-items:center;justify-content:center;flex:none;width:12px;height:12px;margin-left:4px;border:1px solid currentColor;border-radius:50%;
+  font-style:normal;font-size:9px;font-weight:700;line-height:1;vertical-align:middle;opacity:.7}
+[data-more]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+#more-bubble{position:fixed;z-index:400;max-width:min(320px,calc(100vw - 16px));background:#1d1d1d;border:1px solid #3e3e3e;border-radius:12px;padding:8px 12px;
+  box-shadow:0 8px 28px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:4px;font-size:14px;font-weight:500;color:var(--t);pointer-events:none;animation:up .12s ease}
+.mb-row{display:flex;gap:6px;line-height:1.3}
+.mb-i{font-size:11px;font-weight:400;color:#8b8b8b;padding-top:2px}
 
 /* ─── Mark buttons (как кнопки «Вид карточки» 155:3570) ─── */
 .mark-row{display:flex;gap:8px}
@@ -231,19 +253,31 @@ button,input,select{font-family:inherit}
 .qbadge.qbad{border-color:#ffbfbf}
 
 /* ─── Канвас вопроса ─── */
-.quiz-q{background:var(--cv);border-radius:16px;padding:8px;min-height:420px;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center}
-.qbody{flex:1;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding-bottom:12px}
+.quiz-q{background:var(--cv);border-radius:16px;padding:8px;height:360px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+/* содержимое по центру; если не влезает — прокручивается внутри канваса, экран не прыгает */
+.qbody{flex:1;min-height:0;width:100%;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:safe center;gap:20px;scrollbar-width:none}
+.qbody::-webkit-scrollbar{display:none}
+/* «Показать подсказки» — внутри канваса снизу */
+.cv-hint{flex:none;background:var(--cv2);border:1px solid #282828;border-radius:16px;padding:6px 8px;color:#7a7a7a;font-size:12px;line-height:normal;cursor:pointer}
+.cv-hint.on{color:var(--t);border-color:#3e3e3e}
+/* подсказки-слова (Figma «Подсказка» 157:5134): слово + kana */
+.hchips{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 12px;width:100%}
+.hchip{display:inline-flex;align-items:center;gap:4px;line-height:normal}
+.hchip-w{font-family:var(--fjp);font-weight:500;font-size:22px;color:var(--t)}
+.hchip-l{font-size:10px;font-weight:500;color:var(--t)}
+.hchip-r{font-family:var(--fjp);font-weight:500;font-size:16px;color:var(--rd)}
+.hchip-empty{font-size:12px;color:#7a7a7a}
 .quiz-ql{font-size:12px;color:var(--al)}
-.quiz-qm{font-family:var(--fkj);font-weight:900;font-size:90px;line-height:normal}
+.quiz-qm{font-family:var(--fkj);font-weight:700;font-size:90px;line-height:normal}
 .quiz-qm.sm{font-family:var(--f);font-weight:500;font-size:20px}
 .quiz-qh{font-size:14px;color:var(--t2)}
-@media (max-height:700px){.quiz-q,.fc-face{min-height:320px}}
+@media (max-height:700px){.quiz-q,.fc-face{height:300px}}
 
 /* ─── Варианты ответа (Figma 155:3578) ─── */
 .quiz-panel{background:var(--cv);border-radius:16px;padding:8px;display:flex;flex-direction:column;gap:16px;align-items:center}
 .quiz-panel-lbl{font-size:12px;font-weight:500;color:#d6d6d6;text-align:center}
 .quiz-opts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px;width:100%}
-.qopt{background:var(--cv2);border:1px solid var(--ln);color:var(--t);border-radius:4px;padding:16px 12px;font-size:16px;cursor:pointer;text-align:center;line-height:normal;overflow-wrap:anywhere;min-width:0;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;align-content:center;gap:0 2px;transition:background .15s,border-color .15s}
+.qopt{background:var(--cv2);border:1px solid var(--ln);color:var(--t);border-radius:4px;padding:16px 12px;font-size:16px;font-weight:500;cursor:pointer;text-align:center;line-height:normal;overflow-wrap:anywhere;min-width:0;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;align-content:center;gap:0 2px;transition:background .15s,border-color .15s}
 .qopt.sel{background:var(--a);border-color:var(--a);color:#fff}
 .qopt.ok{background:rgba(122,255,120,.18);border-color:var(--g);color:var(--g)}
 .qopt.bad{background:rgba(255,60,60,.18);border-color:var(--r);color:var(--r)}
@@ -262,17 +296,13 @@ button,input,select{font-family:inherit}
 
 /* ─── Стоп / Пропустить (Figma 155:3601) ─── */
 .quiz-actions{display:flex;gap:4px;justify-content:center}
-.qact-btn{width:100px;padding:6px 8px;background:var(--cv2);border:1px solid var(--ln);color:var(--t);border-radius:16px;font-size:12px;line-height:normal;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity .15s}
+.qact-btn{width:100px;padding:6px 8px;background:var(--cv2);border:1px solid #3e3e3e;color:var(--t);border-radius:16px;font-size:12px;line-height:normal;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity .15s}
+.qact-btn.primary{background:var(--a);border-color:var(--a)}
+.qact-btn[aria-disabled="true"]{opacity:.35;cursor:default}
 .qact-btn:active{opacity:.7}
-.stop-row{display:flex;gap:4px;justify-content:center}
-.stop-btn{width:100px;padding:6px 8px;background:var(--cv2);border:1px solid var(--ln);color:var(--t);border-radius:16px;font-size:12px;cursor:pointer}
 
-/* ─── Следующий / Проверить ─── */
-.next-btn{width:100%;height:47px;background:var(--a);border:none;color:#fff;border-radius:8px;font-size:16px;font-weight:400;cursor:pointer;transition:opacity .15s}
-.next-btn:active{opacity:.8}
-
-/* ─── Кандзи в вариантах (собрать слово / пары): GenEi 16 по макету ─── */
-.qopt.kanji{font-family:var(--fkj);font-weight:900;font-size:16px}
+/* ─── Кандзи в вариантах (собрать слово / пары): Noto Sans JP Medium 16 по макету ─── */
+.qopt.kanji{font-family:var(--fkj);font-weight:500;font-size:16px}
 .qopt.kanji .qopt-on{font-family:var(--fjp);font-weight:400;font-size:11px;color:var(--rd);margin-left:5px}
 .qopt.kanji.ok .qopt-on{color:var(--g)}
 /* Card border feedback (canvas result) */
@@ -280,25 +310,16 @@ button,input,select{font-family:inherit}
 .quiz-q.bad{box-shadow:inset 0 0 0 2px var(--r)}
 
 /* ─── Подсказки и переключатели (как «Вид карточки» 155:3570) ─── */
-.hint-btn{display:flex;align-items:center;justify-content:center;width:100%;height:47px;background:var(--cv);border:1px solid #d9d8db;color:var(--t);border-radius:8px;font-size:16px;cursor:pointer;transition:opacity .15s}
-.hint-btn.on{background:var(--a);border-color:var(--a);color:#fff}
-.hint-btn:active{opacity:.7}
-.hint-row{display:flex;flex-wrap:wrap;gap:4px}
-.hint-chip{flex:1 1 calc(50% - 2px);min-width:0;min-height:47px;background:var(--cv);border:1px solid var(--stroke);border-radius:8px;padding:6px 10px;display:flex;align-items:center;justify-content:center;gap:4px;overflow:hidden}
-.hint-word{font-family:var(--fjp);font-size:18px;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hint-read{font-size:10px;font-weight:500;color:var(--t);white-space:nowrap;flex-shrink:0}
-.hint-read b{font-family:var(--fjp);font-size:16px;color:var(--rd);font-weight:400}
-.hint-empty{flex:1 1 100%;text-align:center;font-size:12px;color:#8b8b8b;padding:8px}
 
 /* ─── Собрать слово ─── */
 .cmp-canvas{width:100%;display:flex;flex-direction:column;align-items:center;gap:10px}
 .cmp-build{display:flex;gap:4px;justify-content:center;align-items:center;flex-wrap:wrap;font-size:90px;min-height:1.2em}
-.cmp-ch{font-family:var(--fkj);font-weight:900;font-size:1em;line-height:normal;color:var(--t)}
+.cmp-ch{font-family:var(--fkj);font-weight:700;font-size:1em;line-height:normal;color:var(--t)}
 .cmp-slot{width:.9em;height:1em;border-bottom:2px solid var(--c2);display:inline-block}
 .cmp-line{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:2px;text-align:center;line-height:normal}
 .cmp-line .lbl{font-size:12px;font-weight:500;color:var(--t)}
 .cmp-line .val{font-size:32px;color:var(--rd)}
-.cmp-line .val.jp{font-family:var(--fjp)}
+.cmp-line .val.jp{font-family:var(--fjp);font-weight:500}
 .cmp-correct{font-size:15px;color:var(--g);text-align:center}
 .cmp-correct span{font-family:var(--fjp);font-size:22px;color:var(--g);margin-left:4px}
 /* Формы глаголов (Figma: «Не Хочу … Глагол», кана-чипы #1b1b1b) */
@@ -324,11 +345,11 @@ button,input,select{font-family:inherit}
 .cmp-sw:active{opacity:.8}
 .cmp-arrow{font-size:15px;line-height:1}
 /* reverse: кандзи-слово как подсказка, собираем кану */
-.cmp-word{font-family:var(--fkj);font-weight:900;font-size:90px;line-height:normal;color:var(--t);text-align:center}
-.cmp-kana{font-family:var(--fjp);font-size:32px;line-height:normal;color:var(--rd)}
+.cmp-word{font-family:var(--fkj);font-weight:700;font-size:90px;line-height:normal;color:var(--t);text-align:center}
+.cmp-kana{font-family:var(--fjp);font-weight:500;font-size:32px;line-height:normal;color:var(--rd)}
 /* финал: фуригана (чтение над иероглифом) */
 .furi{display:flex;gap:4px;justify-content:center;align-items:flex-end;flex-wrap:wrap}
-.furi ruby{font-family:var(--fkj);font-weight:900;font-size:72px;line-height:1.1;color:var(--t);ruby-position:over;-webkit-ruby-position:before}
+.furi ruby{font-family:var(--fkj);font-weight:700;font-size:72px;line-height:1.1;color:var(--t);ruby-position:over;-webkit-ruby-position:before}
 .furi rt{font-family:var(--fjp);font-weight:400;font-size:16px;color:var(--rd);line-height:1.3;text-align:center}
 
 /* ─── Найти пару (Figma «Он, Да, Канвас» 155:3656) ─── */
@@ -337,12 +358,12 @@ button,input,select{font-family:inherit}
 .pair-canvas{width:100%;display:flex;flex-direction:column;align-items:center;gap:20px}
 .pair-slots{display:flex;justify-content:center;align-items:flex-start;gap:20px;flex-wrap:wrap}
 .pair-slot{display:flex;flex-direction:column;align-items:center;gap:10px;width:156px;max-width:100%}
-.pair-slot .pk{font-family:var(--fkj);font-weight:900;font-size:90px;line-height:normal;color:var(--t)}
+.pair-slot .pk{font-family:var(--fkj);font-weight:700;font-size:90px;line-height:normal;color:var(--t)}
 .pair-slot .pm{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:2px;font-size:12px;font-weight:500;color:var(--t);line-height:normal}
 .pair-slot .pm b{font-size:32px;color:var(--rd);font-weight:400;overflow-wrap:anywhere}
 .pair-on{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;font-weight:500;color:var(--t);text-align:center;line-height:normal}
 .pair-on .lbl{color:var(--t)}
-.pair-on .val{font-family:var(--fjp);font-weight:400;color:var(--rd);font-size:32px}
+.pair-on .val{font-family:var(--fjp);font-weight:500;color:var(--rd);font-size:32px}
 .pair-hint{font-size:14px;color:#8b8b8b;text-align:center;padding:0 20px;line-height:1.5}
 
 /* ─── Сопоставь пары (6 пар) ─── */
@@ -408,28 +429,37 @@ button,input,select{font-family:inherit}
 .selbar-hint{font-size:11px;color:var(--al);text-align:center}
 .selbar .chip{height:40px;font-size:14px}
 .kgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding:0 16px}
-.kcard{position:relative;background:#1d1d1d;border:1px solid var(--stroke);border-radius:var(--rad);padding:12px 10px;display:flex;flex-direction:column;gap:4px;min-width:0}
-.kcard .ditem-st{position:absolute;top:10px;right:10px}
+.kcard{position:relative;background:var(--cv);border:1px solid var(--cv);border-radius:8px;padding:8px 16px;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
+.kcard .ditem-st{position:absolute;top:8px;right:8px}
 .kcard .ksel{position:absolute;top:8px;left:8px}
-.kcard-k{font-size:56px;line-height:1.1;text-align:center;margin:4px 0 6px}
-.kcard-r{font-size:13px;color:var(--t);overflow-wrap:anywhere}
-.kcard-l{display:inline-block;min-width:26px;color:var(--al);font-size:11px;margin-right:4px}
-.kcard-m{font-size:13px;color:var(--al);overflow-wrap:anywhere}
-.kex{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 6px;font-size:13px;border-top:1px solid var(--stroke);padding-top:4px;margin-top:2px}
-.kex-l{color:var(--al);font-size:11px;min-width:26px}
-.kex-w{font-size:16px}
-.kex-r{color:#9a9a9a}
-.kex-r b{color:var(--y);font-weight:600}
-.kex-m{flex-basis:100%;padding-left:32px;font-size:12px;color:var(--al)}
-/* по одному: карточка на экран, листание вниз с доводкой */
+/* Карточка кандзи в словаре (Figma 157:4792) */
+.kc-top{display:flex;align-items:center;justify-content:center;gap:10px;max-width:100%}
+.kc-k{font-family:var(--fkj);font-weight:700;font-size:60px;line-height:normal;color:var(--t);flex:none}
+.kc-info{display:flex;align-items:center;justify-content:center;gap:4px 8px;padding:2px;min-width:0;flex-wrap:wrap}
+.kc-reads{display:flex;flex-direction:column;gap:4px;align-items:center}
+.kc-r{display:flex;flex-direction:column;align-items:center;gap:2px;line-height:normal}
+.kc-l{font-size:8px;font-weight:500;color:var(--t)}
+.kc-v{font-family:var(--fjp);font-weight:500;font-size:12px;color:var(--rd);text-align:center;white-space:nowrap}
+.kc-mean{display:flex;flex-direction:column;align-items:center;gap:8px;line-height:normal;text-align:center;min-width:0}
+.kc-l2{font-size:8px;font-weight:300;color:var(--t);line-height:normal;white-space:nowrap}
+.kc-mv{font-size:12px;color:#d9d8db;overflow-wrap:break-word}
+.kc-div{display:block;width:100%;height:1px;background:#383737;flex:none}
+.kc-ex{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;width:100%;padding-top:1px}
+.kc-ex:has(.kc-col:only-child){justify-content:center}
+.kc-col{flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;text-align:center;line-height:normal}
+.kc-t{font-size:12px;color:#d9d8db;overflow-wrap:break-word;hyphens:auto}
+.kc-yomi{font-family:var(--fjp)}
+.kc-yomi b{color:var(--a);font-weight:inherit}
+/* по одному: карточка на экран, листание вниз с доводкой — та же раскладка, крупнее */
 html:has(.kpages){scroll-snap-type:y proximity}
 .kpages{display:flex;flex-direction:column;gap:12px;padding:0 16px}
-.kcard.kpage{min-height:calc(100dvh - 190px);justify-content:center;padding:24px 18px;gap:10px;scroll-snap-align:start;scroll-margin-top:12px}
-.kpage .kcard-k{font-size:140px}
-.kpage .kcard-r{font-size:18px}
-.kpage .kcard-m{font-size:17px}
-.kpage .kex{font-size:16px;padding-top:8px}
-.kpage .kex-w{font-size:22px}
+.kcard.kpage{min-height:calc(100dvh - 190px);justify-content:center;padding:24px 18px;gap:12px;scroll-snap-align:start;scroll-margin-top:12px}
+.kpage .kc-k{font-size:140px}
+.kpage .kc-l,.kpage .kc-l2{font-size:13px}
+.kpage .kc-v{font-size:24px}
+.kpage .kc-mv,.kpage .kc-t{font-size:18px}
+.kpage .kc-info{gap:16px}
+.kpage .kc-ex{max-width:320px}
 .wlist{background:var(--card);border-radius:var(--rad);margin:0 16px 10px;overflow:hidden}
 .witem{display:flex;align-items:center;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.05);gap:12px}
 .witem:last-child{border-bottom:none}

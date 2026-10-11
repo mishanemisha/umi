@@ -9,7 +9,7 @@ function act(action){
   switch(type){
     case'up':if(practiceAvailable)uAction(val);return;
     case'tab':
-      S.tab=val;if(val==='practice'&&practiceAvailable)UP.view='menu';S.confirmPending=null;S.cfgScreen=null;
+      S.navMini=false;S.tab=val;if(val==='practice'&&practiceAvailable)UP.view='menu';S.confirmPending=null;S.cfgScreen=null;
       S.studyQueue=[];S.studyResults=null;S.quizQ=null;S.quizDone=false;
       // формы глаголов в практике переключают режим квиза — раскрытая карточка возвращает свой
       if(val==='home'&&S.homeOpen)prepareMode(S.homeOpen,S.homeTab);
@@ -38,7 +38,18 @@ function act(action){
 
     // Раскрыть / свернуть карточку режима на главной (настройки внутри карточки)
     case'home-open':
-      if(S.homeOpen===val){S.homeOpen=null;break;}
+      if(S.homeOpen===val){
+        // плавно сворачиваем, затем перерисовываем
+        const bd=document.querySelector('.mcard.open .mcard-bd');
+        if(bd&&bd.animate){
+          const h=bd.offsetHeight;
+          bd.animate([{height:h+'px',opacity:1},{height:'0px',opacity:0}],{duration:220,easing:'cubic-bezier(.4,0,.2,1)'})
+            .onfinish=()=>{S.homeOpen=null;render();};
+          bd.style.overflow='hidden';
+          return;
+        }
+        S.homeOpen=null;break;
+      }
       prepareMode(val,S.homeTab);S.homeOpen=val;S.homeAnim=val;haptic('light');
       break;
     // Экран настроек режима (формы глаголов открываются из практики)
@@ -436,25 +447,52 @@ function prepareMode(val,type){
   else if(['compose','pairs','verbs','match6'].includes(S.quizCfg.mode))S.quizCfg.mode='choice6';
   S.quizQ=null;S.quizDone=false;
 }
-// Лонгтап по записи словаря включает режим выбора с этой записью
+// Лонгтап: по записи словаря — включает выбор; по варианту с несколькими значениями —
+// показывает бабл со всеми значениями, пока палец прижат
 let lpTimer=null,lpStart=null,lpFired=false;
 function lpCancel(){clearTimeout(lpTimer);lpTimer=null;}
+function bubbleHide(){const b=document.getElementById('more-bubble');if(b)b.remove();}
+function bubbleShow(el){
+  bubbleHide();
+  const b=document.createElement('div');b.id='more-bubble';b.setAttribute('role','tooltip');
+  b.innerHTML=el.dataset.more.split('\n').map((t,i)=>`<div class="mb-row"><span class="mb-i">${i+1}.</span><span>${esc(t)}</span></div>`).join('');
+  document.body.appendChild(b);
+  const r=el.getBoundingClientRect(),bw=b.offsetWidth,bh=b.offsetHeight;
+  const left=Math.max(8,Math.min(window.innerWidth-bw-8,r.left+r.width/2-bw/2));
+  const top=r.top-bh-8>8?r.top-bh-8:r.bottom+8;
+  b.style.left=left+'px';b.style.top=top+'px';
+}
 function setupDelegation(){
   document.addEventListener('pointerdown',e=>{
-    lpFired=false;lpCancel();
-    if(S.tab!=='words'||S.selecting||S.screen==='import')return;
-    const card=e.target.closest('[data-wid]');if(!card)return;
+    lpFired=false;lpCancel();bubbleHide();
+    const more=e.target.closest('[data-more]');
+    const card=!more&&S.tab==='words'&&!S.selecting&&S.screen!=='import'?e.target.closest('[data-wid]'):null;
+    if(!more&&!card)return;
     lpStart={x:e.clientX,y:e.clientY};
     lpTimer=setTimeout(()=>{
-      lpTimer=null;lpFired=true;
-      S.selecting=true;S.selIds=[card.dataset.wid];S.selSheet=false;haptic('medium');render();
-    },450);
+      lpTimer=null;lpFired=true;haptic('medium');
+      if(more){bubbleShow(more);return;}
+      S.selecting=true;S.selIds=[card.dataset.wid];S.selSheet=false;render();
+    },more?350:450);
   });
   document.addEventListener('pointermove',e=>{
     if(lpTimer&&lpStart&&Math.hypot(e.clientX-lpStart.x,e.clientY-lpStart.y)>10)lpCancel();
   });
-  ['pointerup','pointercancel','scroll'].forEach(t=>document.addEventListener(t,lpCancel,{passive:true,capture:true}));
-  document.addEventListener('contextmenu',e=>{if(e.target.closest('[data-wid]'))e.preventDefault();});
+  ['pointerup','pointercancel'].forEach(t=>document.addEventListener(t,()=>{lpCancel();bubbleHide();},{passive:true,capture:true}));
+  document.addEventListener('contextmenu',e=>{if(e.target.closest('[data-wid],[data-more]'))e.preventDefault();});
+  // прокрутка: отменяет лонгтап; вниз — таббар схлопывается, вверх — раскрывается
+  let lastY=0;
+  document.addEventListener('scroll',e=>{
+    lpCancel();
+    const t=e.target===document?document.scrollingElement:e.target;
+    if(!t||(t!==document.body&&t!==document.scrollingElement))return;
+    const y=t.scrollTop,dy=y-lastY;lastY=y;
+    if(Math.abs(dy)<6)return;
+    const mini=y>40&&dy>0;
+    if(mini===S.navMini)return;
+    S.navMini=mini;
+    document.querySelector('.bnav')?.classList.toggle('mini',navMini());
+  },{passive:true,capture:true});
   document.addEventListener('click',e=>{
     if(lpFired){lpFired=false;e.preventDefault();return;} // клик после лонгтапа не снимает выбор
     const el=e.target.closest('[data-a]');if(el)act(el.dataset.a);
@@ -478,7 +516,17 @@ function setupDelegation(){
     }
   });
 }
+function animateHomeOpen(){
+  const card=document.querySelector('.mcard.anim');if(!card)return;
+  // высота сразу полная (страница не укорачивается — прокрутка доезжает до верха карточки),
+  // а содержимое проявляется сверху вниз
+  card.scrollIntoView({behavior:'smooth',block:'start'});
+  const bd=card.querySelector('.mcard-bd');
+  if(bd&&bd.animate)bd.animate([{clipPath:'inset(0 0 100% 0)',opacity:0,transform:'translateY(-6px)'},{clipPath:'inset(0 0 0 0)',opacity:1,transform:'none'}],
+    {duration:340,easing:'cubic-bezier(.2,.8,.2,1)'});
+}
 function bindAll(){
+  animateHomeOpen();
   // Front-chips toggle (study, multi-select)
   const cf=document.getElementById('chips-front');
   if(cf)cf.addEventListener('click',e=>{
