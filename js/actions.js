@@ -11,8 +11,14 @@ function act(action){
     case'tab':
       S.tab=val;if(val==='practice'&&practiceAvailable)UP.view='menu';S.confirmPending=null;S.cfgScreen=null;
       S.studyQueue=[];S.studyResults=null;S.quizQ=null;S.quizDone=false;
+      // формы глаголов в практике переключают режим квиза — раскрытая карточка возвращает свой
+      if(val==='home'&&S.homeOpen)prepareMode(S.homeOpen,S.homeTab);
       break;
-    case'home-tab':   S.homeTab=val;break;
+    case'home-tab':
+      S.homeTab=val;
+      // раскрытая карточка следует за типом; режимов только для кандзи у слов нет
+      if(S.homeOpen){if(homeModes(val).includes(S.homeOpen))prepareMode(S.homeOpen,val);else S.homeOpen=null;}
+      break;
     case'words-tab':  S.wordsTab=val;S.wordsSearch='';S.wordsFolder='all';S.wordsLimit=300;S.selecting=false;S.selIds=[];S.selSheet=false;break;
     case'words-folder':S.wordsFolder=val;S.wordsLimit=300;break;
     case'words-more':S.wordsLimit+=300;break;
@@ -30,29 +36,16 @@ function act(action){
       if(!name){toast('Введите название папки');return;}
       addSelectionToFolder(name);break;}
 
-    // Открыть экран настроек режима с карточки на главной
+    // Раскрыть / свернуть карточку режима на главной (настройки внутри карточки)
+    case'home-open':
+      if(S.homeOpen===val){S.homeOpen=null;break;}
+      prepareMode(val,S.homeTab);S.homeOpen=val;S.homeAnim=val;haptic('light');
+      break;
+    // Экран настроек режима (формы глаголов открываются из практики)
     case'open-cfg':{
-      const type=val==='quiz-verbs'?'words':S.homeTab;
       if(val==='quiz-verbs'){S.tab='practice';if(practiceAvailable)UP.view='menu';}
-      if(val==='cards'){
-        if(S.studyCfg.type!==type){
-          S.studyCfg.type=type;S.studyCfg.front=['kanji'];S.studyCfg.folders=[];
-          S.studyCfg.back=type==='kanji'?['on_reading','kun_reading','meaning']:['reading','meaning'];
-        }
-        S.studyQueue=[];S.studyResults=null;S.cfgScreen='cards';
-      }else{
-        if(S.quizCfg.type!==type){
-          S.quizCfg.type=type;S.quizCfg.folders=[];S.quizCfg.question=['kanji'];
-          S.quizCfg.answer=[type==='kanji'?'on_reading':'reading'];
-          S.quizCfg.matchLeft=matchSide(type,'L');S.quizCfg.matchRight=matchSide(type,'R');
-        }
-        if(val==='quiz-compose')S.quizCfg.mode='compose';
-        else if(val==='quiz-pairs')S.quizCfg.mode='pairs';
-        else if(val==='quiz-verbs')S.quizCfg.mode='verbs';
-        else if(val==='quiz-match')S.quizCfg.mode='match6';
-        else if(['compose','pairs','verbs','match6'].includes(S.quizCfg.mode))S.quizCfg.mode='choice6';
-        S.quizQ=null;S.quizDone=false;S.cfgScreen='quiz';
-      }
+      prepareMode(val,val==='quiz-verbs'?'words':S.homeTab);
+      S.cfgScreen=val==='cards'?'cards':'quiz';
       break;}
     case'cfg-type':{
       // Переключение типа сегментом внутри экрана настроек режима
@@ -191,7 +184,7 @@ function act(action){
       S.studyIdx++;S.cardFlipped=false;
       if(S.studyIdx>=S.studyQueue.length)sessionEnd();break;
     case'stop-study':
-      S.studyQueue=[];S.studyResults=null;S.cardHint=false;S.cfgScreen='cards';break;
+      S.studyQueue=[];S.studyResults=null;S.cardHint=false;break;
     case'restart-study':
       S.studyQueue=buildStudyQueue();S.studyIdx=0;S.cardFlipped=false;S.studyResults=null;break;
 
@@ -389,7 +382,7 @@ function act(action){
     case'stop-quiz':
       S.quizQ=null;S.quizDone=false;S.quizInputVal='';S.quizHint=false;
       S.quizScore={ok:0,bad:0};S.quizSel=-1;S.quizRecent=[];S.quizLimit=null;S.quizSeen={};S.quizRound=0;
-      S.cfgScreen='quiz';break;
+      break;
 
     case'download-csv':{
       const type=val==='kanji'?'kanji':'words';
@@ -421,8 +414,49 @@ function addSelectionToFolder(name){
   toast(added?`Папка «${name}»: добавлено ${added}`:`Уже в папке «${name}»`);
 }
 /* ── Events ── */
+/* Подготовить настройки режима под тип данных (слова / кандзи) */
+function prepareMode(val,type){
+  if(val==='cards'){
+    if(S.studyCfg.type!==type){
+      S.studyCfg.type=type;S.studyCfg.front=['kanji'];S.studyCfg.folders=[];
+      S.studyCfg.back=type==='kanji'?['on_reading','kun_reading','meaning']:['reading','meaning'];
+    }
+    S.studyQueue=[];S.studyResults=null;
+    return;
+  }
+  if(S.quizCfg.type!==type){
+    S.quizCfg.type=type;S.quizCfg.folders=[];S.quizCfg.question=['kanji'];
+    S.quizCfg.answer=[type==='kanji'?'on_reading':'reading'];
+    S.quizCfg.matchLeft=matchSide(type,'L');S.quizCfg.matchRight=matchSide(type,'R');
+  }
+  if(val==='quiz-compose')S.quizCfg.mode='compose';
+  else if(val==='quiz-pairs')S.quizCfg.mode='pairs';
+  else if(val==='quiz-verbs')S.quizCfg.mode='verbs';
+  else if(val==='quiz-match')S.quizCfg.mode='match6';
+  else if(['compose','pairs','verbs','match6'].includes(S.quizCfg.mode))S.quizCfg.mode='choice6';
+  S.quizQ=null;S.quizDone=false;
+}
+// Лонгтап по записи словаря включает режим выбора с этой записью
+let lpTimer=null,lpStart=null,lpFired=false;
+function lpCancel(){clearTimeout(lpTimer);lpTimer=null;}
 function setupDelegation(){
+  document.addEventListener('pointerdown',e=>{
+    lpFired=false;lpCancel();
+    if(S.tab!=='words'||S.selecting||S.screen==='import')return;
+    const card=e.target.closest('[data-wid]');if(!card)return;
+    lpStart={x:e.clientX,y:e.clientY};
+    lpTimer=setTimeout(()=>{
+      lpTimer=null;lpFired=true;
+      S.selecting=true;S.selIds=[card.dataset.wid];S.selSheet=false;haptic('medium');render();
+    },450);
+  });
+  document.addEventListener('pointermove',e=>{
+    if(lpTimer&&lpStart&&Math.hypot(e.clientX-lpStart.x,e.clientY-lpStart.y)>10)lpCancel();
+  });
+  ['pointerup','pointercancel','scroll'].forEach(t=>document.addEventListener(t,lpCancel,{passive:true,capture:true}));
+  document.addEventListener('contextmenu',e=>{if(e.target.closest('[data-wid]'))e.preventDefault();});
   document.addEventListener('click',e=>{
+    if(lpFired){lpFired=false;e.preventDefault();return;} // клик после лонгтапа не снимает выбор
     const el=e.target.closest('[data-a]');if(el)act(el.dataset.a);
   });
   document.addEventListener('keydown',e=>{

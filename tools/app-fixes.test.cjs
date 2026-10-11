@@ -217,3 +217,37 @@ test('Telegram back leaves dictionary selection first',()=>{
  tg.BackButton.cb();assert.equal(a.run('S.selSheet'),false);assert.equal(a.run('S.selecting'),true);
  tg.BackButton.cb();assert.equal(a.run('S.selecting'),false);assert.equal(tg.BackButton.visible,false);
 });
+
+test('home mode cards expand in place with their settings and one card open at a time',()=>{
+ const a=app();
+ a.run(manyWords(30)+`S.kanjiItems=Array.from({length:10},(_,i)=>({id:'k'+i,kanji:'字'+i,on_reading:'ジ',kun_reading:'あざ',meaning:'знак',folder:'Общая'}));`);
+ assert.doesNotMatch(a.run('buildHome()'),/Настроить:/);
+ a.run(`act('home-open:cards')`);
+ let html=a.run('buildHome()');
+ assert.equal(a.run('S.cfgScreen'),null,'no separate settings screen');
+ assert.match(html,/Лицевая сторона/);assert.match(html,/data-a="start-study"/);
+ a.run(`act('home-open:quiz')`);
+ html=a.run('buildHome()');
+ assert.equal((html.match(/Настроить:/g)||[]).length,1,'opening another card closes the first');
+ assert.match(html,/Что в ответе/);assert.equal(a.run('S.quizCfg.mode'),'choice6');
+ a.run(`act('home-open:quiz')`);assert.equal(a.run('S.homeOpen'),null,'tap on an open header collapses it');
+ // режимы только для кандзи пропадают у слов
+ a.run(`act('home-tab:kanji');act('home-open:quiz-compose')`);
+ assert.equal(a.run(`S.quizCfg.type+'/'+S.quizCfg.mode`),'kanji/compose');
+ a.run(`act('home-tab:words')`);assert.equal(a.run('S.homeOpen'),null);
+ assert.doesNotMatch(a.run('buildHome()'),/Собрать слово/);
+});
+
+test('sessions started from a home card return to it, with results on top',()=>{
+ const a=app();
+ a.run(manyWords(30)+`act('home-open:cards');act('study-count:20');act('start-study')`);
+ assert.equal(a.run('S.studyQueue.length'),20);
+ a.run(`act('stop-study')`);
+ assert.equal(a.run(`S.tab+'/'+S.homeOpen+'/'+S.cfgScreen`),'home/cards/null');
+ a.run(`act('start-study');for(let i=0;i<20;i++)act('mark:know')`);
+ assert.match(a.run('buildApp()'),/Сессия завершена/);
+ a.run(`act('stop-study')`);assert.match(a.run('buildApp()'),/class="home"/);
+ // формы глаголов из практики меняют режим квиза — раскрытая карточка «Квиз» его возвращает
+ a.run(`act('home-open:quiz');act('open-cfg:quiz-verbs');act('tab:home')`);
+ assert.equal(a.run('S.quizCfg.mode'),'choice6');
+});

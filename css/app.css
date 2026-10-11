@@ -1,5 +1,15 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+/* Шрифт крупных иероглифов (Figma «Обновление дизайна»): 源暎ぽっぷる Pw Black, SIL OFL 1.1 */
+@font-face{font-family:'GenEi POPle Pw';font-weight:900;font-style:normal;font-display:swap;
+  src:local('GenEi POPle Pw Black'),local('GenEiPOPlePw-Bk'),url('../assets/fonts/GenEiPOPlePw-Bk.woff2') format('woff2')}
 :root{
+  --f:'Inter',-apple-system,BlinkMacSystemFont,'Noto Sans JP',system-ui,sans-serif; /* интерфейс */
+  --fjp:'Noto Sans JP','Hiragino Sans',sans-serif;                                 /* кана и чтения */
+  --fkj:'GenEi POPle Pw','Noto Sans JP','Hiragino Sans',sans-serif;                /* крупные кандзи */
+  --cv:#111;          /* канвас и карточки (новый дизайн) */
+  --cv2:#1d1d1d;      /* «Выбор меню», варианты ответа */
+  --rd:#3974ff;       /* чтения и значения на канвасе */
+  --ln:#efeef4;       /* обводка вариантов ответа и Стоп/Пропустить */
   --bg:#000;
   --c:#1c1c1c;        /* card surface */
   --card:#161616;     /* новый дизайн: поверхность блоков */
@@ -13,36 +23,30 @@
   --t2:#6998d5;       /* secondary text */
   --ic:#434343;       /* inactive icon */
   --g:#7aff78;        /* green / знаю */
-  --y:#fff285;        /* yellow / учу */
+  --y:#e7ff47;        /* yellow / учу */
   --r:#ff3c3c;        /* red / не знаю */
 }
-html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
-#app{max-width:480px;margin:0 auto;padding-bottom:110px;min-height:100vh}
+html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--f);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+button,input,select{font-family:inherit}
+#app{max-width:480px;margin:0 auto;padding-bottom:calc(120px + env(safe-area-inset-bottom));min-height:100vh}
 @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.pg{animation:up .16s ease;padding:0 16px}
+/* экраны тренировки: канвас и блоки с шагом 8px (Figma 155:3547) */
+.pg{animation:up .16s ease;padding:16px 16px 0;display:flex;flex-direction:column;gap:8px}
 
-/* ─── Tab bar ─── */
-.bnav{
-  position:fixed;bottom:0;left:50%;transform:translateX(-50%);
-  width:100%;max-width:480px;
-  background:var(--bg);
-  display:flex;align-items:flex-start;justify-content:space-around;
-  padding:8px 8px 22px;z-index:200;
-}
-.bnav-btn{
-  display:flex;flex-direction:column;align-items:center;gap:6px;
-  background:none;border:none;cursor:pointer;
-  color:var(--ic);font-size:13px;font-weight:500;
-  padding:4px 12px;transition:color .15s;
-  min-width:64px;
-}
+/* ─── Tab bar: плавающий «liquid glass» (Figma 155:4321) ─── */
+.bnav{position:fixed;left:0;right:0;bottom:max(24px,calc(env(safe-area-inset-bottom) + 12px));z-index:200;
+  display:flex;justify-content:center;pointer-events:none}
+.bnav-glass{pointer-events:auto;display:flex;align-items:center;justify-content:center;gap:24px;padding:8px 32px;border-radius:300px;
+  background:rgba(74,74,74,.2);
+  -webkit-backdrop-filter:blur(16px) saturate(170%);backdrop-filter:blur(16px) saturate(170%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 -1px 0 rgba(255,255,255,.06),inset 0 0 0 1px rgba(255,255,255,.1),0 8px 28px rgba(0,0,0,.45)}
+.bnav-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:none;border:none;cursor:pointer;
+  color:var(--ic);padding:0;transition:color .15s,transform .15s;-webkit-tap-highlight-color:transparent}
+.bnav-btn:active{transform:scale(.92)}
 .bnav-btn.active{color:var(--a)}
-.bnav-icon{
-  width:44px;height:44px;display:flex;align-items:center;justify-content:center;position:relative;
-}
-.bnav-beta{position:absolute;top:0;right:0;min-width:17px;height:17px;padding:0 3px;display:flex;align-items:center;justify-content:center;border:1px solid var(--al);border-radius:9px;background:var(--bg);color:var(--al);font-size:12px;line-height:1;font-weight:600}
-.bnav-icon img{width:100%;height:100%;object-fit:contain;display:block}
-.bnav-icon svg{width:28px;height:28px;stroke:currentColor;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.bnav-icon{width:32px;height:32px;display:flex;align-items:center;justify-content:center}
+.bnav-icon svg{display:block;flex:none}
+.bnav-lbl{font-size:10px;font-weight:500;color:var(--t);line-height:normal;white-space:nowrap}
 
 /* ─── top_icon ─── */
 .top-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--a);line-height:1;flex-shrink:0}
@@ -82,7 +86,7 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 .act-btn.primary{background:var(--a)}
 .act-btn.primary:active{background:#2f5fbd}
 
-/* ─── New home (redesign: radius 4, #161616, обводки) ─── */
+/* ─── Прежние блоки главной: используются экраном «Практика» ─── */
 .nlogo{display:flex;justify-content:center;padding:24px 0 18px}
 .nlogo img{width:52px;height:52px;object-fit:contain;display:block}
 .nseg{display:flex;gap:8px;padding:0 16px 8px}
@@ -103,7 +107,51 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 .ncard:active{background:#202020}
 .ncard img{width:52px;height:42px;object-fit:contain;flex-shrink:0}
 .ncard b{font-size:16px;font-weight:400;color:var(--t)}
-.nimport{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:10px;background:var(--card);border:none;border-radius:var(--rad);padding:18px;cursor:pointer;color:var(--t);font-size:16px;font-weight:400}
+/* ─── Главная (Figma «Обновление дизайна» 155:2949) ─── */
+.home{display:flex;flex-direction:column;gap:16px;padding:24px 16px 48px}
+.hlogo{display:flex;justify-content:center;padding:10px 11px}
+.hlogo img{width:50px;height:50px;object-fit:contain;display:block}
+.hsect{display:flex;flex-direction:column;gap:8px}
+.hseg{align-self:center;display:flex;gap:4px;padding:2px;border:1px solid var(--cv2);border-radius:16px}
+.hseg-btn{width:120px;padding:4px 2px;border:none;border-radius:300px;background:none;color:#8b8b8b;font-size:14px;font-weight:500;line-height:normal;cursor:pointer;transition:background .15s,color .15s}
+.hseg-btn.on{background:var(--a);color:#fff}
+.hstats{background:var(--cv);border-radius:16px;padding:8px;display:flex;flex-direction:column;align-items:center;gap:16px}
+.hstats-row{display:flex;align-items:center;justify-content:center;gap:16px}
+.hstat{width:60px;display:flex;flex-direction:column;align-items:center;gap:4px;white-space:nowrap}
+.hstat .n{font-family:var(--fkj);font-weight:900;font-size:36px;line-height:normal}
+.hstat .l{font-size:12px;font-weight:500}
+.hstat.g .n{color:var(--g)}.hstat.y .n{color:var(--y)}.hstat.r .n{color:var(--r)}
+.hstat-sep{width:1px;height:60px;border-radius:300px;background:var(--stroke)}
+.hprog{width:100%;height:6px;border-radius:300px;background:var(--c2);overflow:hidden}
+.hprog>i{display:block;height:100%;border-radius:300px;background:var(--al);transition:width .4s}
+.hprog-info{width:100%;display:flex;gap:23px;font-size:12px;font-weight:500}
+.hprog-info span:first-child{flex:1;color:var(--al)}
+/* карточка режима: свернута — заголовок, раскрыта — настройки и «Старт» */
+.mcard{display:flex;flex-direction:column;gap:10px;width:100%;background:var(--cv);border:none;border-radius:16px;padding:12px 16px 10px;
+  box-shadow:0 -1px 4px rgba(0,0,0,.25);color:var(--t);text-align:left;transition:box-shadow .2s}
+.mcard.open{padding-bottom:12px;box-shadow:0 -1px 4.4px var(--a)}
+.mcard-hd{display:flex;align-items:center;gap:10px;min-height:100px;width:100%;background:none;border:none;padding:0;color:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.mcard-txt{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:10px;line-height:normal}
+.mcard-t{font-size:26px;font-weight:500}
+.mcard-d{font-size:14px;font-weight:300}
+.mcard-ic{width:104px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.mcard-ic img{display:block;max-width:104px;max-height:84px}
+.mcard-bd{display:flex;flex-direction:column;gap:10px}
+.mcard.anim .mcard-bd{animation:up .2s ease}
+.mcard-sub{font-size:14px;font-weight:500;text-align:center}
+.mrows{display:flex;flex-direction:column;gap:16px}
+.mrow{display:flex;gap:4px;align-items:flex-start}
+.mgrp{flex:1;min-width:0;background:var(--cv2);border-radius:8px;padding:4px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.mgrp-lbl{font-size:12px;font-weight:300;color:#d1d1d1;white-space:nowrap}
+.mgrp-opts{width:100%;display:flex;flex-direction:column;gap:4px}
+.mrow.single .mgrp-opts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.mopt{width:100%;padding:8px 4px;border:1px solid var(--stroke);border-radius:8px;background:var(--cv2);color:var(--t);font-size:14px;font-weight:400;line-height:normal;cursor:pointer;overflow-wrap:anywhere;transition:background .15s,border-color .15s}
+.mopt.on{background:var(--a);border-color:var(--a)}
+.mstart{width:100%;height:40px;border:1px solid var(--a);border-radius:4px;background:var(--a);color:#fff;font-size:22px;font-weight:400;cursor:pointer;transition:opacity .15s}
+.mstart:active{opacity:.8}
+.mempty{font-size:14px;font-weight:300;color:#d1d1d1;text-align:center;padding:4px 0}
+.hseg-row{display:flex;justify-content:center;padding:24px 16px 8px}
+.nimport{display:flex;align-items:center;justify-content:center;gap:10px;background:var(--cv);border:none;border-radius:16px;padding:18px;cursor:pointer;color:var(--t);font-size:16px;font-weight:400}
 .nimport img{width:26px;height:26px;object-fit:contain}
 /* config screen header (open from home card) */
 .cfg-hdr{display:flex;align-items:center;gap:12px;padding:16px 16px 12px}
@@ -134,86 +182,77 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 .btn-row{display:flex;gap:8px;margin-top:8px}
 .btn-row .btn{flex:1}
 
-/* ─── Flashcard ─── */
-.fc-counter{font-size:18px;text-align:center;padding:8px 16px 12px}
-.fc-wrap{perspective:1000px;min-height:260px;margin:0 16px 14px;cursor:pointer}
+/* ─── Канвас тренировки (Figma «Обновление дизайна» 155:3547) ───
+ * #111, радиус 16, 361×420: счёт пилюлями сверху, содержимое по центру. */
+/* Flashcard */
+.fc-wrap{position:relative;perspective:1000px;cursor:pointer}
+.fc-score{position:absolute;top:8px;left:0;right:0;z-index:2;pointer-events:none}
 .fc{width:100%;display:grid;position:relative;transform-style:preserve-3d;transition:transform .45s cubic-bezier(.4,0,.2,1)}
 .fc.flipped{transform:rotateY(180deg)}
-.fc-face{grid-area:1/1;background:var(--c);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;backface-visibility:hidden;-webkit-backface-visibility:hidden;min-height:260px}
-.fc-back{transform:rotateY(180deg);background:var(--c2)}
-.fc-sbar{position:absolute;top:0;left:0;right:0;height:4px;border-radius:16px 16px 0 0}
-.fc-sbar.g{background:var(--g)}.fc-sbar.y{background:var(--y)}.fc-sbar.r{background:var(--c2)}
-/* Kanji card face */
-.fc-kanji{font-size:76px;font-weight:400;color:var(--a);line-height:1}
-.fc-kana{font-size:36px;font-weight:400;color:var(--a);line-height:1;margin-top:4px}
-.fc-meanings{margin-top:12px;text-align:center}
-.fc-mn{font-size:12px;color:var(--t);line-height:1.6}
-.fc-tap{font-size:12px;color:var(--t2);margin-top:12px}
-/* Word card face (non-kanji) */
-.fc-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--t2);margin-bottom:8px}
-.fc-main{font-size:60px;line-height:1;color:var(--t);text-align:center}
-.fc-main.sm{font-size:22px}
-/* Back side rows */
-.fc-back-body{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
-/* On/kun label (legacy, kept for compat) */
-.fc-onkun{display:flex;flex-direction:column;gap:4px;align-items:center;margin-top:6px}
-.fc-okrow{font-size:12px;color:var(--t)}
-.fc-okrow span{color:var(--a);font-size:16px;margin-left:4px}
+.fc-face{grid-area:1/1;background:var(--cv);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:36px 8px 16px;backface-visibility:hidden;-webkit-backface-visibility:hidden;min-height:420px}
+.fc-back{transform:rotateY(180deg)}
+.fc-tap{font-size:12px;color:#8b8b8b}
+.fc-back-body{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center}
+/* Kanji card face (legacy builders) */
+.fc-kanji{font-family:var(--fkj);font-weight:900;font-size:90px;color:var(--t);line-height:normal}
+.fc-kana{font-family:var(--fjp);font-size:32px;color:var(--rd);line-height:normal}
+.fc-lbl{font-size:12px;font-weight:500;color:var(--t);margin-bottom:2px}
+.fc-main{font-family:var(--fkj);font-weight:900;font-size:90px;line-height:normal;color:var(--t);text-align:center}
+.fc-main.sm{font-family:var(--f);font-weight:500;font-size:22px}
 
-/* ─── Card Variant System (Figma 31:112 / 33:235) ─── */
+/* ─── Варианты карточек (Figma 155:3624 / 155:3669) ─── */
 .cv-root{width:100%;display:flex;flex-direction:column;align-items:center;gap:20px}
-.cv-top{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap}
-.cv-main{font-size:52px;line-height:1;color:var(--t);font-weight:400}
-.cv-readings{display:flex;flex-direction:column;gap:12px}
-.cv-rread{display:flex;flex-direction:column;gap:2px}
-.cv-rl{font-size:12px;color:var(--t);line-height:1.2}
-.cv-rv{font-size:20px;color:var(--a);line-height:1.2;word-break:break-word}
-.cv-kana-lg{font-size:36px;color:var(--a);line-height:1}
-.cv-meanings{width:280px;max-width:100%;display:flex;flex-direction:column;gap:4px}
-.cv-mn{display:flex;flex-direction:row;align-items:baseline;gap:6px}
-.cv-mi{font-size:12px;color:var(--t);line-height:1.2;flex-shrink:0}
-.cv-mt{font-size:16px;color:var(--t);line-height:1.3;word-break:break-word}
+.cv-top{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;max-width:100%}
+.cv-top.col{flex-direction:column}
+.cv-main{font-family:var(--fkj);font-weight:900;font-size:90px;line-height:normal;color:var(--t);text-align:center;overflow-wrap:anywhere}
+.cv-readings{display:flex;flex-direction:column;gap:4px;min-width:0}
+.cv-rread{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.cv-kana{display:flex;align-items:center;gap:2px;flex-wrap:wrap;justify-content:center}
+.cv-rl{font-size:12px;font-weight:500;color:var(--t);line-height:normal}
+.cv-rv{font-family:var(--fjp);font-size:32px;color:var(--rd);line-height:normal;word-break:break-word}
+.cv-kana-lg{font-family:var(--fjp);font-size:32px;color:var(--rd);line-height:normal}
+.cv-meanings{width:280px;max-width:100%;display:flex;flex-direction:column;align-items:center;gap:10px}
+.cv-mn{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:10px;width:100%}
+.cv-mi{font-size:12px;font-weight:400;color:var(--t);line-height:normal;flex-shrink:0}
+.cv-mt{font-size:16px;font-weight:500;color:var(--t);line-height:normal;text-align:center;word-break:break-word}
 
-/* ─── Mark buttons ─── */
-.mark-row{display:flex;gap:8px;padding:0 16px;margin-bottom:8px}
-.mbtn{flex:1;height:36px;border-radius:300px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500;transition:opacity .15s}
+/* ─── Mark buttons (как кнопки «Вид карточки» 155:3570) ─── */
+.mark-row{display:flex;gap:8px}
+.mbtn{flex:1;height:47px;border-radius:8px;border:1px solid;background:var(--cv);color:var(--t);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:400;transition:opacity .15s}
 .mbtn:active{opacity:.7}
-.mbtn.r{background:rgba(255,60,60,.15);color:var(--r)}
-.mbtn.y{background:rgba(255,242,133,.15);color:var(--y)}
-.mbtn.g{background:rgba(122,255,120,.15);color:var(--g)}
+.mbtn.r{border-color:#ffbfbf}
+.mbtn.y{border-color:#f3ffb0}
+.mbtn.g{border-color:#daffd6}
 
-/* ─── Stop/Skip row ─── */
-.stop-row{display:flex;gap:8px;padding:0 16px}
-.stop-btn{flex:1;height:27px;background:var(--c);border:none;color:var(--t);border-radius:16px;font-size:12px;cursor:pointer;transition:opacity .15s}
-.stop-btn:active{opacity:.7}
+/* ─── Счёт (Figma 155:3551: пилюли 12px, серый текст, цветная обводка) ─── */
+.qscore{display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap}
+.qbadge{display:flex;align-items:center;justify-content:center;gap:4px;padding:2px 22px;border-radius:16px;border:1px solid #bababa;font-size:12px;line-height:normal;color:#8b8b8b;white-space:nowrap}
+.qbadge.qok{border-color:#daffd6}
+.qbadge.qbad{border-color:#ffbfbf}
 
-/* ─── Quiz score badges (Figma: pill 100×20, border) ─── */
-.qscore{display:flex;align-items:center;justify-content:center;gap:4px;padding:0 16px;margin-bottom:12px;flex-wrap:wrap}
-.qbadge{display:flex;align-items:center;justify-content:center;gap:10px;min-width:100px;height:20px;padding:6px 8px;border-radius:16px;border:1px solid var(--a);font-size:12px;color:var(--t);background:transparent;line-height:1}
-.qbadge.qbad{border-color:#ff4f4f}
-.qbadge.qok{border-color:#7aff78}
-
-/* ─── Quiz question card (Figma: h280, p16, gap20) ─── */
-.quiz-q{background:var(--c);border-radius:16px;padding:16px;margin:0 16px 12px;min-height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;text-align:center}
+/* ─── Канвас вопроса ─── */
+.quiz-q{background:var(--cv);border-radius:16px;padding:8px;min-height:420px;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center}
+.qbody{flex:1;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding-bottom:12px}
 .quiz-ql{font-size:12px;color:var(--al)}
-.quiz-qm{font-size:52px;line-height:1}
-.quiz-qm.sm{font-size:20px}
+.quiz-qm{font-family:var(--fkj);font-weight:900;font-size:90px;line-height:normal}
+.quiz-qm.sm{font-family:var(--f);font-weight:500;font-size:20px}
 .quiz-qh{font-size:14px;color:var(--t2)}
+@media (max-height:700px){.quiz-q,.fc-face{min-height:320px}}
 
-/* ─── Quiz options panel (Figma: card wrap + label) ─── */
-.quiz-panel{background:var(--c);border-radius:16px;padding:8px;margin:0 16px 12px;display:flex;flex-direction:column;gap:16px;align-items:center}
-.quiz-panel-lbl{font-size:12px;color:var(--al);text-align:center}
+/* ─── Варианты ответа (Figma 155:3578) ─── */
+.quiz-panel{background:var(--cv);border-radius:16px;padding:8px;display:flex;flex-direction:column;gap:16px;align-items:center}
+.quiz-panel-lbl{font-size:12px;font-weight:500;color:#d6d6d6;text-align:center}
 .quiz-opts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px;width:100%}
-.qopt{background:var(--c);border:1px solid var(--a);color:var(--t);border-radius:4px;padding:8px 6px;font-size:16px;cursor:pointer;text-align:center;line-height:1.3;overflow-wrap:anywhere;min-width:0;min-height:54px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;align-content:center;gap:0 2px;transition:background .15s,border-color .15s}
-.qopt.sel{background:var(--a);color:#fff}
+.qopt{background:var(--cv2);border:1px solid var(--ln);color:var(--t);border-radius:4px;padding:16px 12px;font-size:16px;cursor:pointer;text-align:center;line-height:normal;overflow-wrap:anywhere;min-width:0;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;align-content:center;gap:0 2px;transition:background .15s,border-color .15s}
+.qopt.sel{background:var(--a);border-color:var(--a);color:#fff}
 .qopt.ok{background:rgba(122,255,120,.18);border-color:var(--g);color:var(--g)}
 .qopt.bad{background:rgba(255,60,60,.18);border-color:var(--r);color:var(--r)}
 .qopt:disabled{cursor:default}
 
-/* ─── Quiz input (Figma: pill, border, 12px) ─── */
-.quiz-inp{width:100%;background:transparent;border:1px solid var(--a);border-radius:300px;color:var(--t);font-size:13px;padding:6px 12px;outline:none;font-family:inherit;text-align:center;transition:border-color .15s,box-shadow .15s}
+/* ─── Ввод ответа ─── */
+.quiz-inp{width:100%;height:47px;background:var(--cv2);border:1px solid var(--ln);border-radius:8px;color:var(--t);font-size:16px;padding:0 12px;outline:none;text-align:center;transition:border-color .15s,box-shadow .15s}
 .quiz-inp::placeholder{color:#5a5a5a}
-.quiz-inp:focus{box-shadow:0 0 0 2px rgba(63,111,207,.4)}
+.quiz-inp:focus{border-color:var(--a);box-shadow:0 0 0 2px rgba(63,111,207,.4)}
 .quiz-inp.ok{border-color:var(--g);color:var(--g)}
 .quiz-inp.bad{border-color:var(--r);color:var(--r)}
 .quiz-inp:disabled{opacity:.9;cursor:default}
@@ -221,108 +260,107 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 .quiz-result.ok{color:var(--g)}
 .quiz-result.bad{color:var(--r)}
 
-/* ─── Quiz bottom actions (Стоп / Пропустить) ─── */
-.quiz-actions{display:flex;gap:4px;justify-content:center;padding:0 16px;margin-bottom:10px}
-.qact-btn{min-width:100px;height:27px;padding:6px 8px;background:var(--c);border:1px solid var(--a);color:var(--t);border-radius:16px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity .15s}
+/* ─── Стоп / Пропустить (Figma 155:3601) ─── */
+.quiz-actions{display:flex;gap:4px;justify-content:center}
+.qact-btn{width:100px;padding:6px 8px;background:var(--cv2);border:1px solid var(--ln);color:var(--t);border-radius:16px;font-size:12px;line-height:normal;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity .15s}
 .qact-btn:active{opacity:.7}
+.stop-row{display:flex;gap:4px;justify-content:center}
+.stop-btn{width:100px;padding:6px 8px;background:var(--cv2);border:1px solid var(--ln);color:var(--t);border-radius:16px;font-size:12px;cursor:pointer}
 
-/* ─── Next button (quiz) ─── */
-.next-btn{margin:0 16px 10px;background:var(--a);border:none;color:#fff;border-radius:16px;padding:10px;font-size:13px;font-weight:500;width:calc(100% - 32px);cursor:pointer;transition:opacity .15s}
+/* ─── Следующий / Проверить ─── */
+.next-btn{width:100%;height:47px;background:var(--a);border:none;color:#fff;border-radius:8px;font-size:16px;font-weight:400;cursor:pointer;transition:opacity .15s}
 .next-btn:active{opacity:.8}
 
-/* ─── Big kanji option (compose / pairs) ─── */
-.qopt.kanji{font-size:24px;font-weight:400;min-height:47px}
-.qopt.kanji .qopt-on{font-size:11px;color:var(--a);margin-left:5px}
+/* ─── Кандзи в вариантах (собрать слово / пары): GenEi 16 по макету ─── */
+.qopt.kanji{font-family:var(--fkj);font-weight:900;font-size:16px}
+.qopt.kanji .qopt-on{font-family:var(--fjp);font-weight:400;font-size:11px;color:var(--rd);margin-left:5px}
+.qopt.kanji.ok .qopt-on{color:var(--g)}
 /* Card border feedback (canvas result) */
-.quiz-q.ok{border:2px solid var(--g)}
-.quiz-q.bad{border:2px solid var(--r)}
+.quiz-q.ok{box-shadow:inset 0 0 0 2px var(--g)}
+.quiz-q.bad{box-shadow:inset 0 0 0 2px var(--r)}
 
-/* ─── Kanji hints (Figma: Подсказка_квиз_кандзи) ─── */
-.hint-btn{display:flex;align-items:center;justify-content:center;width:calc(100% - 32px);margin:0 16px 12px;height:47px;background:var(--c);border:1px solid var(--a);color:var(--t);border-radius:16px;font-size:14px;cursor:pointer;transition:opacity .15s}
-.hint-btn.on{background:var(--a);color:#fff}
+/* ─── Подсказки и переключатели (как «Вид карточки» 155:3570) ─── */
+.hint-btn{display:flex;align-items:center;justify-content:center;width:100%;height:47px;background:var(--cv);border:1px solid #d9d8db;color:var(--t);border-radius:8px;font-size:16px;cursor:pointer;transition:opacity .15s}
+.hint-btn.on{background:var(--a);border-color:var(--a);color:#fff}
 .hint-btn:active{opacity:.7}
-.hint-row{display:flex;flex-wrap:wrap;gap:8px;margin:0 16px 12px}
-.hint-chip{flex:1 1 calc(50% - 4px);min-width:0;min-height:47px;background:var(--c);border:1px solid var(--a);border-radius:16px;padding:6px 10px;display:flex;align-items:center;justify-content:center;gap:8px;overflow:hidden}
-.hint-word{font-size:18px;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hint-read{font-size:11px;color:var(--t2);white-space:nowrap;flex-shrink:0}
-.hint-read b{color:var(--a);font-weight:400}
-.hint-empty{flex:1 1 100%;text-align:center;font-size:12px;color:var(--t2);padding:8px}
+.hint-row{display:flex;flex-wrap:wrap;gap:4px}
+.hint-chip{flex:1 1 calc(50% - 2px);min-width:0;min-height:47px;background:var(--cv);border:1px solid var(--stroke);border-radius:8px;padding:6px 10px;display:flex;align-items:center;justify-content:center;gap:4px;overflow:hidden}
+.hint-word{font-family:var(--fjp);font-size:18px;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hint-read{font-size:10px;font-weight:500;color:var(--t);white-space:nowrap;flex-shrink:0}
+.hint-read b{font-family:var(--fjp);font-size:16px;color:var(--rd);font-weight:400}
+.hint-empty{flex:1 1 100%;text-align:center;font-size:12px;color:#8b8b8b;padding:8px}
 
-/* ─── Compose word mode (Figma: Составить слова) ─── */
-.cmp-canvas{width:100%;display:flex;flex-direction:column;align-items:center;gap:16px}
-.cmp-build{display:flex;gap:8px;justify-content:center;align-items:center;min-height:66px;flex-wrap:wrap}
-.cmp-ch{font-size:56px;line-height:1;color:var(--t)}
-.cmp-slot{width:44px;height:60px;border-bottom:2px solid var(--c2);display:inline-block}
-.cmp-line{font-size:14px;color:var(--t);text-align:center}
-.cmp-line .lbl{color:var(--t)}
-.cmp-line .val{color:var(--a)}
+/* ─── Собрать слово ─── */
+.cmp-canvas{width:100%;display:flex;flex-direction:column;align-items:center;gap:10px}
+.cmp-build{display:flex;gap:4px;justify-content:center;align-items:center;flex-wrap:wrap;font-size:90px;min-height:1.2em}
+.cmp-ch{font-family:var(--fkj);font-weight:900;font-size:1em;line-height:normal;color:var(--t)}
+.cmp-slot{width:.9em;height:1em;border-bottom:2px solid var(--c2);display:inline-block}
+.cmp-line{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:2px;text-align:center;line-height:normal}
+.cmp-line .lbl{font-size:12px;font-weight:500;color:var(--t)}
+.cmp-line .val{font-size:32px;color:var(--rd)}
+.cmp-line .val.jp{font-family:var(--fjp)}
 .cmp-correct{font-size:15px;color:var(--g);text-align:center}
-.cmp-correct span{font-size:22px;color:var(--g);margin-left:4px}
-/* Формы глаголов */
-.vb-task{font-size:22px;color:var(--t);text-align:center;line-height:1.3}
-.vb-gram{font-size:13px;color:var(--a);text-align:center;line-height:1.3;opacity:.85}
+.cmp-correct span{font-family:var(--fjp);font-size:22px;color:var(--g);margin-left:4px}
+/* Формы глаголов (Figma: «Не Хочу … Глагол», кана-чипы #1b1b1b) */
+.vb-task{font-size:16px;font-weight:500;color:var(--t);text-align:center;line-height:normal}
+.vb-gram{font-size:13px;color:var(--rd);text-align:center;line-height:1.3}
 .vb-word{display:flex;align-items:flex-end;justify-content:center;flex-wrap:wrap;gap:2px;min-height:64px}
-.vb-base{font-size:48px;line-height:1;color:var(--t)}
+.vb-base{font-family:var(--fjp);font-size:32px;line-height:normal;color:var(--t);background:#1b1b1b;border-radius:4px;padding:4px 8px}
 .vb-base ruby{ruby-position:over;-webkit-ruby-position:before}
-.vb-base rt{font-size:15px;color:var(--a);line-height:1.2}
-.vb-suf{font-size:48px;line-height:1;color:var(--a)}
+.vb-base rt{font-size:13px;color:var(--rd);line-height:1.2}
+.vb-suf{font-family:var(--fjp);font-size:32px;line-height:normal;color:var(--rd);background:#1b1b1b;border-radius:4px;padding:4px 8px}
 .vb-suf.ok{color:var(--g)}.vb-suf.bad{color:var(--r)}
-.vb-slot{min-width:38px;height:50px;border-bottom:2px dashed var(--a);display:inline-block}
-/* банк окончаний — hug-content чипы (дуалинго) */
-.quiz-bank{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;width:100%}
-.qchip{background:var(--c);border:1px solid var(--a);color:var(--t);border-radius:12px;padding:9px 16px;font-size:20px;line-height:1;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
-.qchip.on{background:var(--a);color:#fff}
+.vb-slot{min-width:38px;height:47px;border-bottom:2px dashed var(--a);display:inline-block}
+/* банк окончаний — hug-content чипы */
+.quiz-bank{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;width:100%}
+.qchip{font-family:var(--fjp);background:var(--cv2);border:1px solid var(--ln);color:var(--t);border-radius:4px;padding:10px 16px;font-size:20px;line-height:1;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.qchip.on{background:var(--a);border-color:var(--a);color:#fff}
 .qchip.ok{background:rgba(122,255,120,.18);border-color:var(--g);color:var(--g)}
 .qchip.bad{background:rgba(255,60,60,.18);border-color:var(--r);color:var(--r)}
 .qchip:disabled{cursor:default}
-.cmp-switch{display:flex;gap:8px;margin:0 16px 12px}
-.cmp-sw{flex:1;height:47px;border:1px solid var(--a);background:var(--c);color:var(--t);border-radius:16px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s}
-.cmp-sw.on{background:var(--a);color:#fff}
+.cmp-switch{display:flex;gap:8px}
+.cmp-sw{flex:1;height:47px;border:1px solid #d9d8db;background:var(--cv);color:var(--t);border-radius:8px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s}
+.cmp-sw.on{background:var(--a);border-color:var(--a);color:#fff}
 .cmp-sw:active{opacity:.8}
 .cmp-arrow{font-size:15px;line-height:1}
 /* reverse: кандзи-слово как подсказка, собираем кану */
-.cmp-word{font-size:48px;line-height:1;color:var(--t);text-align:center}
-.cmp-kana{font-size:30px;line-height:1;color:var(--t)}
+.cmp-word{font-family:var(--fkj);font-weight:900;font-size:90px;line-height:normal;color:var(--t);text-align:center}
+.cmp-kana{font-family:var(--fjp);font-size:32px;line-height:normal;color:var(--rd)}
 /* финал: фуригана (чтение над иероглифом) */
-.furi{display:flex;gap:12px;justify-content:center;align-items:flex-end;flex-wrap:wrap}
-.furi ruby{font-size:52px;line-height:1;color:var(--t);ruby-position:over;-webkit-ruby-position:before}
-.furi rt{font-size:15px;color:var(--a);line-height:1.3;text-align:center}
+.furi{display:flex;gap:4px;justify-content:center;align-items:flex-end;flex-wrap:wrap}
+.furi ruby{font-family:var(--fkj);font-weight:900;font-size:72px;line-height:1.1;color:var(--t);ruby-position:over;-webkit-ruby-position:before}
+.furi rt{font-family:var(--fjp);font-weight:400;font-size:16px;color:var(--rd);line-height:1.3;text-align:center}
 
-/* ─── Choose pair mode (Figma: Выбери пару) ─── */
-.pair-count{display:flex;justify-content:center;margin:0 16px 12px}
-.pair-count-pill{min-width:47px;height:24px;padding:2px 16px;border-radius:16px;background:var(--a);color:#fff;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center}
-.pair-canvas{width:100%;display:flex;flex-direction:column;align-items:center;gap:18px}
-.pair-slots{display:flex;justify-content:center;align-items:flex-start;gap:52px}
-.pair-slot{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:80px}
-.pair-slot .pk{font-size:52px;line-height:1;color:var(--t)}
-.pair-slot .pm{font-size:12px;color:var(--t)}
-.pair-slot .pm b{color:var(--a);font-weight:400}
-.pair-on{font-size:12px;color:var(--t);text-align:center;line-height:1.4}
+/* ─── Найти пару (Figma «Он, Да, Канвас» 155:3656) ─── */
+.pair-count{display:flex;justify-content:center}
+.pair-count-pill{padding:2px 22px;border-radius:16px;border:1px solid var(--a);color:var(--t);font-size:12px;line-height:normal;display:flex;align-items:center;justify-content:center}
+.pair-canvas{width:100%;display:flex;flex-direction:column;align-items:center;gap:20px}
+.pair-slots{display:flex;justify-content:center;align-items:flex-start;gap:20px;flex-wrap:wrap}
+.pair-slot{display:flex;flex-direction:column;align-items:center;gap:10px;width:156px;max-width:100%}
+.pair-slot .pk{font-family:var(--fkj);font-weight:900;font-size:90px;line-height:normal;color:var(--t)}
+.pair-slot .pm{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:2px;font-size:12px;font-weight:500;color:var(--t);line-height:normal}
+.pair-slot .pm b{font-size:32px;color:var(--rd);font-weight:400;overflow-wrap:anywhere}
+.pair-on{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;font-weight:500;color:var(--t);text-align:center;line-height:normal}
 .pair-on .lbl{color:var(--t)}
-.pair-on .val{color:var(--a);font-size:20px}
-.pair-hint{font-size:13px;color:var(--t2);text-align:center;padding:0 20px;line-height:1.5}
+.pair-on .val{font-family:var(--fjp);font-weight:400;color:var(--rd);font-size:32px}
+.pair-hint{font-size:14px;color:#8b8b8b;text-align:center;padding:0 20px;line-height:1.5}
 
-/* ─── Match pairs (сопоставление 6 пар) ─── */
-.mt-hint{font-size:12px;color:var(--al);text-align:center;margin:0 16px 10px}
-.mt-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin:0 16px 12px}
-.mt-col{display:flex;flex-direction:column;gap:8px;min-width:0}
-.mtile{background:var(--c);border:1px solid var(--a);color:var(--t);border-radius:4px;padding:10px 8px;min-height:58px;
+/* ─── Сопоставь пары (6 пар) ─── */
+.mt-hint{font-size:12px;font-weight:500;color:#d6d6d6;text-align:center}
+.mt-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px;background:var(--cv);border-radius:16px;padding:8px}
+.mt-col{display:flex;flex-direction:column;gap:4px;min-width:0}
+.mtile{background:var(--cv2);border:1px solid var(--ln);color:var(--t);border-radius:4px;padding:10px 8px;min-height:58px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;text-align:center;
   line-height:1.25;overflow-wrap:anywhere;min-width:0;transition:background .15s,border-color .15s,opacity .15s}
-.mtile .mt-main{font-size:17px}
-.mtile .mt-main.jp{font-size:24px}
-.mtile .mt-sub{font-size:12px;color:var(--t2)}
+.mtile .mt-main{font-size:16px}
+.mtile .mt-main.jp{font-family:var(--fjp);font-size:22px}
+.mtile .mt-sub{font-family:var(--fjp);font-size:12px;color:#8b8b8b}
 .mtile.sel{background:var(--a);border-color:var(--a);color:#fff}
 .mtile.sel .mt-sub{color:#d6e3fb}
 .mtile.bad{background:rgba(255,60,60,.18);border-color:var(--r);color:var(--r)}
 .mtile.bad .mt-sub{color:var(--r)}
 .mtile.done{background:rgba(122,255,120,.14);border-color:var(--g);color:var(--g);opacity:.5}
 .mtile.done .mt-sub{color:var(--g)}
-/* собранная пара сжимается, чтобы не занимать экран */
-.mtile.done{min-height:30px;padding:3px 8px}
-.mtile.done .mt-main{font-size:13px}
-.mtile.done .mt-main.jp{font-size:16px}
-.mtile.done .mt-sub{display:none}
 .mtile:disabled{cursor:default}
 
 /* ─── Words list ─── */
@@ -341,7 +379,7 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 .dsearch-inp{width:100%;height:50px;background:#1d1d1d;border:1px solid var(--stroke);border-radius:var(--rad);color:var(--t);font-size:16px;padding:0 16px 0 44px;outline:none;font-family:inherit}
 .dsearch-inp::placeholder{color:var(--t2)}
 .dlist{padding:0 16px;display:flex;flex-direction:column;gap:4px}
-.ditem{display:flex;align-items:center;gap:12px;background:#1d1d1d;border:1px solid var(--a);border-radius:var(--rad);padding:7px 12px}
+.ditem{display:flex;align-items:center;gap:12px;background:#1d1d1d;border:1px solid var(--stroke);border-radius:var(--rad);padding:7px 12px}
 .ditem-k{font-size:24px;color:var(--t);line-height:1.1;flex-shrink:0;min-width:40px}
 .ditem-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
 .ditem-r{font-size:12px;color:var(--al);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -351,15 +389,18 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 .ditem-st.learning .dot{background:var(--y)}
 .dfolder{font-size:11px;color:var(--al);margin-top:1px}
 /* ─── Словарь: инструменты, выбор, кандзи-карточки ─── */
-.dtools{display:flex;gap:6px;align-items:center;margin:0 16px 8px}
+/* «Выбрать» всегда под рукой: панель липнет к верху при прокрутке списка */
+.dtools{position:sticky;top:0;z-index:50;display:flex;gap:6px;align-items:center;margin:0 0 8px;padding:8px 16px;background:var(--bg)}
+/* лонгтап по записи включает выбор — без системного меню и выделения текста */
+.ditem,.kcard{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .dtools-sp{flex:1}
 .dtool{background:var(--card);border:1px solid var(--stroke);color:var(--t);border-radius:var(--rad);padding:7px 12px;font-size:13px;cursor:pointer}
 .dtool.on{border-color:var(--a);color:var(--al)}
 .dtool:disabled{opacity:.4}
 .ditem.sel,.kcard.sel{border-color:var(--g);background:rgba(122,255,120,.08)}
-.ksel{width:20px;height:20px;border:1px solid var(--a);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--g);flex-shrink:0}
+.ksel{width:20px;height:20px;border:1px solid #5a5a5a;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--g);flex-shrink:0}
 .sel .ksel{border-color:var(--g)}
-.selbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(104px + env(safe-area-inset-bottom));width:calc(100% - 32px);max-width:448px;z-index:150;
+.selbar{position:fixed;left:50%;transform:translateX(-50%);bottom:max(100px,calc(env(safe-area-inset-bottom) + 88px));width:calc(100% - 32px);max-width:448px;z-index:150;
   background:var(--card);border:1px solid var(--a);border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px;box-shadow:0 6px 24px rgba(0,0,0,.6)}
 .selbar-n{flex:1;font-size:14px}
 .selbar.sheet{flex-direction:column;align-items:stretch;gap:10px;padding:12px}
@@ -367,7 +408,7 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 .selbar-hint{font-size:11px;color:var(--al);text-align:center}
 .selbar .chip{height:40px;font-size:14px}
 .kgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding:0 16px}
-.kcard{position:relative;background:#1d1d1d;border:1px solid var(--a);border-radius:var(--rad);padding:12px 10px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.kcard{position:relative;background:#1d1d1d;border:1px solid var(--stroke);border-radius:var(--rad);padding:12px 10px;display:flex;flex-direction:column;gap:4px;min-width:0}
 .kcard .ditem-st{position:absolute;top:10px;right:10px}
 .kcard .ksel{position:absolute;top:8px;left:8px}
 .kcard-k{font-size:56px;line-height:1.1;text-align:center;margin:4px 0 6px}
@@ -379,6 +420,7 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:-apple-sys
 .kex-w{font-size:16px}
 .kex-r{color:#9a9a9a}
 .kex-r b{color:var(--y);font-weight:600}
+.kex-m{flex-basis:100%;padding-left:32px;font-size:12px;color:var(--al)}
 /* по одному: карточка на экран, листание вниз с доводкой */
 html:has(.kpages){scroll-snap-type:y proximity}
 .kpages{display:flex;flex-direction:column;gap:12px;padding:0 16px}

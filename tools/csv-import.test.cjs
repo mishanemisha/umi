@@ -96,6 +96,10 @@ test('headerless Android file supports column mapping before append, without tou
  assert.equal(a.run(`S.importStep==='map'&&S.importMapping.join(',')==='kanji,reading,meaning'`),true);assert.equal(dictionary(a),before);
  a.run(`act('apply-map');act('confirm-import');`);assert.equal(a.run('S.words.length'),1001);
 });
-test('practice beta badge is attached to its icon and available to screen readers',()=>{
- const a=app();const markup=a.run('nav()');assert(markup.includes('aria-label="Практика · бета"'));assert.equal((markup.match(/class="bnav-beta"/g)||[]).length,1);assert(markup.includes('aria-hidden="true">β</span>'));
+test('glass tab bar: four tabs with inline icons, the active one is marked for screen readers',()=>{
+ const a=app();const markup=a.run('nav()');
+ assert.equal((markup.match(/class="bnav-btn/g)||[]).length,4);
+ assert.equal((markup.match(/<svg /g)||[]).length,4);
+ assert.equal((markup.match(/aria-current="page"/g)||[]).length,1);
+ assert(markup.includes('bnav-btn active" data-a="tab:home"'));
 });

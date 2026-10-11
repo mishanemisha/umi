@@ -1,6 +1,11 @@
 'use strict';
 // Рендер экранов (строки HTML)
-/* ── Card Variant Builder (Figma 31:112 / 33:235) ── */
+/* ── Card Variant Builder (Figma «Обновление дизайна»: Варианты карточек 155:3624) ── */
+// Крупный знак — 90px; длинные слова уменьшаются, чтобы влезть в канвас
+function kjSize(text,max=90,width=320){
+  const n=[...String(text||'')].length||1;
+  return Math.max(32,Math.min(max,Math.floor(width/n)));
+}
 function renderKun(s){
   if(!s)return'';
   const tokens=String(s).split(/[、・,]/).map(t=>t.trim()).filter(Boolean);
@@ -41,15 +46,16 @@ function buildCardVariant(word,showFields,dataType){
     if(showFields.includes('kun_reading')&&kunR)reads.push(cvReadRow('kun',renderKun(kunR),true));
   }else{
     // В режиме «только кана» само слово уже показано каной — строку чтения не дублируем
-    if(has('reading')&&!(kanaOnly&&has('kanji')))reads.push(cvReadRow('kana',word.reading));
+    if(has('reading')&&!(kanaOnly&&has('kanji')))reads.push(`<div class="cv-kana"><span class="cv-rl">kana:</span><span class="cv-rv">${esc(word.reading)}</span></div>`);
   }
-  const readsHtml=reads.length?`<div class="cv-readings">${reads.join('')}</div>`:'';
+  // кандзи: чтения столбиком справа от знака; слово: кана строкой под ним
+  const readsHtml=reads.length?(isKanjiType?`<div class="cv-readings">${reads.join('')}</div>`:reads.join('')):'';
 
-  // Top row: main char + readings (if either exists)
-  const mainHtml=has('kanji')?`<div class="cv-main">${esc(kanaOnly?word.reading:word.kanji)}</div>`:'';
+  const mainTxt=kanaOnly?word.reading:word.kanji;
+  const mainHtml=has('kanji')?`<div class="cv-main" style="font-size:${isKanjiType?90:kjSize(mainTxt)}px">${esc(mainTxt)}</div>`:'';
   let topHtml='';
   if(mainHtml||readsHtml){
-    topHtml=`<div class="cv-top">${mainHtml}${readsHtml}</div>`;
+    topHtml=`<div class="cv-top${isKanjiType?'':' col'}">${mainHtml}${readsHtml}</div>`;
   }
 
   if(!topHtml&&!mHtml){
@@ -92,7 +98,7 @@ function render(){document.getElementById('app').innerHTML=buildApp();bindAll();
 // Куда ведёт «Назад» на текущем экране (null — корневой экран вкладки)
 function backAction(){
   if(S.screen==='import')return'back-import';
-  if(S.studyQueue.length&&!S.studyResults)return'stop-study';
+  if(S.studyQueue.length||S.studyResults)return'stop-study';
   if(S.quizQ)return'stop-quiz';
   if(S.cfgScreen)return'close-cfg';
   if(S.tab==='words'&&S.selecting)return S.selSheet?'sel-sheet-close':'sel-cancel';
@@ -107,6 +113,7 @@ function syncBackButton(){
 function buildApp(){
   if(S.screen==='import')return buildImport();
   if(S.studyQueue.length&&!S.studyResults)return buildStudyActive()+nav();
+  if(S.studyResults&&!S.cfgScreen)return buildStudyDone()+nav();
   if(S.quizQ)return buildQuizActive()+nav();
   if(S.cfgScreen)return buildCfgScreen()+nav();
   switch(S.tab){
@@ -118,57 +125,140 @@ function buildApp(){
   return buildHome()+nav();
 }
 
-/* ── NAV (новый дизайн: 3 таба) ── */
+/* ── NAV (Figma «Обновление дизайна»: плавающий таб «liquid glass») ── */
 const TABS=[
-  {id:'home',    img:ASSETS.navHome, lbl:'Главная'  },
-  {id:'words',   img:ASSETS.navDict, lbl:'Словарь'  },
-  {id:'practice',beta:true,svg:'<svg viewBox="0 0 24 24" stroke-width="1.7"><path d="M3 4h6a4 4 0 0 1 3 1.5A4 4 0 0 1 15 4h6v16h-6a4 4 0 0 0-3 1.5A4 4 0 0 0 9 20H3z"/><path d="M12 5.5v16M6 8h3M15 8h3M6 12h3M15 12h3"/></svg>',lbl:'Практика'},
-  {id:'settings',img:ASSETS.navSet,  lbl:'Настройки'},
+  {id:'home',    lbl:'Главная'  },
+  {id:'words',   lbl:'Словарь'  },
+  {id:'practice',lbl:'Практика' },
+  {id:'settings',lbl:'Настройки'},
 ];
 function nav(){
   const cur=S.cfgScreen&&S.quizCfg.mode!=='verbs'?'home':S.tab; // формы глаголов открываются из практики
-  return`<nav class="bnav">${TABS.map(t=>{
+  return`<nav class="bnav"><div class="bnav-glass">${TABS.map(t=>{
     const active=cur===t.id;
-    return`<button class="bnav-btn${active?' active':''}" data-a="tab:${t.id}"${t.beta?' aria-label="Практика · бета"':''}>
-      <span class="bnav-icon">${t.svg||`<img src="${t.img}" alt=""${active?'':' style="opacity:.5;filter:grayscale(.6)"'}>`}${t.beta?'<span class="bnav-beta" aria-hidden="true">β</span>':''}</span>
-      <span>${t.lbl}</span>
-    </button>`;}).join('')}</nav>`;
+    return`<button class="bnav-btn${active?' active':''}" data-a="tab:${t.id}"${active?' aria-current="page"':''}>
+      <span class="bnav-icon">${TAB_SVG[t.id]}</span>
+      <span class="bnav-lbl">${t.lbl}</span>
+    </button>`;}).join('')}</div></nav>`;
 }
 
-/* ── HOME (новый дизайн) ── */
+/* ── HOME (Figma «Обновление дизайна» 155:2949) ──
+ * Карточки режимов раскрываются на месте: настройки внутри карточки, «Старт» внизу. */
+const HOME_MODES={
+  'cards':       {title:'Карточки',      desc:'Базовый квизлет на повторение при повороте карточки', icon:()=>ASSETS.cCards},
+  'quiz':        {title:'Квиз',          desc:'Ответы на вопросы и выбор правильного варианта',      icon:()=>ASSETS.cQuiz},
+  'quiz-compose':{title:'Собрать слово', desc:'Соберите слово из иероглифов по чтению и значению',   icon:()=>ASSETS.cCompose},
+  'quiz-pairs':  {title:'Найти пару',    desc:'Найдите два иероглифа с одинаковым он-чтением',       icon:()=>ASSETS.cPair},
+  'quiz-match':  {title:'Сопоставь пары',desc:'Соедините плитки из двух колонок',                    icon:()=>MATCH_ICON},
+};
+function homeModes(type){
+  return type==='kanji'?['cards','quiz','quiz-compose','quiz-pairs','quiz-match']:['cards','quiz','quiz-match'];
+}
 function buildHome(){
   const type=S.homeTab,d=ds(type),p=pr(type);
   const total=d.length,know=d.filter(w=>statusOf(p,w.id)==='know').length;
   const learning=d.filter(w=>statusOf(p,w.id)==='learning').length,unk=total-know-learning;
   const pct=total?Math.round(know/total*100):0;
-  const card=(img,lbl,action)=>`<button class="ncard" data-a="${action}"><img src="${img}" alt=""><b>${lbl}</b></button>`;
-  const cards=type==='kanji'
-    ? card(ASSETS.cCards,'Карточки','open-cfg:cards')
-      +card(ASSETS.cQuiz,'Квиз','open-cfg:quiz')
-      +card(ASSETS.cCompose,'Собрать слово','open-cfg:quiz-compose')
-      +card(ASSETS.cPair,'Найти пару','open-cfg:quiz-pairs')
-      +card(MATCH_ICON,'Сопоставь пары','open-cfg:quiz-match')
-      +`<button class="nimport" data-a="go-import-home"><img src="${ASSETS.cImport}" alt="">Импортировать</button>`
-    : card(ASSETS.cCards,'Карточки','open-cfg:cards')
-      +card(ASSETS.cQuiz,'Квиз','open-cfg:quiz')
-      +card(MATCH_ICON,'Сопоставь пары','open-cfg:quiz-match')
-      +`<button class="nimport" data-a="go-import-home"><img src="${ASSETS.cImport}" alt="">Импортировать</button>`;
-  return`
-    <div class="nlogo"><img src="${ASSETS.logo}" alt="日本語"></div>
-    <div class="nseg">
-      <button class="nseg-btn${type==='words'?' on':''}" data-a="home-tab:words">Слова</button>
-      <button class="nseg-btn${type==='kanji'?' on':''}" data-a="home-tab:kanji">Кандзи</button>
+  const anim=S.homeAnim;S.homeAnim=null;   // анимация раскрытия — только в первом рендере
+  const cards=homeModes(type).map(k=>modeCard(k,anim===k)).join('');
+  return`<div class="home">
+    <div class="hlogo"><img src="${ASSETS.logo}" alt="日本語"></div>
+    <div class="hsect">
+      <div class="hseg">
+        <button class="hseg-btn${type==='words'?' on':''}" data-a="home-tab:words">слова</button>
+        <button class="hseg-btn${type==='kanji'?' on':''}" data-a="home-tab:kanji">кандзи</button>
+      </div>
+      <div class="hstats">
+        <div class="hstats-row">
+          <div class="hstat g"><div class="n">${know}</div><div class="l">Знаю</div></div>
+          <i class="hstat-sep"></i>
+          <div class="hstat y"><div class="n">${learning}</div><div class="l">Учу</div></div>
+          <i class="hstat-sep"></i>
+          <div class="hstat r"><div class="n">${unk}</div><div class="l">Не знаю</div></div>
+        </div>
+        <div class="hprog"><i style="width:${pct}%"></i></div>
+        <div class="hprog-info"><span>${pct}%</span><span>${know} из ${total} изучено</span></div>
+      </div>
     </div>
-    <div class="nstats">
-      <div class="nstat g"><div class="n">${know}</div><div class="l">Знаю</div></div>
-      <div class="nstat y"><div class="n">${learning}</div><div class="l">Учу</div></div>
-      <div class="nstat r"><div class="n">${unk}</div><div class="l">Не знаю</div></div>
-    </div>
-    <div class="nprog">
-      <div class="nprog-bar"><i style="width:${pct}%"></i></div>
-      <div class="nprog-info"><span>${pct}%</span><span>${know} из ${total} изучено</span></div>
-    </div>
-    <div class="ncards">${cards}</div>`;
+    ${cards}
+  </div>`;
+}
+function modeCard(key,anim){
+  const m=HOME_MODES[key],open=S.homeOpen===key;
+  const hd=`<button class="mcard-hd" data-a="home-open:${key}" aria-expanded="${open}">
+      <span class="mcard-txt"><span class="mcard-t">${m.title}</span><span class="mcard-d">${m.desc}</span></span>
+      <span class="mcard-ic"><img src="${m.icon()}" alt=""></span>
+    </button>`;
+  return`<section class="mcard${open?' open':''}${anim?' anim':''}">${hd}${open?`<div class="mcard-bd">${modeBody(key)}</div>`:''}</section>`;
+}
+/* «Выбор меню»: группа вариантов столбиком; ряд — две группы рядом, одиночная — сеткой в 2 колонки */
+function mGroup(lbl,opts,id){
+  return`<div class="mgrp"><div class="mgrp-lbl">${lbl}</div><div class="mgrp-opts"${id?` id="${id}"`:''}>${opts}</div></div>`;
+}
+function mOpts(items,isOn,attr){
+  return items.map(it=>`<button class="mopt${isOn(it.v)?' on':''}" ${attr(it.v)}>${it.l}</button>`).join('');
+}
+function mPick(items,active,prefix){return mOpts(items,v=>v===active,v=>`data-a="${prefix}:${v}"`);}
+function mRows(rows){
+  return`<div class="mrows">${rows.map(r=>r.filter(Boolean)).filter(r=>r.length)
+    .map(r=>`<div class="mrow${r.length===1?' single':''}">${r.join('')}</div>`).join('')}</div>`;
+}
+function mFolders(type,selected,prefix){
+  if(foldersOf(type).length<2)return'';
+  const allOn=!selected||!selected.length;
+  return mGroup('Папки',`<button class="mopt${allOn?' on':''}" data-a="${prefix}:__all__">Все</button>`
+    +foldersOf(type).map(f=>`<button class="mopt${selected&&selected.includes(f)?' on':''}" data-a="${prefix}:${esc(f)}">${esc(f)}</button>`).join(''));
+}
+const FILTER_OPTS=[{v:'all',l:'Все'},{v:'unknown',l:'Не знаю'},{v:'learning',l:'Учу'},{v:'know',l:'Знаю'}];
+const COUNT_OPTS=[{v:'all',l:'Все'},{v:'20',l:'20'},{v:'50',l:'50'},{v:'100',l:'100'}];
+function modeBody(key){
+  const type=S.homeTab,d=ds(type);
+  const empty=msg=>`<div class="mempty">${msg}</div><button class="mstart" data-a="go-import-home">Импорт</button>`;
+  if(!d.length)return empty(`Нет ${type==='kanji'?'кандзи':'слов'} — сначала импортируйте данные`);
+  // порядок и подписи полей — как в макете карточек «Карточки» / «Квиз»
+  const flds=type==='kanji'?['kanji','meaning','on_reading','kun_reading']:['reading','meaning','kanji'];
+  const fo=k=>({v:k,l:type==='kanji'&&k!=='kanji'?fldLabel(k,type):fldShort(k,type)});
+  let rows,start;
+  if(key==='cards'){
+    const c=S.studyCfg;
+    rows=[
+      [mGroup('Лицевая сторона',mOpts(flds.map(fo),v=>c.front.includes(v),v=>`data-field-front="${v}"`),'chips-front'),
+       mGroup('Обратная сторона',mOpts(flds.map(fo),v=>c.back.includes(v),v=>`data-field="${v}"`),'chips-back')],
+      [mGroup('Фильтр',mPick(FILTER_OPTS,c.filter,'study-filter')),mGroup('Количество',mPick(COUNT_OPTS,c.count,'study-count'))],
+      [mFolders(type,c.folders,'study-folder')],
+    ];
+    start='start-study';
+  }else{
+    if(d.length<4)return empty(`Нужно минимум 4 записи (сейчас ${d.length})`);
+    const c=S.quizCfg,mode=c.mode;
+    const fc=[mGroup('Фильтр',mPick(FILTER_OPTS,c.filter,'quiz-filter')),mGroup('Количество',mPick(COUNT_OPTS,c.count,'quiz-count'))];
+    if(key==='quiz'){
+      const aF=arr(c.answer);
+      rows=[
+        [mGroup('Что в вопросе',mOpts(flds.map(fo),v=>c.question.includes(v),v=>`data-qfield="${v}"`),'chips-q'),
+         mGroup('Что в ответе',mOpts(flds.map(fo),v=>aF.includes(v),v=>`data-a="quiz-afield:${v}"`))],
+        [mGroup('Режим ответа',mPick([{v:'choice4',l:'4 варианта'},{v:'choice6',l:'6 вариантов'},{v:'input',l:'Вписать'},{v:'mix',l:'Смешанный'}],mode,'quiz-mode'))],
+        fc,
+      ];
+    }else if(key==='quiz-compose'){
+      const cm=c.composeMode||'normal',cs=c.composeShow||{};
+      const second=cm==='ultra'
+        ?mGroup('Сложность',mPick([{v:'all',l:'Все'},{v:'easy',l:'Лёгкие'},{v:'medium',l:'Средние'},{v:'hard',l:'Сложные'}],c.ultraDifficulty||'all','ultra-diff'))
+        :mGroup('На канвасе',(cm==='reverse'?'':`<button class="mopt${cs.reading?' on':''}" data-a="compose-switch:reading">Кана</button>`)
+          +`<button class="mopt${cs.meaning?' on':''}" data-a="compose-switch:meaning">Значение</button>`);
+      rows=[[mGroup('Направление',mPick([{v:'normal',l:'Собрать слово'},{v:'reverse',l:'Собрать чтение'},{v:'ultra',l:'Ultra'}],cm,'compose-dir')),second],fc];
+    }else if(key==='quiz-pairs'){
+      rows=[fc];
+    }else{
+      const side=sd=>{const on=arr(sd==='L'?c.matchLeft:c.matchRight);return mOpts(flds.map(fo),v=>on.includes(v),v=>`data-a="match-side:${sd}:${v}"`);};
+      const senses=[...arr(c.matchLeft),...arr(c.matchRight)].some(f=>f==='meaning'||f==='translation');
+      rows=[[mGroup('Слева',side('L')),mGroup('Справа',side('R'))],
+        [senses?mGroup('Значений в плитке',mPick([{v:'one',l:'Одно'},{v:'all',l:'Все'}],c.matchSenses,'match-senses')):''],fc];
+    }
+    rows.push([mFolders(type,c.folders,'quiz-folder')]);
+    start='start-quiz';
+  }
+  return`<div class="mcard-sub">Настроить:</div>${mRows(rows)}<button class="mstart" data-a="${start}">Старт</button>`;
 }
 
 /* ── Экран настроек режима (открывается с карточки на главной) ──
@@ -183,10 +273,10 @@ function buildCfgScreen(){
     return`<div class="cfg-hdr"><button class="cfg-hdr-back" data-a="close-cfg">←</button><span class="cfg-hdr-title">${title}</span></div>`+buildQuizCfg();
   }
   const type=isCards?S.studyCfg.type:S.quizCfg.type;
-  const seg=`<div class="nseg" style="padding-top:24px">
-    <button class="nseg-btn${type==='words'?' on':''}" data-a="cfg-type:words">Слова</button>
-    <button class="nseg-btn${type==='kanji'?' on':''}" data-a="cfg-type:kanji">Кандзи</button>
-  </div>`;
+  const seg=`<div class="hseg-row"><div class="hseg">
+    <button class="hseg-btn${type==='words'?' on':''}" data-a="cfg-type:words">слова</button>
+    <button class="hseg-btn${type==='kanji'?' on':''}" data-a="cfg-type:kanji">кандзи</button>
+  </div></div>`;
   return seg+(isCards?buildCardsCfg():buildQuizCfg());
 }
 
@@ -220,7 +310,7 @@ function buildCardsCfg(){
   const flds=type==='kanji'?KF:WF;
   const cnt=filtered(type,S.studyCfg.filter,S.studyCfg.count,S.studyCfg.folders).length;
   const filterOpts=[{v:'all',l:'Все'},{v:'unknown',l:'Не знаю'},{v:'learning',l:'Учу'},{v:'know',l:'Знаю'}];
-  const counts=[{v:'50',l:'50'},{v:'100',l:'100'},{v:'150',l:'150'},{v:'all',l:'Все'}];
+  const counts=COUNT_OPTS;
   return`
     ${foldersOf(type).length>1?cfgCard('Папки',folderChips(type,S.studyCfg.folders,'study-folder')):''}
     ${cfgCard('Лицевая сторона',`<div class="chips" id="chips-front">${flds.map(k=>`<button class="chip${S.studyCfg.front.includes(k)?' on':''}" data-field-front="${k}">${fldShort(k,type)}</button>`).join('')}</div>`)}
@@ -239,7 +329,7 @@ function buildQuizCfg(){
   if(d.length<4&&S.quizCfg.mode!=='verbs')return`<div class="empty"><div class="ei">🎯</div><div class="et">Мало данных</div><div class="eb">Нужно минимум 4 записи (сейчас ${d.length})</div><button class="btn btn-p" style="margin:0 16px;width:calc(100% - 32px)" data-a="go-import-home">Импорт</button></div>`;
   const flds=type==='kanji'?KF:WF;
   const filterOpts=[{v:'all',l:'Все'},{v:'unknown',l:'Не знаю'},{v:'learning',l:'Учу'},{v:'know',l:'Знаю'}];
-  const counts=[{v:'50',l:'50'},{v:'100',l:'100'},{v:'150',l:'150'},{v:'all',l:'Все'}];
+  const counts=COUNT_OPTS;
   // «Режим ответа» — только базовые режимы; pairs/compose запускаются с главной
   const modes=[{v:'choice4',l:'4 варианта'},{v:'choice6',l:'6 вариантов'},{v:'input',l:'Вписать ответ'},{v:'mix',l:'Смешанный'}];
   if(type!=='kanji'&&(S.quizCfg.mode==='pairs'||S.quizCfg.mode==='compose'))S.quizCfg.mode='choice6';
@@ -302,43 +392,33 @@ function buildStudyActive(){
   if(S.studyResults)return buildStudyDone();
   const w=S.studyQueue[S.studyIdx];
   if(!w){sessionEnd();return buildStudyDone();}
-  const total=S.studyQueue.length,curr=S.studyIdx+1,pct=Math.round(curr/total*100);
-  const p=pr(S.studyCfg.type),status=statusOf(p,w.id);
-  const sClass=status==='know'?'g':status==='learning'?'y':'r';
+  const total=S.studyQueue.length,curr=S.studyIdx+1;
   const isKanji=S.studyCfg.type==='kanji';
 
-  // Build front face content
   const frontBody=buildCardVariant(w,S.studyCfg.front,S.studyCfg.type)
-    +(!S.cardFlipped?`<div class="fc-tap">нажмите чтобы перевернуть</div>`:``);
-
-
-  // Build back face using card variant
+    +(!S.cardFlipped?`<div class="fc-tap">нажмите, чтобы перевернуть</div>`:``);
   const backVariant=buildCardVariant(w,S.studyCfg.back,S.studyCfg.type);
 
-  return`
-    <div class="fc-counter">${curr}/${total}</div>
+  // Канвас (Figma 155:3549): счётчик пилюлей сверху, поверх переворачивающейся карточки
+  return`<div class="pg">
     <div class="fc-wrap" data-a="flip">
+      <div class="qscore fc-score"><div class="qbadge">${curr} / ${total}</div></div>
       <div class="fc${S.cardFlipped?' flipped':''}">
-        <div class="fc-face">
-          <div class="fc-sbar ${sClass}"></div>
-          ${frontBody}
-        </div>
-        <div class="fc-face fc-back">
-          <div class="fc-sbar ${sClass}"></div>
-          <div class="fc-back-body">${backVariant}</div>
-        </div>
+        <div class="fc-face">${frontBody}</div>
+        <div class="fc-face fc-back"><div class="fc-back-body">${backVariant}</div></div>
       </div>
     </div>
     ${isKanji?buildHintBlock(w,S.cardHint,'toggle-card-hint'):''}
     <div class="mark-row">
-      <button class="mbtn r" data-a="mark:unknown">✕ Не знаю</button>
-      <button class="mbtn y" data-a="mark:learning">∼ Учу</button>
-      <button class="mbtn g" data-a="mark:know">✓ Знаю</button>
+      <button class="mbtn r" data-a="mark:unknown">Не знаю</button>
+      <button class="mbtn y" data-a="mark:learning">Учу</button>
+      <button class="mbtn g" data-a="mark:know">Знаю</button>
     </div>
-    <div class="stop-row">
-      <button class="stop-btn" data-a="stop-study">Стоп</button>
-      <button class="stop-btn" data-a="skip-card">Пропустить</button>
-    </div>`;
+    <div class="quiz-actions">
+      <button class="qact-btn" data-a="stop-study">Стоп</button>
+      <button class="qact-btn" data-a="skip-card">Пропустить</button>
+    </div>
+  </div>`;
 }
 
 /* ── Kanji hint block (Figma: Подсказка_квиз_кандзи) ──
@@ -393,10 +473,7 @@ function buildQuizActive(){
   const showInput=mode==='input'||(mode==='mix'&&q.mixInput);
   const optN=mode==='choice4'?4:6;
 
-  const qCard=`
-    <div class="quiz-q">
-      ${buildCardVariant(q.word,q.qFields,S.quizCfg.type)}
-    </div>`;
+  const qCard=qCanvas(buildCardVariant(q.word,q.qFields,S.quizCfg.type));
 
   let choiceHtml='';
   if(showChoice&&q.options){
@@ -436,12 +513,12 @@ function buildQuizActive(){
 
   const hintHtml=S.quizCfg.type==='kanji'?buildHintBlock(q.word,S.quizHint,'toggle-hint'):'';
 
-  return`<div class="pg">${qScoreBar()}${qCard}${hintHtml}${choiceHtml}${inputHtml}${qActions}${nextBtn}</div>`;
+  return`<div class="pg">${qCard}${hintHtml}${choiceHtml}${inputHtml}${qActions}${nextBtn}</div>`;
 }
 /* ── #3 Мультиполевой рендер: группа вариантов/ввода на каждое поле ответа ── */
 function buildMultiActive(q){
   const type=S.quizCfg.type;
-  const qCard=`<div class="quiz-q">${buildCardVariant(q.word,q.qFields,type)}</div>`;
+  const qCard=qCanvas(buildCardVariant(q.word,q.qFields,type));
   const panels=q.groups.map((g,gi)=>{
     const lbl=fldShort(g.field,type);
     if(q.useInput){
@@ -472,7 +549,7 @@ function buildMultiActive(q){
     ?`<button class="next-btn" data-a="next-q">Следующий →</button>`
     :(q.useInput?`<button class="next-btn" data-a="multi-check">Проверить</button>`:'');
   const hintHtml=type==='kanji'?buildHintBlock(q.word,S.quizHint,'toggle-hint'):'';
-  return`<div class="pg">${qScoreBar()}${qCard}${hintHtml}${panels}${qActions}${nextBtn}</div>`;
+  return`<div class="pg">${qCard}${hintHtml}${panels}${qActions}${nextBtn}</div>`;
 }
 // Завершение мультиполевого вопроса: оценка по числу ошибок (как было в «Все три»)
 function finishMulti(q){
@@ -487,14 +564,19 @@ function finishMulti(q){
   S.quizDone=true;save();
 }
 
-/* Общий score-bar (крестик / галочка / итого) */
+/* Счёт в шапке канваса (Figma 155:3551): верно / неверно / пройдено из набора */
 function qScoreBar(){
-  const{ok,bad}=S.quizScore;
+  const{ok,bad}=S.quizScore,q=S.quizQ;
+  const size=S.quizLimit&&!(q&&(q.pairs||q.match||q.verbs))?S.quizLimit.ids.size:0;
   return`<div class="qscore">
-    <div class="qbadge qbad"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 1l10 8M11 1L1 9" stroke="#ff4f4f" stroke-width="1.8" stroke-linecap="round"/></svg>${bad}</div>
-    <div class="qbadge qok"><svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5l4 4L13 1" stroke="#7aff78" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>${ok}</div>
-    <div class="qbadge">итого ${ok+bad}</div>
+    <div class="qbadge qok" aria-label="Верно">${ok}</div>
+    <div class="qbadge qbad" aria-label="Неверно">${bad}</div>
+    <div class="qbadge">${ok+bad}${size?` / ${size}`:''}</div>
   </div>`;
+}
+// Канвас вопроса: счёт сверху, содержимое по центру
+function qCanvas(inner,cls=''){
+  return`<div class="quiz-q${cls}">${qScoreBar()}<div class="qbody">${inner}</div></div>`;
 }
 const qActions=`<div class="quiz-actions">
     <button class="qact-btn" data-a="stop-quiz">Стоп</button>
@@ -513,8 +595,9 @@ function buildComposeActive(q){
   const cs=S.quizCfg.composeShow||{reading:true,meaning:false};
   const reverse=!!q.reverse,ultra=!!q.ultra;
   const built=q.picks.map(i=>q.options[i]);
-  const kanaLine=q.word.reading?`<div class="cmp-line"><span class="lbl">kana:</span> <span class="val">${esc(q.word.reading)}</span></div>`:'';
-  const meaningLine=q.word.meaning?`<div class="cmp-line"><span class="lbl">meaning:</span> <span class="val">${esc(String(q.word.meaning).split(/;/)[0])}</span></div>`:'';
+  const kanaLine=q.word.reading?`<div class="cmp-line"><span class="lbl">kana:</span><span class="val jp">${esc(q.word.reading)}</span></div>`:'';
+  const meaningLine=q.word.meaning?`<div class="cmp-line"><span class="lbl">meaning:</span><span class="val">${esc(String(q.word.meaning).split(/;/)[0])}</span></div>`:'';
+  const fs=`style="font-size:${kjSize(q.word.kanji)}px"`;
   let canvasInner;
   if(S.quizDone){
     // Финал: фуригана над иероглифами + (при ошибке) правильный ответ
@@ -529,7 +612,7 @@ function buildComposeActive(q){
     // Reverse: показываем кандзи-слово (+значение), собираем кану
     const slots=[];
     for(let i=0;i<q.target.length;i++)slots.push(built[i]!=null?`<span class="cmp-kana">${esc(built[i])}</span>`:`<span class="cmp-slot"></span>`);
-    canvasInner=`<div class="cmp-canvas"><div class="cmp-word">${esc(q.word.kanji)}</div>${cs.meaning?meaningLine:''}<div class="cmp-build">${slots.join('')}</div></div>`;
+    canvasInner=`<div class="cmp-canvas"><div class="cmp-word" ${fs}>${esc(q.word.kanji)}</div>${cs.meaning?meaningLine:''}<div class="cmp-build">${slots.join('')}</div></div>`;
   } else if(ultra){
     // Ultra: незнакомый кандзи (нет в импорте) стоит на месте; знакомые — слоты,
     // которые юзер подставляет из своих кандзи по значению.
@@ -539,7 +622,7 @@ function buildComposeActive(q){
       const filled=built[ki++];
       return filled!=null?`<span class="cmp-ch">${esc(filled)}</span>`:`<span class="cmp-slot"></span>`;
     });
-    canvasInner=`<div class="cmp-canvas"><div class="cmp-build">${cells.join('')}</div>${meaningLine}</div>`;
+    canvasInner=`<div class="cmp-canvas"><div class="cmp-build" ${fs}>${cells.join('')}</div>${meaningLine}</div>`;
   } else {
     // Normal: собираем кандзи, кана/значение как подсказка
     const slots=[];
@@ -547,10 +630,10 @@ function buildComposeActive(q){
     const lines=[];
     if(cs.reading)lines.push(kanaLine);
     if(cs.meaning)lines.push(meaningLine);
-    canvasInner=`<div class="cmp-canvas"><div class="cmp-build">${slots.join('')}</div>${lines.join('')}</div>`;
+    canvasInner=`<div class="cmp-canvas"><div class="cmp-build" ${fs}>${slots.join('')}</div>${lines.join('')}</div>`;
   }
   const canvasCls=S.quizDone?(q.result?' ok':' bad'):'';
-  const canvas=`<div class="quiz-q${canvasCls}">${canvasInner}</div>`;
+  const canvas=qCanvas(canvasInner,canvasCls);
   // Свитчеры: в reverse «Кана» скрыта; в ultra свитчеров нет (значение показано всегда)
   const sw=(k,label)=>`<button class="cmp-sw${cs[k]?' on':''}" data-a="compose-switch:${k}">${cs[k]?'<span class="cmp-arrow">→</span>':''}${label}</button>`;
   const switches=ultra?'':`<div class="cmp-switch">${reverse?'':sw('reading','Кана')}${sw('meaning','Значение')}</div>`;
@@ -564,7 +647,7 @@ function buildComposeActive(q){
   }).join('');
   const panel=`<div class="quiz-panel"><div class="quiz-panel-lbl">Выберите вариант:</div><div class="quiz-opts">${opts}</div></div>`;
   const nextBtn=S.quizDone?`<button class="next-btn" data-a="next-q">Следующий →</button>`:'';
-  return`<div class="pg">${qScoreBar()}${canvas}${switches}${panel}${qActions}${nextBtn}</div>`;
+  return`<div class="pg">${canvas}${switches}${panel}${qActions}${nextBtn}</div>`;
 }
 
 /* ── PAIRS ACTIVE (Figma: Выбери пару) ── */
@@ -572,12 +655,12 @@ function buildPairsActive(q){
   const counter=`<div class="pair-count"><div class="pair-count-pill">${q.found.length}/${q.total}</div></div>`;
   // Канвас
   let canvasInner,canvasCls='';
-  const slot=(o,withMeaning)=>`<div class="pair-slot"><div class="pk">${esc(o.kanji)}</div>${withMeaning&&o.meaning?`<div class="pm">meaning: <b>${esc(o.meaning)}</b></div>`:''}</div>`;
+  const slot=(o,withMeaning)=>`<div class="pair-slot"><div class="pk">${esc(o.kanji)}</div>${withMeaning&&o.meaning?`<div class="pm"><span>meaning:</span><b>${esc(o.meaning)}</b></div>`:''}</div>`;
   if(q.result){
     const a=q.options[q.result.a],b=q.options[q.result.b];
     canvasCls=q.result.ok?' ok':' bad';
     const readings=q.result.ok
-      ?`<div class="pair-on"><span class="lbl">on:</span> <span class="val">${esc(a.onRaw)}</span></div>`
+      ?`<div class="pair-on"><span class="lbl">on:</span><span class="val">${esc(a.onRaw)}</span></div>`
       :`<div class="pair-on"><span class="val">${esc(a.onRaw)}</span> <span class="lbl">≠</span> <span class="val">${esc(b.onRaw)}</span></div>`;
     canvasInner=`<div class="pair-canvas"><div class="pair-slots">${slot(a,q.result.ok)}${slot(b,q.result.ok)}</div>${readings}</div>`;
   } else if(q.firstPick!=null){
@@ -586,7 +669,7 @@ function buildPairsActive(q){
   } else {
     canvasInner=`<div class="pair-canvas"><div class="pair-hint">Выберите два иероглифа с одинаковым он-чтением</div></div>`;
   }
-  const canvas=`<div class="quiz-q${canvasCls}">${canvasInner}</div>`;
+  const canvas=qCanvas(canvasInner,canvasCls);
   // Варианты
   const opts=q.options.map((o,i)=>{
     const found=q.found.some(f=>f.includes(i));
@@ -597,7 +680,7 @@ function buildPairsActive(q){
   }).join('');
   const panel=`<div class="quiz-panel"><div class="quiz-panel-lbl">Выберите вариант:</div><div class="quiz-opts">${opts}</div></div>`;
   const nextBtn=S.quizDone?`<button class="next-btn" data-a="next-q">Следующий →</button>`:'';
-  return`<div class="pg">${qScoreBar()}${counter}${canvas}${panel}${qActions}${nextBtn}</div>`;
+  return`<div class="pg">${counter}${canvas}${panel}${qActions}${nextBtn}</div>`;
 }
 
 /* ── MATCH PAIRS ACTIVE (сопоставление 6 пар) ──
@@ -657,7 +740,7 @@ function buildVerbActive(q){
     correctLine=`<div class="cmp-correct">Правильно: <span>${esc(ans)}</span></div>`;
   }
   const canvasCls=S.quizDone?(q.result?' ok':' bad'):'';
-  const canvas=`<div class="quiz-q${canvasCls}"><div class="cmp-canvas">${taskLine}${meaningLine}${gramLine}${wordHtml}${correctLine}</div></div>`;
+  const canvas=qCanvas(`<div class="cmp-canvas">${taskLine}${meaningLine}${gramLine}${wordHtml}${correctLine}</div>`,canvasCls);
   // Банк окончаний — hug-content чипы (как в дуалинго)
   const opts=q.options.map((o,i)=>{
     const at=q.picks.indexOf(i);let cls='';
@@ -669,7 +752,7 @@ function buildVerbActive(q){
   const panel=`<div class="quiz-panel"><div class="quiz-panel-lbl">${bankLbl}</div><div class="quiz-bank">${opts}</div></div>`;
   const checkBtn=(q.modeB&&!S.quizDone&&q.picks.length)?`<button class="next-btn" data-a="verb-check">Проверить</button>`:'';
   const nextBtn=S.quizDone?`<button class="next-btn" data-a="next-q">Следующий →</button>`:'';
-  return`<div class="pg">${qScoreBar()}${canvas}${panel}${checkBtn}${qActions}${nextBtn}</div>`;
+  return`<div class="pg">${canvas}${panel}${checkBtn}${qActions}${nextBtn}</div>`;
 }
 
 /* ── WORDS ── */
@@ -681,10 +764,10 @@ function wordsFolderState(){
 function buildWords(){
   const type=S.wordsTab;
   const{folders,wf}=wordsFolderState();
-  const seg=`<div class="nseg" style="padding-top:24px">
-      <button class="nseg-btn${type==='words'?' on':''}" data-a="words-tab:words">Слова</button>
-      <button class="nseg-btn${type==='kanji'?' on':''}" data-a="words-tab:kanji">Кандзи</button>
-    </div>`;
+  const seg=`<div class="hseg-row"><div class="hseg">
+      <button class="hseg-btn${type==='words'?' on':''}" data-a="words-tab:words">слова</button>
+      <button class="hseg-btn${type==='kanji'?' on':''}" data-a="words-tab:kanji">кандзи</button>
+    </div></div>`;
   const importBtn=`<button class="nimport" style="margin:0 16px 8px;grid-column:auto" data-a="words-import"><img src="${ASSETS.cImport}" alt="">Импортировать</button>`;
   const search=`<div class="dsearch">
       <img class="dsearch-ic" src="${ASSETS.cSearch}" alt="">
@@ -728,14 +811,14 @@ function folderTag(w,show){
 }
 function selAttrs(w){
   const sel=S.selecting&&S.selIds.includes(w.id);
-  return{sel,attrs:S.selecting?` data-a="sel-toggle:${esc(w.id)}" role="checkbox" aria-checked="${sel}"`:'',mark:S.selecting?`<span class="ksel">${sel?'✓':''}</span>`:''};
+  return{sel,attrs:` data-wid="${esc(w.id)}"`+(S.selecting?` data-a="sel-toggle:${esc(w.id)}" role="checkbox" aria-checked="${sel}"`:''),mark:S.selecting?`<span class="ksel">${sel?'✓':''}</span>`:''};
 }
 // Карточка кандзи: крупный знак, он/кун, значение и по примеру слова на каждое чтение
 function kanjiCard(w,p,single,showFolder){
   const{sel,attrs,mark}=selAttrs(w);
   const senses=mSplit(w.meaning||w.translation||'');
   const ex=kanjiExamples(w);
-  const exRow=(lbl,e)=>e?`<div class="kex"><span class="kex-l">${lbl}</span><span class="kex-w">${esc(e.word)}</span><span class="kex-r">${e.html}</span></div>`:'';
+  const exRow=(lbl,e)=>e?`<div class="kex"><span class="kex-l">${lbl}</span><span class="kex-w">${esc(e.word)}</span><span class="kex-r">${e.html}</span>${e.meaning?`<span class="kex-m">${esc(e.meaning)}</span>`:''}</div>`:'';
   return`<div class="kcard${single?' kpage':''}${sel?' sel':''}"${attrs}>
       ${mark}${statusMark(statusOf(p,w.id))}
       <div class="kcard-k">${esc(w.kanji)}</div>

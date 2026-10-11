@@ -134,9 +134,9 @@ function kanjiExamples(item){
   if(_kexCache.has(key))return _kexCache.get(key);
   const on=new Set(readingTokens(item.on_reading)),kun=new Set(readingTokens(item.kun_reading));
   const cands=[
-    ...S.words.map(w=>({w:String(w.kanji||''),r:w.reading,k:null})),
-    ...BUILTIN_WORDS.map(w=>({w:w.w,r:w.r,k:w.k})),
-    ...ADDITIONAL_WORDS.map(w=>({w:w.w,r:w.r,k:w.k})),
+    ...S.words.map(w=>({w:String(w.kanji||''),r:w.reading,k:null,m:w.meaning||w.translation})),
+    ...BUILTIN_WORDS.map(w=>({w:w.w,r:w.r,k:w.k,m:w.m})),
+    ...ADDITIONAL_WORDS.map(w=>({w:w.w,r:w.r,k:w.k,m:w.m})),
   ].filter(x=>x.r&&x.w.includes(ch));
   const out={on:null,kun:null};
   for(const x of cands){
@@ -146,7 +146,8 @@ function kanjiExamples(item){
     const vs=readingVariants(mine.r);
     const kind=vs.some(v=>on.has(v))?'on':vs.some(v=>kun.has(v))?'kun':null;
     if(!kind||out[kind])continue;
-    out[kind]={word:x.w,html:parts.map(p=>p.c===ch?`<b>${esc(p.r)}</b>`:esc(p.r)).join('')};
+    out[kind]={word:x.w,html:parts.map(p=>p.c===ch?`<b>${esc(p.r)}</b>`:esc(p.r)).join(''),
+      meaning:String(x.m||'').split(/;/)[0].trim()};
   }
   if(_kexCache.size>2000)_kexCache.clear();
   _kexCache.set(key,out);
