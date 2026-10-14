@@ -22,9 +22,10 @@ function fakeOpenAI({ log = [], broken = 0 } = {}) {
     assert.equal(init.headers.authorization, 'Bearer sk-test');
     const cands = JSON.parse(req.input).candidates;
     const out = broken-- > 0
-      ? { title: 'x', summary: 'x', pattern: 'x', steps: ['a', 'b'], notes: [], sentences: [], exercises: [] }
+      ? { title: 'x', summary: 'x', pattern: 'x', steps: ['a', 'b'], notes: [], groups: [], sentences: [], exercises: [] }
       : { title: 'Каузатив', summary: 'Заставить или разрешить.', pattern: 'V + させる', steps: ['Шаг 1', 'Шаг 2'], notes: ['<b>Осторожно</b>'],
           sentences: [{ jp: '子[こ]どもに野菜[やさい]を食[た]べさせませんでした。', ru: 'Я не заставил ребёнка есть овощи.' }],
+          groups: JSON.parse(req.input).examples.map(e => ({ key: e.key, how: 'Как образуется у ' + e.group })),
           exercises: cands.slice(0, 3).map(c => ({ candidate_id: c.id, question: 'Выберите: ' + c.task_ru, wrong_ids: c.wrong.slice(0, 3).map(w => w.id), why: 'Потому что.' })) };
     return new Response(JSON.stringify({ status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(out) }] }],
       usage: { input_tokens: 2000, input_tokens_details: { cached_tokens: 1000 }, output_tokens: 1200 } }), { status: 200 });
@@ -77,9 +78,12 @@ test('explain: generates once, then serves from the database; unseen variants fi
   assert.equal(log[0].store, false);
   assert(a.body.data.examples.length >= 2 && a.body.data.examples.every(x => x.form && x.reading), 'engine-built examples');
   assert.equal(a.body.data.sentences[0].ru, 'Я не заставил ребёнка есть овощи.');
+  assert.deepEqual(a.body.data.groups.map(g => g.key), ['ru', 'u', 'suru', 'kuru'], 'table by conjugation group');
+  assert.equal(a.body.data.groups[0].form, '食べさせませんでした', 'table examples come from the engine');
+  assert.doesNotMatch(log[0].input + log[0].instructions.replace(/НЕ используй слова «итидан», «годан»/, ''), /итидан|годан|ichidan|godan/, 'no ichidan/godan terms reach the model');
   const b = await call(e, '/v1/explain', { form: 'causative_masu_negative_past', seen: [a.body.prompt_v + ':' + a.body.variant, '1:1'] });
   assert.notEqual(b.body.variant, a.body.variant, 'second variant for a learner who saw the first');
-  const c = await call(e, '/v1/explain', { form: 'causative_masu_negative_past', seen: ['2:0', '2:1'] });
+  const c = await call(e, '/v1/explain', { form: 'causative_masu_negative_past', seen: ['3:0', '3:1'] });
   assert.equal(c.status, 200);
   assert.equal(log.length, 2, 'max variants reached → served from the database');
   const d = await call(e, '/v1/explain', { form: 'causative_masu_negative_past', seen: [] }, { user: 99 });

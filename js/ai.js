@@ -1,5 +1,5 @@
 'use strict';
-// «Объясни почему» (формы глаголов): объяснение формы и 3 задания на закрепление от umi AI.
+// «Объясни почему» (формы глаголов): объяснение формы и 3 задания на закрепление от 海先生 (ИИ).
 // Ключ OpenAI живёт только на сервере (server/, Cloudflare Worker); приложение шлёт подписанный
 // Telegram initData и id формы — без слов, прогресса и личных данных.
 let AI_API='https://umi-ai.umi-app.workers.dev';  // Cloudflare Worker (server/), задеплоен 14.10.2026
@@ -86,36 +86,133 @@ function aiFuriForm(dict,reading,form){
   return`<ruby>${esc(head)}<rt>${esc(read)}</rt></ruby>${esc(f.slice(head.length))}`;
 }
 
+/* ── Схема преобразований для глагола с карточки ──
+ * Цепочка форм от словарной до спрошенной (食べる → 食べて → 食べている → 食べていない → 食べていなくて).
+ * Строится нашим движком мгновенно и без ошибок — ещё до ответа ИИ. */
+function vbChain(id){
+  const D='dictionary';let m;
+  if((m=id.match(/^(potential|passive|causative_passive|causative)_(.+)$/))){
+    const f=m[1],r=m[2];
+    if(r==='ranuki')return[D,'potential_ranuki'];
+    if(r==='ranuki_negative')return[D,'potential_ranuki','potential_ranuki_negative'];
+    const t={nonpast:[],past:['past'],negative:['negative'],negative_past:['negative','negative_past'],masu:['masu'],
+      masu_past:['masu','masu_past'],masu_negative:['masu','masu_negative'],masu_negative_past:['masu','masu_negative','masu_negative_past']}[r]||[r];
+    return[D,f+'_nonpast',...t.map(x=>f+'_'+x)];
+  }
+  if((m=id.match(/^teiru_(.+)$/))){
+    const t={nonpast:[],past:['past'],negative:['negative'],negative_past:['negative','negative_past'],te:['te'],negative_te:['negative','negative_te'],
+      ba:['ba'],negative_ba:['negative','negative_ba'],tara:['past','tara'],negative_tara:['negative','negative_past','negative_tara'],
+      masu:['masu'],masu_past:['masu','masu_past'],masu_negative:['masu','masu_negative'],masu_negative_past:['masu','masu_negative','masu_negative_past'],
+      volitional:['volitional'],masu_volitional:['masu','masu_volitional'],nakya:['negative','nakya']}[m[1]]||[m[1]];
+    return[D,'te_form','teiru_nonpast',...t.map(x=>'teiru_'+x)];
+  }
+  if((m=id.match(/^tai_(.+)$/))){
+    const t={nonpast:[],past:['past'],negative:['negative'],negative_past:['negative','negative_past'],te:['te'],ba:['ba'],
+      tara:['past','tara'],polite:['polite'],polite_negative:['negative','polite_negative']}[m[1]]||[m[1]];
+    return[D,'masu_nonpast','tai_nonpast',...t.map(x=>'tai_'+x)];
+  }
+  const masu={masu_nonpast:[],masu_past:['masu_past'],masu_negative:['masu_negative'],masu_negative_past:['masu_negative','masu_negative_past'],
+    masu_volitional:['masu_volitional'],masu_tara:['masu_past','masu_tara'],masu_negative_tara:['masu_negative','masu_negative_past','masu_negative_tara'],
+    masu_ba_rare:['masu_ba_rare'],masu_negative_nara_rare:['masu_negative','masu_negative_nara_rare']};
+  if(masu[id])return[D,'masu_nonpast',...masu[id]];
+  const nai={nai_form:[],plain_negative_past:['plain_negative_past'],negative_te:['negative_te'],negative_ba:['negative_ba'],
+    negative_tara:['plain_negative_past','negative_tara'],nakereba:['nakereba'],nakya:['nakya'],nakucha:['nakucha'],
+    nakereba_naranai:['negative_ba','nakereba_naranai'],nakereba_narimasen:['negative_ba','nakereba_narimasen'],
+    nakya_ikenai:['nakya','nakya_ikenai'],nakute_wa_ikenai:['negative_te','nakute_wa_ikenai'],nai_to_ikenai:['nai_to_ikenai'],toki_negative:['toki_negative']};
+  if(nai[id])return[D,'nai_form',...nai[id]];
+  const past={plain_past:[],tara_conditional:['tara_conditional'],tara_ii_desu_ka:['tara_conditional','tara_ii_desu_ka'],
+    tara_dou_desu_ka:['tara_conditional','tara_dou_desu_ka'],toki_past:['toki_past']};
+  if(past[id])return[D,'plain_past',...past[id]];
+  if(/^te_(form|ageru|kureru|morau|moraemasenka)$/.test(id))return id==='te_form'?[D,'te_form']:[D,'te_form',id];
+  return id===D?[D]:[D,id];
+}
+// подпись — только у базовых форм (как в схемах ChatGPT); у остальных шагов говорит перевод
+const VB_STEP_LABEL={dictionary:'Словарная форма',te_form:'て-форма',masu_nonpast:'ます-форма',nai_form:'ない-форма',plain_past:'た-форма'};
+function vbStepLabel(r){return VB_STEP_LABEL[r.id]||'';}
+function vbChainSteps(v,ruleId){
+  const out=[];
+  for(const id of vbChain(ruleId)){
+    const r=VERB_RULES.find(x=>x.id===id);
+    if(!r||!vbFormAvail(v,r,'m'))continue;
+    const form=vbCards(v,r,'m').map(c=>c.jp).join('')||v.d;
+    if(out.length&&out[out.length-1].form===form)continue;
+    const ru=vbText(v,r.tp);
+    out.push({id,label:vbStepLabel(r),form,ru:vbTextOk(ru)?ru.replace(/ · вежливо$/,' (вежливо)'):''});
+  }
+  return out;
+}
+// группа спряжения глагола словами, без «итидан/годан»
+function vbGroupLabel(v){
+  if(v.t==='suru')return'глагол на する';
+  if(v.t==='kuru')return'неправильный глагол 来る';
+  if(v.t==='aru')return'глагол ある (особый)';
+  const r=String(v.r),last2=r.slice(-2,-1);
+  const ie='いきしちにひみりぎじびぴえけせてねへめれげぜべぺ'.includes(last2)&&r.endsWith('る');
+  if(v.t==='ichidan'||v.t==='kureru')return'глагол на -'+('いきしちにひみりぎじびぴ'.includes(last2)?'iru':'eru');
+  return ie?'глагол на -u (исключение: выглядит как -iru/-eru)':'глагол на -u';
+}
+function aiFlow(v,steps){
+  if(!steps.length)return'';
+  const box=(s,last)=>`<div class="ai-fbox${last?' last':''}">${s.label?`<span class="ai-fl">${esc(s.label)}</span>`:''}<b class="jp">${aiFuriForm(v.d,v.r,s.form)}</b>${s.ru?`<span class="ai-fr">${esc(s.ru)}</span>`:''}</div>`;
+  const [a,b,...rest]=steps;
+  const top=b?`<div class="ai-frow">${box(a,false)}<span class="ai-arr">→</span>${box(b,!rest.length)}</div>`:box(a,true);
+  return`<div class="ai-flow">${top}${rest.map((s,i)=>`<span class="ai-arr down">↓</span>${box(s,i===rest.length-1)}`).join('')}</div>`;
+}
+
+/* ── «Думаю…» по-японски: фразы меняются, пока 海先生 готовит ответ ── */
+const AI_THINK=[
+  ['考え中…','думаю'],['墨をすっています…','растираю тушь'],['筆を走らせています…','вожу кистью'],
+  ['辞書をめくっています…','листаю словарь'],['お茶を淹れています…','завариваю чай'],['活用を並べています…','раскладываю спряжения'],
+  ['漢字を数えています…','пересчитываю кандзи'],['ひらめき待ち…','жду озарения'],['文法をこねています…','замешиваю грамматику'],
+  ['波を見ています…','смотрю на волны'],['正座しています…','сижу в сэйдза'],['ふむふむ…','так-так…'],
+];
+let _thinkTimer=null,_thinkI=0;
+function aiThinkTick(){
+  const el=typeof document.querySelector==='function'&&document.querySelector('.ai-think-w');
+  if(!el||!S.ai||S.ai.status!=='loading'){clearInterval(_thinkTimer);_thinkTimer=null;return;}
+  _thinkI=(_thinkI+1)%AI_THINK.length;const[jp,ru]=AI_THINK[_thinkI];
+  el.classList.remove('swap');void el.offsetWidth;el.classList.add('swap');
+  el.querySelector('.jp').textContent=jp;el.querySelector('.ru').textContent=ru;
+}
+function aiThinkStart(){if(!_thinkTimer&&typeof setInterval==='function')_thinkTimer=setInterval(aiThinkTick,1800);}
+
 /* ── Панель объяснения (Figma «Формы глаголов» 160:786) ──
- * Выезжает из-под канваса, банк вариантов уходит ниже (до него — обычной прокруткой). Ответ ИИ —
- * по формуле: «Как собрать» (шаги) → «Примеры» → «Проверка» (3 задания сразу, отмечаются галочкой).
- * Как в чатах с ИИ: текст без пузырей, аватар в шапке, новые блоки проявляются по очереди. */
-function aiAvatar(){return`<span class="ai-ava" aria-hidden="true">${SPARK_SVG}</span>`;}
-function aiSection(n,title,html){return`<div class="ai-sec"><div class="ai-sec-t"><span class="ai-sec-n">${n}</span><span>${title}</span></div>${html}</div>`;}
+ * Выезжает из-под канваса; сразу чат, без вложенной панели. Ответ 海先生 по формуле:
+ * «Разбираем по шагам» (схема для глагола с карточки + смысл, шаги, таблица по группам) →
+ * «Примеры» → «Проверка» (3 задания сразу). Новые блоки проявляются по очереди. */
+const AI_NAME='海先生';
+function aiAvatar(){return`<span class="ai-ava" aria-hidden="true">海</span>`;}
+function aiSection(n,title,html){return`<h3 class="ai-h">${n}. ${title}</h3>${html}`;}
 function aiBlocks(a,q){
   const m=[];   // [{k: ключ, html}]
+  const v=q&&q.verbs?q.verb:null;
+  // схема для карточки — сразу, не дожидаясь ИИ
+  if(v){
+    const steps=vbChainSteps(v,q.rule.id);
+    m.push({k:'flow',html:aiSection(1,'Разбираем по шагам',
+      `<p>Исходный глагол — <b class="jp">${aiFuriForm(v.d,v.r,v.d)}</b> — ${esc(v.m)}. Это ${esc(vbGroupLabel(v))}.</p>${aiFlow(v,steps)}`)});
+  }
   if(a.status==='loading'){
-    m.push({k:'load',html:`<div class="ai-think"><span class="ai-shimmer">umi AI разбирает правило…</span><i class="ai-skel"></i><i class="ai-skel w2"></i><i class="ai-skel w3"></i></div>`});
+    const[jp,ru]=AI_THINK[_thinkI];
+    m.push({k:'load',html:`<div class="ai-think"><span class="ai-think-w"><span class="jp">${jp}</span><span class="ru">${ru}</span></span><i class="ai-skel"></i><i class="ai-skel w2"></i><i class="ai-skel w3"></i></div>`});
     return m;
   }
-  if(a.status==='error'){m.push({k:'err',html:`<div class="ai-err">${esc(a.error)}</div>`});return m;}
+  if(a.status==='error'){m.push({k:'err',html:`<p class="ai-err">${esc(a.error)}</p>`});return m;}
   const d=a.data;
-  // 1. Как собрать: смысл, схема, разбор формы с карточки (наш движок), шаги
-  const parts=q&&q.verbs?[q.stem.jp,...(q.modeB?q.accepted[0].seq:q.target)]:[];
-  const breakdown=parts.length?`<div class="ai-parts">${parts.map((p,i)=>`<span class="ai-part${i?'':' stem'}">${esc(p)}</span>`).join('<span class="ai-plus">+</span>')}<span class="ai-eq">=</span><span class="ai-part res">${q?aiFuriForm(q.verb.d,q.verb.r,parts.join('')):esc(parts.join(''))}</span></div>`:'';
-  m.push({k:'build',html:aiSection(1,'Как собрать',
-    `<p class="ai-p">${aiFuriText(d.summary)}</p><div class="ai-pattern">${esc(d.pattern)}</div>${breakdown}
-     <ol class="ai-steps">${d.steps.map(x=>`<li>${aiFuriText(x)}</li>`).join('')}</ol>`+
-    (d.notes&&d.notes.length?`<div class="ai-notes">${d.notes.map(x=>`<p>${aiFuriText(x)}</p>`).join('')}</div>`:''))});
-  // 2. Примеры: формы разных типов глаголов (движок) и предложения (модель, с чтениями)
-  const ex=(d.examples||[]).map(e=>`<li><span class="ai-ex-jp">${aiFuriForm(e.verb,e.reading,e.form)}</span><span class="ai-ex-ru">${esc(e.ru)}</span></li>`).join('');
+  const table=(d.groups||[]).length?`<div class="ai-table" role="table">
+      <div class="ai-tr th" role="row"><span role="columnheader">Глаголы</span><span role="columnheader">Как образуется</span></div>
+      ${d.groups.map(g=>`<div class="ai-tr" role="row"><span role="cell"><b>${esc(g.label)}</b><i class="jp">${aiFuriForm(g.verb,g.reading,g.form)}</i></span><span role="cell">${aiFuriText(g.how)}</span></div>`).join('')}
+    </div>`:'';
+  m.push({k:'rule',html:`${v?'':aiSection(1,'Разбираем по шагам','')}<p>${aiFuriText(d.summary)}</p><div class="ai-pattern">${esc(d.pattern)}</div>
+    <ol class="ai-steps">${d.steps.map(x=>`<li>${aiFuriText(x)}</li>`).join('')}</ol>${table}`+
+    (d.notes&&d.notes.length?`<div class="ai-notes">${d.notes.map(x=>`<p>${aiFuriText(x)}</p>`).join('')}</div>`:'')});
+  const ex=(d.examples||[]).map(e=>`<li><span class="ai-ex-jp">${aiFuriForm(e.verb,e.reading,e.form)}</span><span class="ai-ex-ru">${esc(String(e.ru).replace(/ · вежливо$/,' (вежливо)'))}</span></li>`).join('');
   const sent=(d.sentences||[]).map(x=>`<div class="ai-sent"><p class="ai-sent-jp">${aiFuriText(x.jp)}</p><p class="ai-sent-ru">${esc(x.ru)}</p></div>`).join('');
   if(ex||sent)m.push({k:'examples',html:aiSection(2,'Примеры',(ex?`<ul class="ai-ex">${ex}</ul>`:'')+sent)});
-  // 3. Проверка: все три задания сразу, вариант отмечается галочкой
   const tasks=d.exercises.map((x,ei)=>{
     const opts=aiOptions(x,ei),pick=a.picks[ei];
     const ok=pick!=null&&opts[pick]===x.answer;
-    return`<div class="ai-task"><div class="ai-q"><span class="ai-n">${ei+1}</span><span>${aiFuriText(x.question)}</span></div>
+    return`<div class="ai-task"><p class="ai-q"><span class="ai-n">${ei+1}</span><span>${aiFuriText(x.question)}</span></p>
       <div class="ai-verb"><b class="jp">${aiFuriForm(x.verb,x.reading,x.verb)}</b><span>${esc(x.meaning)}</span></div>
       <div class="ai-opts" role="radiogroup">${opts.map((o,oi)=>{
         const st=pick==null?'':o===x.answer?' ok':oi===pick?' bad':' dim';
@@ -126,12 +223,13 @@ function aiBlocks(a,q){
   const done=d.exercises.filter((_,ei)=>a.picks[ei]!=null).length;
   const n=d.exercises.filter((x,ei)=>a.picks[ei]!=null&&aiOptions(x,ei)[a.picks[ei]]===x.answer).length;
   const score=done===d.exercises.length?`<div class="ai-score"><b>${n} из ${done}</b>${n===done?' — форма закреплена.':' — загляните в шаги выше и попробуйте эту форму ещё раз.'}</div>`:'';
-  m.push({k:'check',html:aiSection(3,'Проверка',`<p class="ai-p ai-sub">Отметьте правильный вариант.</p>${tasks}${score}`)});
+  m.push({k:'check',html:aiSection(3,'Проверка',`<p class="ai-sub">Отметьте правильный вариант.</p>${tasks}${score}`)});
   return m;
 }
 function buildAiDrawer(){
   const a=S.ai;if(!a||!a.open)return'';
   const blocks=aiBlocks(a,S.quizQ);
+  if(a.status==='loading')aiThinkStart();
   // новые блоки (которых не было в прошлой отрисовке) проявляются по очереди
   const before=a.shown||new Set();let n=0;
   const body=blocks.map(x=>{
@@ -143,13 +241,11 @@ function buildAiDrawer(){
   if(a.status==='error')chips.push(`<button class="ai-chip primary" data-a="ai-retry">Повторить</button>`);
   if(a.status==='ready')chips.push(`<button class="ai-chip" data-a="ai-more">Объясни по-другому</button>`);
   return`<section class="ai-drawer" data-key="ai-drawer" aria-label="Объяснение правила">
-    <div class="ai-panel">
-      <div class="ai-head">${aiAvatar()}<div class="ai-who"><b>umi AI</b><span>${a.status==='loading'?'печатает…':esc(a.data?a.data.title:'объяснение правила')}</span></div>
-        <button class="ai-x" data-a="ai-close" aria-label="Скрыть объяснение"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 9l4-4 4 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></button></div>
-      <div class="ai-body">${body}</div>
-      ${chips.length?`<div class="ai-chips">${chips.join('')}</div>`:''}
-      ${a.status==='ready'?`<div class="ai-foot"><span>Ответ сгенерирован ИИ и может содержать неточности</span><button class="ai-link" data-a="ai-report"${a.reported?' aria-disabled="true"':''}>${a.reported?'Отправлено':'Сообщить об ошибке'}</button></div>`:''}
-    </div>
+    <div class="ai-head">${aiAvatar()}<div class="ai-who"><b>${AI_NAME}</b><span>${a.status==='loading'?'печатает…':esc(a.data?a.data.title:'объяснение правила')}</span></div>
+      <button class="ai-x" data-a="ai-close" aria-label="Скрыть объяснение"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 9l4-4 4 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></button></div>
+    <div class="ai-body">${body}</div>
+    ${chips.length?`<div class="ai-chips">${chips.join('')}</div>`:''}
+    ${a.status==='ready'?`<div class="ai-foot"><span>Ответ сгенерирован ИИ и может содержать неточности</span><button class="ai-link" data-a="ai-report"${a.reported?' aria-disabled="true"':''}>${a.reported?'Отправлено':'Сообщить об ошибке'}</button></div>`:''}
   </section>`;
 }
 
@@ -157,12 +253,16 @@ function buildAiDrawer(){
 const AI_DEMO={form:'causative_masu_negative_past',title:'Каузатив · вежливое отрицание прошедшего',
   summary:'«Не заставил(а) / не разрешил(а) сделать» в вежливом стиле — о том, что вы не заставили или не позволили сделать другому.',
   pattern:'V-ない-основа + せ/させ + ませんでした',
-  steps:['Возьмите ない-основу: у годан — слог ряда «а» (書[か]く → 書[か]か), у итидан — основа без る (食[た]べる → 食[た]べ).','Добавьте каузатив: годан + せ (書[か]かせ), итидан + させ (食[た]べさせ); する → させ, 来[く]る → 来[こ]させ.','Вежливое отрицание прошедшего: る меняется на ませんでした — 書[か]かせませんでした.'],
+  steps:['Возьмите ない-основу: у глаголов на -u — слог ряда «а» (書[か]く → 書[か]か), у глаголов на -iru/-eru — основа без る (食[た]べる → 食[た]べ).','Добавьте каузатив: на -u + せ (書[か]かせ), на -iru/-eru + させ (食[た]べさせ); する → させ, 来[く]る → 来[こ]させ.','Вежливое отрицание прошедшего: る меняется на ませんでした — 書[か]かせませんでした.'],
   notes:['Без контекста форма значит и «не заставил», и «не разрешил».'],
+  groups:[{key:'ru',label:'на -iru / -eru',how:'Вместо る добавьте させ, затем ませんでした.',verb:'食べる',reading:'たべる',form:'食べさせませんでした'},
+    {key:'u',label:'на -u',how:'Последний слог -u меняется на -a, добавьте せ и ませんでした.',verb:'書く',reading:'かく',form:'書かせませんでした'},
+    {key:'suru',label:'する и 〜する',how:'する → させ, затем ませんでした.',verb:'する',reading:'する',form:'させませんでした'},
+    {key:'kuru',label:'来る',how:'来[く]る → 来[こ]させ, затем ませんでした.',verb:'来る',reading:'くる',form:'来させませんでした'}],
   examples:[{verb:'食べる',reading:'たべる',meaning:'есть',form:'食べさせませんでした',ru:'не заставил(а) поесть · вежливо'},{verb:'書く',reading:'かく',meaning:'писать',form:'書かせませんでした',ru:'не заставил(а) написать · вежливо'},{verb:'する',reading:'する',meaning:'делать',form:'させませんでした',ru:'не заставил(а) сделать · вежливо'},{verb:'来る',reading:'くる',meaning:'приходить',form:'来させませんでした',ru:'не заставил(а) прийти · вежливо'}],
   sentences:[{jp:'子[こ]どもにお菓子[かし]を食[た]べさせませんでした。',ru:'Я не дал(а) ребёнку есть сладости.'},{jp:'先生[せんせい]は宿題[しゅくだい]を書[か]かせませんでした。',ru:'Учитель не заставил писать домашнее задание.'}],
   exercises:[
-    {verb:'書く',reading:'かく',meaning:'писать',question:'Как вежливо сказать «не заставил(а) написать»?',options:['書かせませんでした','書かせました','書かれませんでした','書けませんでした'],answer:'書かせませんでした',why:'Годан: 書[か]く → 書[か]か + せ, вежливое отрицание прошедшего — ませんでした.'},
-    {verb:'食べる',reading:'たべる',meaning:'есть',question:'«Не дал(а) поесть» — вежливо:',options:['食べさせませんでした','食べさせません','食べられませんでした','食べませんでした'],answer:'食べさせませんでした',why:'Итидан берёт させ, а прошедшее отрицание — ませんでした.'},
+    {verb:'書く',reading:'かく',meaning:'писать',question:'Как вежливо сказать «не заставил(а) написать»?',options:['書かせませんでした','書かせました','書かれませんでした','書けませんでした'],answer:'書かせませんでした',why:'Глагол на -u: 書[か]く → 書[か]か + せ, вежливое отрицание прошедшего — ませんでした.'},
+    {verb:'食べる',reading:'たべる',meaning:'есть',question:'«Не дал(а) поесть» — вежливо:',options:['食べさせませんでした','食べさせません','食べられませんでした','食べませんでした'],answer:'食べさせませんでした',why:'Глагол на -eru берёт させ, а прошедшее отрицание — ませんでした.'},
     {verb:'待つ',reading:'まつ',meaning:'ждать',question:'Выберите «не заставил(а) ждать» (вежливо):',options:['待たせませんでした','待たせなかった','待てませんでした','待ちませんでした'],answer:'待たせませんでした',why:'待[ま]つ → 待[ま]た + せ; 待[ま]たせなかった — тоже отрицание, но не вежливое.'},
   ]};

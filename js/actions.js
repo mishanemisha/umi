@@ -307,7 +307,7 @@ function act(action){
       }
       break;}
     case'verb-flag':vbFlagToggle(S.quizQ);haptic('light');break;
-    // «Объясни почему»: объяснение формы и 3 задания от umi AI (js/ai.js)
+    // «Объясни почему»: объяснение формы и 3 задания от 海先生 (js/ai.js)
     case'ai-open':aiOpen();haptic('light');break;
     case'ai-close':if(collapseDrawer('.ai-drawer',()=>{aiClose();render();}))return;aiClose();break;
     case'ai-retry':if(S.ai){const f=S.ai.form;S.ai.status='loading';aiLoad(f,++_aiReq,0);}break;

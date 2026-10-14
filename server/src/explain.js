@@ -5,23 +5,27 @@
 import { RULE, VERB, VERB_BANK, VERB_RULES, cards, surface, text, usable } from './verbs.js';
 
 // 2 — формула ответа: шаги сборки → примеры → проверка; японский текст с чтениями 漢字[かな]
-export const PROMPT_VERSION = 2;
+// 3 — таблица «как образуется» по группам спряжения (-iru/-eru, -u, する, 来る) без терминов итидан/годан
+export const PROMPT_VERSION = 3;
 
-// примеры для объяснения: по одному глаголу каждого типа, где форма существует
-const EXAMPLE_TYPES = [['ichidan', 'taberu'], ['godan-ku', 'kaku'], ['godan-u', 'kau'], ['godan-mu', 'yomu'],
-  ['godan-ru', 'toru'], ['suru', 'suru'], ['kuru', 'kuru']];
+// группы спряжения так, как их называем ученику; пример — первый глагол группы, у которого есть форма
+export const GROUPS = [
+  { key: 'ru', label: 'на -iru / -eru', ids: ['taberu', 'miru', 'okiru', 'neru'] },
+  { key: 'u', label: 'на -u', ids: ['kaku', 'nomu', 'kau', 'matsu', 'yomu'] },
+  { key: 'suru', label: 'する и 〜する', ids: ['suru', 'benkyousuru'] },
+  { key: 'kuru', label: '来る', ids: ['kuru'] },
+];
 
-export function examples(rule) {
+function groupExamples(rule) {
   const out = [];
-  for (const [type, id] of EXAMPLE_TYPES) {
-    const v = VERB[id] || VERB_BANK.find(x => x.t === type && usable(x, rule));
-    if (!v || !usable(v, rule)) continue;
-    const c = cards(v, rule);
-    out.push({ verb: v.d, reading: v.r, type: v.t, meaning: v.m, form: c.join(''), parts: c, task_ru: text(v, rule.tp) });
-    if (out.length >= 4) break;
+  for (const g of GROUPS) {
+    const v = g.ids.map(id => VERB[id]).find(v => v && usable(v, rule));
+    if (!v) continue;
+    out.push({ key: g.key, group: g.label, verb: v.d, reading: v.r, meaning: v.m, form: surface(v, rule), task_ru: text(v, rule.tp) });
   }
   return out;
 }
+export const examples = groupExamples;
 
 const shuffle = (a, rnd) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
@@ -49,8 +53,13 @@ export function candidates(rule, { exclude = [], rnd = Math.random, n = 6 } = {}
   return out;
 }
 
-export const INSTRUCTIONS = `Ты — преподаватель японского для русскоязычных учеников уровня N5–N3 в приложении umi.
-Объясни одну грамматическую форму глагола строго по формуле: 1) как собрать форму по шагам, 2) примеры, 3) короткая проверка.
+export const INSTRUCTIONS = `Ты — 海先生 (Уми-сэнсэй), преподаватель японского для русскоязычных учеников уровня N5–N3 в приложении umi.
+Объясни одну грамматическую форму глагола строго по формуле: 1) что значит форма и как её собрать по шагам, 2) примеры, 3) короткая проверка.
+Схему преобразований для конкретного глагола с карточки приложение рисует само — ты объясняешь правило в целом.
+
+Термины: НЕ используй слова «итидан», «годан», «ру-глаголы/у-глаголы» и номера групп. Называй группы так:
+«глаголы на -iru/-eru» (食[た]べる, 見[み]る), «глаголы на -u» (書[か]く, 飲[の]む), «する и 〜する», «来[く]る».
+Если важно, предупреди об исключениях: некоторые глаголы выглядят как -iru/-eru, но спрягаются как глаголы на -u (帰[かえ]る, 入[はい]る, 走[はし]る).
 
 Правила:
 - Пиши по-русски, коротко и просто, без воды, без приветствий и без обращения по имени.
@@ -59,8 +68,10 @@ export const INSTRUCTIONS = `Ты — преподаватель японско�
   書[か]かせる, 食[た]べる, 来[こ]ない, 勉強[べんきょう]する. Чтение — только для кандзи, кану не дублируй.
 - summary — 1–2 предложения: что значит форма и когда её используют.
 - pattern — схема в одну строку, например «V-ない-основа + させ + ませんでした» (без чтений).
-- steps — 2–4 шага сборки из словарной формы: какую основу взять, что добавить. В каждом шаге — мини-пример
-  на одном из examples (например «書[か]く → 書[か]か»). Покажи разницу для разных типов глаголов из examples.
+- steps — 2–4 коротких шага сборки из словарной формы: от какой формы идём, что меняем, что добавляем.
+  В каждом шаге — мини-пример на одном из examples (например «書[か]く → 書[か]か»).
+- groups — по одной строке таблицы на каждую группу из examples (key — как в examples): how — как образуется форма
+  у этой группы, коротко, без примера (пример приложение подставит само).
 - notes — 0–2 коротких замечания: оттенок смысла, вежливость или частая ошибка.
 - sentences — 1–2 коротких естественных предложения уровня N5–N4 с этой формой (глагол — из examples), jp с чтениями
   для всех кандзи и ru — перевод.
@@ -80,11 +91,15 @@ export function buildInput(rule, cands) {
 const str = (max) => ({ type: 'string', maxLength: max });
 export const SCHEMA = {
   type: 'object', additionalProperties: false,
-  required: ['title', 'summary', 'pattern', 'steps', 'notes', 'sentences', 'exercises'],
+  required: ['title', 'summary', 'pattern', 'steps', 'notes', 'groups', 'sentences', 'exercises'],
   properties: {
     title: str(80), summary: str(400), pattern: str(120),
     steps: { type: 'array', minItems: 2, maxItems: 4, items: str(260) },
     notes: { type: 'array', minItems: 0, maxItems: 2, items: str(240) },
+    groups: { type: 'array', minItems: 1, maxItems: 4, items: {
+      type: 'object', additionalProperties: false, required: ['key', 'how'],
+      properties: { key: { type: 'string', enum: GROUPS.map(g => g.key) }, how: str(200) },
+    } },
     sentences: { type: 'array', minItems: 1, maxItems: 2, items: {
       type: 'object', additionalProperties: false, required: ['jp', 'ru'], properties: { jp: str(160), ru: str(200) },
     } },
@@ -116,9 +131,14 @@ export function assemble(raw, rule, cands) {
   need(clean(o.summary) && clean(o.pattern) && o.steps.every(clean), 'empty text');
   const sentences = (o.sentences || []).map(x => ({ jp: clean(x && x.jp), ru: clean(x && x.ru) })).filter(x => x.jp && x.ru).slice(0, 2);
   // примеры форм — из нашего движка (верные всегда), модель их только объясняет
-  const ex = examples(rule).map(e => ({ verb: e.verb, reading: e.reading, meaning: e.meaning, form: e.form, ru: e.task_ru }));
+  const gx = groupExamples(rule);
+  const ex = gx.map(e => ({ verb: e.verb, reading: e.reading, meaning: e.meaning, form: e.form, ru: e.task_ru }));
+  // таблица по группам: текст модели + пример из движка; группы без формы у примера отбрасываем
+  const how = Object.fromEntries((o.groups || []).map(g => [g.key, clean(g.how)]));
+  const groups = gx.filter(e => how[e.key]).map(e => ({ key: e.key, label: e.group, how: how[e.key], verb: e.verb, reading: e.reading, form: e.form }));
+  need(groups.length >= Math.min(2, gx.length), 'groups table');
   return { form: rule.id, title: clean(o.title) || rule.gl, summary: clean(o.summary), pattern: clean(o.pattern),
-    steps: o.steps.map(clean), notes: (o.notes || []).map(clean).filter(Boolean), examples: ex, sentences, exercises };
+    steps: o.steps.map(clean), notes: (o.notes || []).map(clean).filter(Boolean), groups, examples: ex, sentences, exercises };
 }
 
 export const ruleById = id => RULE[id] || null;

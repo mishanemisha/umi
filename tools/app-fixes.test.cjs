@@ -395,7 +395,9 @@ test('«Объясни почему»: button only after an answer; steps → ex
  a.ctx.fetch=async(url,init)=>{calls.push({url,init});return{ok:true,status:200,json:async()=>({variant:1,prompt_v:2,data:a.run('AI_DEMO')})};};
  a.run(`act('ai-open')`);
  let h0=a.run('buildApp()');
- assert.match(h0,/ai-think/,'loading state');
+ assert.match(h0,/ai-think-w/,'loading state with a Japanese thinking phrase');
+ assert.match(h0,/1\. Разбираем по шагам[\s\S]*ai-flow/,'card-specific flowchart is shown before the AI answers');
+ assert.match(h0,/海先生/);
  assert.match(h0,/<\/div><section class="ai-drawer"/,'panel slides out under the canvas');
  assert.match(h0,/<\/section><\/div><div class="quiz-panel">/,'chip bank stays below the panel');
  await new Promise(r=>setImmediate(r));await new Promise(r=>setImmediate(r));
@@ -403,7 +405,8 @@ test('«Объясни почему»: button only after an answer; steps → ex
  assert.equal(calls[0].init.headers['x-telegram-init-data'],'signed');
  assert.deepEqual(Object.keys(JSON.parse(calls[0].init.body)).sort(),['form','seen'],'only the form id goes to the server');
  let html=a.run('buildApp()');
- assert.match(html,/Как собрать[\s\S]*Примеры[\s\S]*Проверка/,'answer follows the formula');
+ assert.match(html,/Разбираем по шагам[\s\S]*ai-table[\s\S]*2\. Примеры[\s\S]*3\. Проверка/,'answer follows the formula with a table');
+ assert.doesNotMatch(html,/итидан|годан/,'no ichidan/godan wording');
  assert.equal((html.match(/data-a="ai-pick:/g)||[]).length,12,'all three drills at once');
  assert.match(html,/<ruby>書<rt>か<\/rt><\/ruby>かせ/,'furigana from 漢字[かな] markup and on engine forms');
  assert.doesNotMatch(html,/\[か\]/);
@@ -436,4 +439,24 @@ test('verb canvas follows the design: task, tags instead of « · вежливо
  assert.doesNotMatch(r.h,/data-a="ai-open"/,'no AI button before the answer');
  const css=require('node:fs').readFileSync(require('node:path').join(root,'css/app.css'),'utf8');
  assert.match(css,/\.qbadge\.qok\{--qb:linear-gradient\(160deg,#1f6f1f/);
+});
+
+test('verb flowchart: chain from the dictionary form to the asked form, built by the engine',()=>{
+ const a=app();
+ const r=JSON.parse(a.run(`(()=>{
+  const v=VERB_BANK.find(v=>v.d==='褒める');
+  const steps=vbChainSteps(v,'teiru_negative_te').map(s=>s.form);
+  const kaeru=VERB_BANK.find(v=>v.d==='帰る');
+  const all=[];
+  for(const vb of VERB_BANK.slice(0,120))for(const r of VERB_RULES){
+    if(!vbFormAvail(vb,r,'m'))continue;
+    const st=vbChainSteps(vb,r.id),want=vbCards(vb,r,'m').map(c=>c.jp).join('');
+    if(!st.length||st[0].id!=='dictionary'||st[st.length-1].form!==want)all.push(vb.d+' '+r.id);
+  }
+  return JSON.stringify({steps,ich:vbGroupLabel(v),exc:vbGroupLabel(kaeru),bad:all.slice(0,10)});
+ })()`));
+ assert.deepEqual(r.steps,['褒める','褒めて','褒めている','褒めていない','褒めていなくて']);
+ assert.equal(r.ich,'глагол на -eru');
+ assert.equal(r.exc,'глагол на -u (исключение: выглядит как -iru/-eru)');
+ assert.deepEqual(r.bad,[],'every chain starts at the dictionary form and ends at the asked form');
 });
