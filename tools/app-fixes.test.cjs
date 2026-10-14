@@ -311,21 +311,18 @@ test('verb forms: every generated task is answerable from its chips and the task
   const allCats=VERB_CATS_DATA.map(c=>c.v);
   const ms=(arr)=>{const c={};arr.forEach(j=>{c[j]=(c[j]||0)+1;});return c;};
   const fits=(seq,opts)=>{const c=ms(opts);return seq.every(j=>c[j]-->0);};
-  for(const mode of ['A','B'])for(const lvl of ['easy','medium','hard'])for(const style of ['plain','polite','both']){
-   S.quizCfg.verbMode=mode;S.quizCfg.verbLevel=lvl;S.quizCfg.verbStyle=style;S.quizCfg.verbCats=allCats.slice();
+  for(const lvl of ['easy','medium','hard'])for(const style of ['plain','polite','both']){
+   S.quizCfg.verbLevel=lvl;S.quizCfg.verbStyle=style;S.quizCfg.verbCats=allCats.slice();
    S.quizRecent=[];
-   for(let i=0;i<400;i++){
-    const q=buildVerbQ();if(!q){bad.push('null '+mode+lvl+style);break;}n++;
+   for(let i=0;i<800;i++){
+    const q=buildVerbQ();if(!q){bad.push('null '+lvl+style);break;}n++;
     const tag=q.verb.d+' '+q.rule.id+' '+lvl+': ';
     if(!vbTextOk(q.task))bad.push(tag+'task '+q.task);
     if(q.options.includes('∅')||(q.stem.jp==='∅'))bad.push(tag+'∅ chip');
-    if(mode==='A'){if(!fits(q.target,q.options))bad.push(tag+'target not in chips');}
-    else{
-     if(!fits(q.accepted[0].seq,q.options))bad.push(tag+'primary not in chips');
-     if(q.accepted[0].seq.join('|')!==vbCards(q.verb,q.rule,LVL[lvl]).slice(1).map(c=>c.jp).join('|'))bad.push(tag+'primary is not the asked form');
-     // все принятые формы дают то же задание
-     q.accepted.forEach(x=>{const r=VERB_RULES.find(r=>r.id===x.id);if(vbText(q.verb,r.tp)!==vbText(q.verb,q.rule.tp))bad.push(tag+'accepts '+x.id);});
-    }
+    if(!fits(q.accepted[0].seq,q.options))bad.push(tag+'primary not in chips');
+    if(q.accepted[0].seq.join('|')!==vbCards(q.verb,q.rule,LVL[lvl]).slice(1).map(c=>c.jp).join('|'))bad.push(tag+'primary is not the asked form');
+    // все принятые формы дают то же задание
+    q.accepted.forEach(x=>{const r=VERB_RULES.find(r=>r.id===x.id);if(vbText(q.verb,r.tp)!==vbText(q.verb,q.rule.tp))bad.push(tag+'accepts '+x.id);});
    }
   }
   // скриншоты-примеры: задание передаёт время/отрицание/вежливость
@@ -340,7 +337,7 @@ test('verb forms: every generated task is answerable from its chips and the task
   return JSON.stringify({bad:bad.slice(0,20),n,ex});
  })()`));
  assert.deepEqual(r.bad,[]);
- assert(r.n>=7000);
+ assert(r.n>=7000);   // 3 уровня × 3 стиля × 800
  assert.equal(r.ex.cause,'не заставил(а) зайти · вежливо');
  assert.equal(r.ex.peel,'если сейчас не чищу');
  assert.equal(r.ex.praise,'сейчас не хвалю, и…');
@@ -387,16 +384,16 @@ test('re-import updates every copy of a kanji, and examples prefer Russian meani
 test('«Объясни почему»: button only after an answer; steps → examples → check with all 3 drills at once; furigana; closes on next',async()=>{
  const a=app({tg:{...fakeTelegram(),initData:'signed'}});
  const calls=[];
- a.run(`S.quizCfg={...S.quizCfg,mode:'verbs',verbMode:'A'};act('start-quiz')`);
+ a.run(`S.quizCfg={...S.quizCfg,mode:'verbs'};act('start-quiz')`);
  assert.doesNotMatch(a.run('buildApp()'),/data-a="ai-open"/,'no button before the answer');
- a.run(`for(let i=0;i<S.quizQ.target.length;i++)act('verb-pick:'+S.quizQ.options.indexOf(S.quizQ.target[i]))`);
+ a.run(`(()=>{const q=S.quizQ,used=[];q.accepted[0].seq.forEach(j=>{const i=q.options.findIndex((o,k)=>o===j&&!used.includes(k));used.push(i);act('verb-pick:'+i);});})()`);
  assert.match(a.run('buildApp()'),/data-a="ai-open"/);
  a.run(`AI_API='https://ai.example';`);
  a.ctx.fetch=async(url,init)=>{calls.push({url,init});return{ok:true,status:200,json:async()=>({variant:1,prompt_v:2,data:a.run('AI_DEMO')})};};
  a.run(`act('ai-open')`);
  let h0=a.run('buildApp()');
- assert.match(h0,/ai-think-w/,'loading state with a Japanese thinking phrase');
- assert.match(h0,/1\. Разбираем по шагам[\s\S]*ai-flow/,'card-specific flowchart is shown before the AI answers');
+ assert.match(h0,/<div class="ai-think"><span class="ai-think-w"><span class="jp">[^<]+<\/span><\/span><\/div>/,'loading: one Japanese phrase, no gloss, no skeleton bars');
+ assert.doesNotMatch(h0,/ai-flow|ai-skel/,'nothing that looks like an answer until 海先生 replies');
  assert.match(h0,/海先生/);
  assert.match(h0,/<\/div><section class="ai-drawer"/,'panel slides out under the canvas');
  assert.match(h0,/<\/section><\/div><div class="quiz-panel">/,'chip bank stays below the panel');
@@ -405,7 +402,7 @@ test('«Объясни почему»: button only after an answer; steps → ex
  assert.equal(calls[0].init.headers['x-telegram-init-data'],'signed');
  assert.deepEqual(Object.keys(JSON.parse(calls[0].init.body)).sort(),['form','seen'],'only the form id goes to the server');
  let html=a.run('buildApp()');
- assert.match(html,/Разбираем по шагам[\s\S]*ai-table[\s\S]*2\. Примеры[\s\S]*3\. Проверка/,'answer follows the formula with a table');
+ assert.match(html,/1\. Разбираем по шагам[\s\S]*ai-flow[\s\S]*ai-table[\s\S]*2\. Примеры[\s\S]*3\. Проверка/,'answer: card flowchart, steps and table, examples, check');
  assert.doesNotMatch(html,/итидан|годан/,'no ichidan/godan wording');
  assert.equal((html.match(/data-a="ai-pick:/g)||[]).length,12,'all three drills at once');
  assert.match(html,/<ruby>書<rt>か<\/rt><\/ruby>かせ/,'furigana from 漢字[かな] markup and on engine forms');
@@ -432,7 +429,7 @@ test('verb canvas follows the design: task, tags instead of « · вежливо
   return JSON.stringify({h,furi:vbFuriDict(v),furi2:vbFuriDict(VERB_BANK.find(v=>v.d==='役に立つ'))});
  })()`));
  assert.match(r.h,/Задание:<\/div><div class="vb-task">не ем<\/div>/);
- assert.match(r.h,/<span class="vb-tag">вежливо<\/span><span class="vb-tag">отрицание<\/span>/);
+ assert.match(r.h,/<div class="vb-tags"><span class="vb-tag">вежливая форма<\/span><\/div>/,'only the style tag: negation is already in the task');
  assert.doesNotMatch(r.h,/· вежливо/);
  assert.equal(r.furi,'<span class="furi-k"><span class="furi-r">た</span>食</span>べる');
  assert.equal(r.furi2,'<span class="furi-k"><span class="furi-r">やくにた</span>役に立</span>つ');
@@ -459,4 +456,52 @@ test('verb flowchart: chain from the dictionary form to the asked form, built by
  assert.equal(r.ich,'глагол на -eru');
  assert.equal(r.exc,'глагол на -u (исключение: выглядит как -iru/-eru)');
  assert.deepEqual(r.bad,[],'every chain starts at the dictionary form and ends at the asked form');
+});
+
+test('verb filters: tasks come only from the chosen forms; modifiers narrow them; impossible ones are disabled',()=>{
+ const a=app();
+ const r=JSON.parse(a.run(`(()=>{
+  const bad=[],seen={};
+  const forms=VERB_CATS_DATA.filter(c=>c.k==='form'),mods=VERB_CATS_DATA.filter(c=>c.k!=='form');
+  S.quizCfg.mode='verbs';S.quizCfg.verbStyle='both';S.quizCfg.verbLevel='medium';
+  for(const f of forms){
+   S.quizCfg.verbCats=[f.v];S.quizRecent=[];
+   for(let i=0;i<150;i++){
+    const q=buildVerbQ();if(!q){bad.push('null '+f.v);break;}
+    if(!q.rule.ff.includes(f.mv))bad.push(f.v+' → '+q.rule.id);
+    if(f.v!=='obligation'&&/^нужно /.test(q.task))bad.push(f.v+' gives «нужно»: '+q.rule.id);
+    (seen[f.v]=seen[f.v]||new Set()).add(q.rule.id);
+   }
+   for(const m of mods){
+    if(!vbModAvail(m))continue;
+    S.quizCfg.verbCats=[f.v,m.v];S.quizRecent=[];
+    for(let i=0;i<60;i++){const q=buildVerbQ();if(!q){bad.push('null '+f.v+'+'+m.v);break;}
+     if(!q.rule.ff.includes(f.mv)||!vbCatMatch(q.rule,m))bad.push(f.v+'+'+m.v+' → '+q.rule.id);}
+   }
+  }
+  // «Нужно» без выбранной обязанности и «Вежливые/Разговорные» в меню
+  S.quizCfg.verbCats=['nai_form'];
+  const naiIds=[...new Set(vbPool().map(r=>r.id))];
+  S.quizCfg.verbCats=['masu'];
+  const pastOn=vbModAvail(VERB_CAT_BY_ID.past),qOn=vbModAvail(VERB_CAT_BY_ID.question);
+  act('verb-cat:question');
+  return JSON.stringify({bad:bad.slice(0,20),naiIds,pastOn,qOn,cats:S.quizCfg.verbCats,ids:VERB_CATS_DATA.map(c=>c.v)});
+ })()`));
+ assert.deepEqual(r.bad,[]);
+ assert.deepEqual(r.naiIds.sort(),['nai_form','negative_te','plain_negative_past'],'ない-форма: «не ем / не поел / не поев», без «если не» и «нужно»');
+ assert.equal(r.pastOn,true);assert.equal(r.qOn,false,'«Вопросы» с ます-формами невозможны — чип неактивен');
+ assert.deepEqual(r.cats,['masu'],'a disabled modifier is not switched on');
+ assert(!r.ids.includes('polite')&&!r.ids.includes('colloquial'),'style duplicates removed from «Изменить форму»');
+});
+
+test('verb filter menu: collapsible groups with a summary, construction hints, Start',()=>{
+ const a=app();
+ a.run(`act('open-cfg:quiz-verbs')`);
+ let h=a.run('buildApp()');
+ assert.match(h,/class="vf-hd" data-a="vf-open:style"[\s\S]*Стиль[\s\S]*Обе/);
+ assert.doesNotMatch(h,/Только смысл|Грамматика/,'no «Подсказка» setting any more');
+ a.run(`act('vf-open:form')`);
+ h=a.run('buildApp()');
+ assert.match(h,/Каузатив<\/span><small>〜せる, 〜させる — «заставлю, разрешу»<\/small>/);
+ assert.match(h,/data-a="start-quiz">Старт/);
 });

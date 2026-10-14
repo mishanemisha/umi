@@ -54,7 +54,7 @@ const S={
   studyQueue:[], studyIdx:0, cardFlipped:false, studyResults:null,
   studyCfg:{type:'words',front:['kanji'],back:['reading','meaning'],filter:'all',count:'all',folders:[]},
   quizCfg:{type:'words',mode:'choice6',question:['kanji'],answer:['reading'],filter:'all',count:'all',folders:[],composeShow:{reading:true,meaning:false},composeMode:'normal',ultraDifficulty:'all',
-    verbStyle:'both',verbMode:'A',verbLevel:'medium',verbSource:'all',verbCats:VERB_CATS_DEFAULT.slice(),
+    verbStyle:'both',verbLevel:'medium',verbSource:'all',verbCats:VERB_CATS_DEFAULT.slice(),
     matchLeft:['meaning'],matchRight:['kanji','reading'],matchSenses:'one'},
   quizQ:null, quizLimit:null, quizSeen:{}, quizRound:0, quizAsked:0, quizResults:null, quizScore:{ok:0,bad:0}, quizDone:false, quizSel:-1, quizInputVal:'',
   quizHint:false, cardHint:false, quizRecent:[],
@@ -100,7 +100,7 @@ function load(){
     if(!['all','easy','medium','hard'].includes(S.quizCfg.ultraDifficulty))S.quizCfg.ultraDifficulty='all';
     if(!['plain','polite','both'].includes(S.quizCfg.verbStyle))S.quizCfg.verbStyle='both';
     if(!['easy','medium','hard'].includes(S.quizCfg.verbLevel))S.quizCfg.verbLevel='medium';
-    if(!['A','B'].includes(S.quizCfg.verbMode))S.quizCfg.verbMode='A';
+    delete S.quizCfg.verbMode;   // режим «Грамматика» убран: всегда «только смысл», подсказка формы — на канвасе
     if(!['all','known'].includes(S.quizCfg.verbSource))S.quizCfg.verbSource='all';
     if(!Array.isArray(S.quizCfg.matchLeft)||!S.quizCfg.matchLeft.length)S.quizCfg.matchLeft=matchSide(S.quizCfg.type,'L');
     if(!Array.isArray(S.quizCfg.matchRight)||!S.quizCfg.matchRight.length)S.quizCfg.matchRight=matchSide(S.quizCfg.type,'R');

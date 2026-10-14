@@ -20,6 +20,4 @@ volitional,Волевая,form,filter_form_tags,volitional,〜よう / 〜まし
 imperative,Повелительная,form,filter_form_tags,imperative,Приказ и запрет.,190
 negative,Отрицания,modifier,filter_semantic_tags,negative,Смысловое отрицание. Не включает формально отрицательную вежливую просьбу 〜てもらえませんか.,210
 past,Прошедшее,modifier,filter_semantic_tags,past,Прошедшее значение.,220
-polite,Вежливые,modifier,filter_semantic_tags,polite,Вежливый стиль.,230
 question,Вопросы,modifier,filter_question,1,Вопросительные конструкции.,270
-colloquial,Разговорные,register,filter_register_tags,colloquial,Разговорные сокращения и варианты.,280

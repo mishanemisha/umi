@@ -413,19 +413,27 @@ function vbCatMatch(rule,c){
   if(c.c==='filter_question')return String(rule.fq)===String(c.mv);
   return false;
 }
-// exact → fallback (verb_training_logic_v3.md): сначала пересечение «любая выбранная форма
-// + все выбранные модификаторы»; если пересечения нет — объединяем правила выбранных форм
-// и правила выбранных модификаторов, чтобы упражнение не обнулилось.
-// filter_default_pool=0 (rare/ら抜き) подключается только вместе с register-чипом «Разговорные».
-function vbPool(extra){
+// пул заданий: правила выбранных форм (с учётом стиля), сужаемые выбранными изменениями формы
+// («Отрицания», «Прошедшее», «Вопросы»). Чужие формы не подмешиваются никогда: невозможные
+// сочетания изменений в меню неактивны (vbModAvail), а если всё же пусто — изменения не применяются.
+function vbSelected(){
   const sel=(S.quizCfg.verbCats||[]).map(v=>VERB_CAT_BY_ID[v]).filter(Boolean);
-  const forms=sel.filter(c=>c.k==='form'),mods=sel.filter(c=>c.k!=='form');
-  const rare=sel.some(c=>c.k==='register');
-  const base=VERB_RULES.filter(r=>vbStyleOk(r)&&(r.fp||rare)&&(!extra||extra(r)));
-  const exact=base.filter(r=>(!forms.length||forms.some(c=>vbCatMatch(r,c)))&&mods.every(c=>vbCatMatch(r,c)));
-  if(exact.length)return exact;
-  const union=base.filter(r=>forms.some(c=>vbCatMatch(r,c))||mods.some(c=>vbCatMatch(r,c)));
-  return union.length?union:base;
+  return{forms:sel.filter(c=>c.k==='form'),mods:sel.filter(c=>c.k!=='form')};
+}
+function vbFormPool(forms,extra){
+  return VERB_RULES.filter(r=>r.fp&&r.mb&&vbStyleOk(r)&&forms.some(c=>vbCatMatch(r,c))&&(!extra||extra(r)));
+}
+function vbPool(extra){
+  const{forms,mods}=vbSelected();
+  const byForm=vbFormPool(forms,extra);
+  const exact=byForm.filter(r=>mods.every(c=>vbCatMatch(r,c)));
+  return exact.length?exact:byForm;
+}
+// можно ли включить изменение формы при выбранных формах и стиле (иначе чип неактивен)
+function vbModAvail(c){
+  const{forms,mods}=vbSelected();
+  const want=[...mods.filter(m=>m.v!==c.v),c];
+  return vbFormPool(forms).some(r=>want.every(m=>vbCatMatch(r,m)));
 }
 function vbStyleOk(rule){
   const st=S.quizCfg.verbStyle;
@@ -449,39 +457,6 @@ function vbGateBank(bank,forms){
   const f=bank.filter(v=>forms.some(r=>vbGateOk(v,r)));
   return f.length?f:bank;
 }
-function buildVerbQ(){
-  if(S.quizCfg.verbMode==='B')return buildVerbQB();
-  const lvl=LVL[S.quizCfg.verbLevel]||'m';
-  const forms=vbPool();
-  const bank=vbGateBank(vbActiveBank(),forms);
-  if(!bank.length||!forms.length)return null;
-  const rec=S.quizRecent||[];
-  // до 40 попыток найти корректную (>=1 слот, форма существует у глагола) не-недавнюю пару
-  let v,rule,cards,task;
-  for(let att=0;att<40;att++){
-    const cv=shuffle(bank)[0],cr=shuffle(forms)[0];
-    if(!vbFormAvail(cv,cr,lvl))continue;       // формы нет у глагола (напр. ら抜き у годан)
-    const cc=vbCards(cv,cr,lvl);
-    if(cc.length<2)continue;                  // нужна хотя бы основа + 1 слот
-    if(!vbTextOk(vbText(cv,cr.tp)))continue;  // у глагола нет русской формы под это задание
-    const tk=vbTask(cv,cr);
-    if(rec.includes(cv.id+'|'+cr.id+'|'+lvl)&&att<28)continue;
-    v=cv;rule=cr;cards=cc;task=tk;break;
-  }
-  if(!cards)return null;
-  noteRecent(v.id+'|'+rule.id+'|'+lvl,bank.length*forms.length);
-  const stem=cards[0];                         // основа — показана в канвасе
-  const slotCards=cards.slice(1);              // слоты, которые собирает юзер
-  const target=slotCards.map(c=>c.jp);
-  const opts=[...target];const used=new Set(target);
-  const cap=target.length+5;
-  slotCards.forEach(c=>{for(const d of vbCardDistractors(v,c)){if(opts.length>=cap)break;if(!used.has(d)){opts.push(d);used.add(d);}}});
-  // добор случайными универсальными окончаниями, если мало
-  if(opts.length<target.length+3){const keys=shuffle(Object.keys(VERB_CH));for(const k of keys){if(opts.length>=target.length+3)break;const j=VERB_CH[k].j;if(!used.has(j)){opts.push(j);used.add(j);}}}
-  const options=shuffle(opts);
-  return{verbs:true,verb:v,rule,level:lvl,stem,cards,target,options,picks:[],result:null,task};
-}
-
 // Mode B: показываем только смысл, способ выбирает ученик. Принимаются все формы, у которых
 // для этого глагола ТО ЖЕ задание (ば/たら, варианты обязанности 〜なければならない/〜なきゃいけない…):
 // задание однозначно задаёт смысл — время, отрицание, вежливость, — а всё, что с ним совпадает, верно.
@@ -499,7 +474,7 @@ function vbAccepted(v,prompt,stemJp,lvl){
   });
   return acc;
 }
-function buildVerbQB(){
+function buildVerbQ(){
   const lvl=LVL[S.quizCfg.verbLevel]||'m';
   const forms=vbPool(r=>r.mb);
   const bank=vbGateBank(vbActiveBank(),forms);
@@ -586,7 +561,7 @@ function startQuizError(){
   }
   if(m==='pairs')return'Нужно ≥2 пар кандзи с общим он-чтением';
   if(m==='match6')return'Нужно ≥3 записи с заполненными полями обеих колонок';
-  if(m==='verbs')return'Выберите хотя бы одну группу форм';
+  if(m==='verbs')return'Нет заданий для выбранных форм и стиля — выберите другие формы';
   return'Недостаточно данных (нужно ≥4 с заполненными полями)';
 }
 function checkAns(user,correct){

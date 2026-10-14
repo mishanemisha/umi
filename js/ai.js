@@ -160,19 +160,17 @@ function aiFlow(v,steps){
 }
 
 /* ── «Думаю…» по-японски: фразы меняются, пока 海先生 готовит ответ ── */
-const AI_THINK=[
-  ['考え中…','думаю'],['墨をすっています…','растираю тушь'],['筆を走らせています…','вожу кистью'],
-  ['辞書をめくっています…','листаю словарь'],['お茶を淹れています…','завариваю чай'],['活用を並べています…','раскладываю спряжения'],
-  ['漢字を数えています…','пересчитываю кандзи'],['ひらめき待ち…','жду озарения'],['文法をこねています…','замешиваю грамматику'],
-  ['波を見ています…','смотрю на волны'],['正座しています…','сижу в сэйдза'],['ふむふむ…','так-так…'],
-];
+// (думаю · растираю тушь · вожу кистью · листаю словарь · завариваю чай · раскладываю спряжения ·
+//  пересчитываю кандзи · жду озарения · замешиваю грамматику · смотрю на волны · сижу в сэйдза · так-так)
+const AI_THINK=['考え中…','墨をすっています…','筆を走らせています…','辞書をめくっています…','お茶を淹れています…','活用を並べています…',
+  '漢字を数えています…','ひらめき待ち…','文法をこねています…','波を見ています…','正座しています…','ふむふむ…'];
 let _thinkTimer=null,_thinkI=0;
 function aiThinkTick(){
   const el=typeof document.querySelector==='function'&&document.querySelector('.ai-think-w');
   if(!el||!S.ai||S.ai.status!=='loading'){clearInterval(_thinkTimer);_thinkTimer=null;return;}
-  _thinkI=(_thinkI+1)%AI_THINK.length;const[jp,ru]=AI_THINK[_thinkI];
+  _thinkI=(_thinkI+1)%AI_THINK.length;
   el.classList.remove('swap');void el.offsetWidth;el.classList.add('swap');
-  el.querySelector('.jp').textContent=jp;el.querySelector('.ru').textContent=ru;
+  el.querySelector('.jp').textContent=AI_THINK[_thinkI];
 }
 function aiThinkStart(){if(!_thinkTimer&&typeof setInterval==='function')_thinkTimer=setInterval(aiThinkTick,1800);}
 
@@ -186,18 +184,17 @@ function aiSection(n,title,html){return`<h3 class="ai-h">${n}. ${title}</h3>${ht
 function aiBlocks(a,q){
   const m=[];   // [{k: ключ, html}]
   const v=q&&q.verbs?q.verb:null;
-  // схема для карточки — сразу, не дожидаясь ИИ
+  if(a.status==='loading'){
+    m.push({k:'load',html:`<div class="ai-think"><span class="ai-think-w"><span class="jp">${AI_THINK[_thinkI]}</span></span></div>`});
+    return m;
+  }
+  if(a.status==='error'){m.push({k:'err',html:`<p class="ai-err">${esc(a.error)}</p>`});return m;}
+  // схема для глагола с карточки — вместе с ответом 海先生, чтобы не казалось, что ответ уже пришёл
   if(v){
     const steps=vbChainSteps(v,q.rule.id);
     m.push({k:'flow',html:aiSection(1,'Разбираем по шагам',
       `<p>Исходный глагол — <b class="jp">${aiFuriForm(v.d,v.r,v.d)}</b> — ${esc(v.m)}. Это ${esc(vbGroupLabel(v))}.</p>${aiFlow(v,steps)}`)});
   }
-  if(a.status==='loading'){
-    const[jp,ru]=AI_THINK[_thinkI];
-    m.push({k:'load',html:`<div class="ai-think"><span class="ai-think-w"><span class="jp">${jp}</span><span class="ru">${ru}</span></span><i class="ai-skel"></i><i class="ai-skel w2"></i><i class="ai-skel w3"></i></div>`});
-    return m;
-  }
-  if(a.status==='error'){m.push({k:'err',html:`<p class="ai-err">${esc(a.error)}</p>`});return m;}
   const d=a.data;
   const table=(d.groups||[]).length?`<div class="ai-table" role="table">
       <div class="ai-tr th" role="row"><span role="columnheader">Глаголы</span><span role="columnheader">Как образуется</span></div>

@@ -246,7 +246,7 @@ function act(action){
       break;}
     // закрытие шторки — сначала плавно сворачиваем, потом перерисовываем
     case'toggle-hint':
-      if(S.quizHint&&collapseDrawer('.cv-drop',()=>{S.quizHint=false;render();}))return;
+      if(S.quizHint&&collapseDrawer('[data-key="hint-drop"]',()=>{S.quizHint=false;render();}))return;
       S.quizHint=!S.quizHint;break;
     case'toggle-card-hint':
       if(S.cardHint&&collapseDrawer('.cv-drop',()=>{S.cardHint=false;render();}))return;
@@ -262,11 +262,18 @@ function act(action){
     case'verb-style':S.quizCfg.verbStyle=(['plain','polite','both'].includes(val)?val:'both');save();break;
     case'verb-level':S.quizCfg.verbLevel=(['easy','medium','hard'].includes(val)?val:'medium');save();break;
     case'verb-source':S.quizCfg.verbSource=(['all','known'].includes(val)?val:'all');save();break;
-    case'verb-mode':S.quizCfg.verbMode=(['A','B'].includes(val)?val:'A');save();break;
     case'verb-cat':{
-      const a=S.quizCfg.verbCats||[];
-      S.quizCfg.verbCats=a.includes(val)?(a.length>1?a.filter(x=>x!==val):a):[...a,val];
+      const c=VERB_CAT_BY_ID[val];if(!c)break;
+      const a=S.quizCfg.verbCats||[],on=a.includes(val);
+      if(c.k==='form'){
+        // последнюю форму не снимаем — без форм заданий нет
+        if(on&&vbSelected().forms.length<=1){toast('Нужна хотя бы одна форма');break;}
+      }else if(!on&&!vbModAvail(c)){toast('С выбранными формами такого изменения нет');break;}
+      S.quizCfg.verbCats=on?a.filter(x=>x!==val):[...a,val];
+      // изменения, которые стали невозможны с новыми формами, снимаем
+      S.quizCfg.verbCats=S.quizCfg.verbCats.filter(v=>{const x=VERB_CAT_BY_ID[v];return x.k==='form'||vbModAvail(x);});
       save();break;}
+    case'vf-open':S.vfOpen=S.vfOpen===val?null:val;S.vfAnim=S.vfOpen;break;
     case'compose-pick':{
       const q=S.quizQ;if(!q||!q.compose||S.quizDone)break;
       const i=+val,at=q.picks.indexOf(i);
@@ -287,23 +294,11 @@ function act(action){
       const q=S.quizQ;if(!q||!q.verbs||S.quizDone)break;
       const i=+val,at=q.picks.indexOf(i);
       if(at>=0){q.picks.splice(at,1);haptic('light');break;} // отжать чип
-      if(q.modeB){
-        if(q.picks.length>=q.maxLen)break;                   // не длиннее самого длинного ответа
-        q.picks.push(i);haptic('light');
-        const built=q.picks.map(x=>q.options[x]);
-        if(q.accepted.some(a=>seqEq(a.seq,built))){          // авто-приём при точном совпадении
-          q.result=true;S.quizDone=true;S.quizScore.ok++;haptic('light');save();
-        }
-        break;
-      }
-      if(q.picks.length>=q.target.length)break;              // все слоты заняты
+      if(q.picks.length>=q.maxLen)break;                     // не длиннее самого длинного ответа
       q.picks.push(i);haptic('light');
-      if(q.picks.length===q.target.length){
-        const built=q.picks.map(x=>q.options[x]);
-        const ok=built.every((c,k)=>c===q.target[k]);
-        q.result=ok;S.quizDone=true;
-        if(ok){S.quizScore.ok++;haptic('light');}else{S.quizScore.bad++;haptic('medium');}
-        save();
+      const built=q.picks.map(x=>q.options[x]);
+      if(q.accepted.some(a=>seqEq(a.seq,built))){            // авто-приём при точном совпадении
+        q.result=true;S.quizDone=true;S.quizScore.ok++;haptic('light');save();
       }
       break;}
     case'verb-flag':vbFlagToggle(S.quizQ);haptic('light');break;

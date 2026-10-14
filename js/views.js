@@ -379,14 +379,54 @@ function buildCfgScreen(){
   return seg+(isCards?buildCardsCfg():buildQuizCfg());
 }
 
-// чипы фильтров: 'base' — 5 базовых форм, 'form' — прочие конструкции, 'mod' — модификаторы + регистр
+/* ── Меню «Формы глаголов»: раскрывающиеся группы в стиле главной ──
+ * В шапке группы — сводка выбора; у форм и конструкций — микро-пояснение, что внутри. */
 const VERB_BASE_FORMS=['dictionary','masu','te_form','ta_form','nai_form'];
-function vbCatChips(kind){
+const VB_CAT_SUB={
+  dictionary:'食べる — «ем»',masu:'〜ます/ました/ません — вежливо',te_form:'〜て — «и затем…»',ta_form:'〜た — прошедшее',
+  nai_form:'〜ない — «не делаю»',conditional:'〜ば, 〜たら — «если»',potential:'〜える, 〜られる — «могу»',
+  passive:'〜れる, 〜られる — «меня хвалят»',causative:'〜せる, 〜させる — «заставлю, разрешу»',
+  causative_passive:'〜させられる — «меня заставляют»',tai:'«хочу», «хотел(а)»',obligation:'〜なければならない — «нужно»',
+  teiru:'«сейчас делаю», «тогда делал(а)»',benefactive:'〜てあげる / くれる / もらう — для кого-то',
+  request:'〜てもらえませんか — «не могли бы вы»',advice:'〜たらどうですか — «почему бы не»',toki:'Vる / Vた / Vない + とき — «когда»',
+  volitional:'〜よう, 〜ましょう — «давай»',imperative:'〜ろ, 〜な — приказ и запрет',
+  negative:'«не …» в выбранных формах',past:'прошедшее в выбранных формах',question:'вопросительные конструкции',
+};
+function vbCatOpts(kind){
   const sel=S.quizCfg.verbCats||[];
   const list=VERB_CATS.filter(c=>kind==='base'?(c.k==='form'&&VERB_BASE_FORMS.includes(c.v))
     :kind==='form'?(c.k==='form'&&!VERB_BASE_FORMS.includes(c.v)):c.k!=='form');
-  return `<div class="chips">${list
-    .map(c=>`<button class="chip${sel.includes(c.v)?' on':''}" data-a="verb-cat:${c.v}" title="${esc(c.d||'')}">${esc(c.l)}</button>`).join('')}</div>`;
+  return list.map(c=>{
+    const on=sel.includes(c.v),off=c.k!=='form'&&!on&&!vbModAvail(c);
+    return`<button class="mopt vopt${on?' on':''}${off?' off':''}" data-a="verb-cat:${c.v}"${off?' aria-disabled="true"':''}><span>${esc(c.l)}</span>${VB_CAT_SUB[c.v]?`<small>${esc(VB_CAT_SUB[c.v])}</small>`:''}</button>`;
+  }).join('');
+}
+function vfGroup(key,title,summary,opts,cls=''){
+  const open=S.vfOpen===key,anim=open&&S.vfAnim===key;
+  return`<section class="vf${open?' open':''}">
+    <button class="vf-hd" data-a="vf-open:${key}" aria-expanded="${open}"><span class="vf-t">${title}</span><span class="vf-sum">${summary}</span><i class="vf-chev" aria-hidden="true"></i></button>
+    ${open?`<div class="vf-bd${anim?' anim':''}"><div class="mgrp-opts${cls?' '+cls:''}">${opts}</div></div>`:''}
+  </section>`;
+}
+function buildVerbsCfg(){
+  const c=S.quizCfg,sel=c.verbCats||[];
+  const lbl=(items,v)=>(items.find(x=>x.v===v)||{}).l||'';
+  const names=kind=>VERB_CATS.filter(x=>sel.includes(x.v)&&(kind==='base'?VERB_BASE_FORMS.includes(x.v):kind==='form'?(x.k==='form'&&!VERB_BASE_FORMS.includes(x.v)):x.k!=='form')).map(x=>x.l);
+  const sum=a=>a.length?esc(a.length>2?a.slice(0,2).join(', ')+` +${a.length-2}`:a.join(', ')):'<span class="vf-none">не выбрано</span>';
+  const STY=[{v:'plain',l:'Простая'},{v:'polite',l:'Вежливая'},{v:'both',l:'Обе'}];
+  const LV=[{v:'easy',l:'Простая'},{v:'medium',l:'Средняя'},{v:'hard',l:'Сложная'}];
+  const SRC=[{v:'all',l:'Все'},{v:'known',l:'Знакомые'}];
+  const groups=[
+    vfGroup('style','Стиль',lbl(STY,c.verbStyle),mPick(STY,c.verbStyle,'verb-style')),
+    vfGroup('base','Базовые формы',sum(names('base')),vbCatOpts('base'),'vgrid'),
+    vfGroup('form','Конструкции',sum(names('form')),vbCatOpts('form'),'vgrid'),
+    vfGroup('mod','Изменить форму',sum(names('mod')),vbCatOpts('mod'),'vgrid'),
+    vfGroup('level','Разбивка на части',lbl(LV,c.verbLevel),mPick(LV,c.verbLevel,'verb-level')),
+    vfGroup('src','Глаголы',lbl(SRC,c.verbSource),mPick(SRC,c.verbSource,'verb-source')),
+  ];
+  S.vfAnim=null;
+  const empty=!vbPool().length?`<div class="vf-warn">С выбранным стилем у этих форм нет заданий: например, ます-формы бывают только вежливыми. Поменяйте стиль или формы.</div>`:'';
+  return`<div class="vfs">${groups.join('')}${empty}<button class="mstart" data-a="start-quiz">Старт</button></div>`;
 }
 function cfgCard(lbl,content){
   return`<div class="cfg-card"><div class="cfg-lbl">${lbl}</div>${content}</div>`;
@@ -424,8 +464,9 @@ function buildCardsCfg(){
 function buildQuizCfg(){
   const type=S.quizCfg.type;
   const d=ds(type);
-  // verbs (формы глаголов) — встроенные данные, не требуют загруженных слов
-  if(d.length<4&&S.quizCfg.mode!=='verbs')return`<div class="empty"><div class="ei">🎯</div><div class="et">Мало данных</div><div class="eb">Нужно минимум 4 записи (сейчас ${d.length})</div><button class="btn btn-p" style="margin:0 16px;width:calc(100% - 32px)" data-a="go-import-home">Импорт</button></div>`;
+  // формы глаголов — своё меню (раскрывающиеся группы); встроенные данные, слова не нужны
+  if(S.quizCfg.mode==='verbs')return buildVerbsCfg();
+  if(d.length<4)return`<div class="empty"><div class="ei">🎯</div><div class="et">Мало данных</div><div class="eb">Нужно минимум 4 записи (сейчас ${d.length})</div><button class="btn btn-p" style="margin:0 16px;width:calc(100% - 32px)" data-a="go-import-home">Импорт</button></div>`;
   const flds=type==='kanji'?KF:WF;
   const filterOpts=[{v:'all',l:'Все'},{v:'unknown',l:'Не знаю'},{v:'learning',l:'Учу'},{v:'know',l:'Знаю'}];
   const counts=COUNT_OPTS;
@@ -433,22 +474,13 @@ function buildQuizCfg(){
   const modes=[{v:'choice4',l:'4 варианта'},{v:'choice6',l:'6 вариантов'},{v:'input',l:'Вписать ответ'},{v:'mix',l:'Смешанный'}];
   if(type!=='kanji'&&(S.quizCfg.mode==='pairs'||S.quizCfg.mode==='compose'))S.quizCfg.mode='choice6';
   const mode=S.quizCfg.mode;
-  const isVerbs=mode==='verbs';
   const isMatch=mode==='match6';
-  const special=mode==='pairs'||mode==='compose'||isVerbs||isMatch; // спец-режимы с главной: без «Режим ответа» и полей
+  const special=mode==='pairs'||mode==='compose'||isMatch; // спец-режимы с главной: без «Режим ответа» и полей
   const noFields=special;
   const aFields=arr(S.quizCfg.answer);
   const cmode=S.quizCfg.composeMode||'normal';
   const udiff=S.quizCfg.ultraDifficulty||'all';
-  const verbsCfg=isVerbs
-    ?cfgCard('Подсказка',chips([{v:'A',l:'Грамматика'},{v:'B',l:'Только смысл'}],S.quizCfg.verbMode,'verb-mode'))
-      +cfgCard('Разбивка',chips([{v:'easy',l:'Простая'},{v:'medium',l:'Средняя'},{v:'hard',l:'Сложная'}],S.quizCfg.verbLevel,'verb-level'))
-      +cfgCard('Глаголы',chips([{v:'all',l:'Все'},{v:'known',l:'Знакомые'}],S.quizCfg.verbSource,'verb-source'))
-      +cfgCard('Стиль',chips([{v:'plain',l:'Простая'},{v:'polite',l:'Вежливая'},{v:'both',l:'Обе'}],S.quizCfg.verbStyle,'verb-style'))
-      +cfgCard('Базовые формы',vbCatChips('base'))
-      +cfgCard('Конструкции',vbCatChips('form'))
-      +cfgCard('Изменить форму <span style="opacity:.55;font-weight:400">· комбинируется с формой</span>',vbCatChips('mod'))
-    :'';
+
   // «Сопоставь пары»: наборы полей для левой и правой колонки (поле живёт только на одной стороне)
   const mSideChips=side=>{
     const on=arr(side==='L'?S.quizCfg.matchLeft:S.quizCfg.matchRight);
@@ -478,11 +510,11 @@ function buildQuizCfg(){
     ${special?'':cfgCard('Режим ответа',chips(modes,mode,'quiz-mode'))}
     ${noFields?'':cfgCard('Что в вопросе (несколько)',`<div class="chips" id="chips-q">${flds.map(k=>`<button class="chip${S.quizCfg.question.includes(k)?' on':''}" data-qfield="${k}">${fldShort(k,type)}</button>`).join('')}</div>`)}
     ${noFields?'':cfgCard('Что отгадываем (несколько)',`<div class="chips">${flds.map(k=>`<button class="chip${aFields.includes(k)?' on':''}" data-a="quiz-afield:${k}">${fldShort(k,type)}</button>`).join('')}</div>`)}
-    ${composeCfg}${matchCfg}${verbsCfg}
-    ${isVerbs?'':`<div class="cfg-row">
+    ${composeCfg}${matchCfg}
+    <div class="cfg-row">
       ${cfgCard('Фильтр',chips(filterOpts,S.quizCfg.filter,'quiz-filter'))}
       ${cfgCard('Количество',chips(counts,S.quizCfg.count,'quiz-count'))}
-    </div>`}
+    </div>
     <div class="start-row"><button class="start-btn" data-a="start-quiz">Начать</button></div>`;
 }
 
@@ -843,36 +875,31 @@ function vbFuriDict(v){
 }
 // теги задания (Figma «Формы глаголов» 160:786): вежливость, отрицание, прошлое — подсказки к смыслу;
 // в режиме «Грамматика» добавляется сама конструкция (〜ません)
+// теги задания (Figma «Формы глаголов» 160:786): только то, чего не видно из русского текста, —
+// стиль ответа. Отрицание, прошлое, «если», «хочу» и т. п. задание уже называет само.
 function vbTags(q){
-  const t=[],fs=q.rule.fs||[];
-  if(q.rule.st==='polite')t.push('вежливо');
-  if(fs.includes('negative'))t.push('отрицание');
-  if(fs.includes('past'))t.push('прошедшее');
-  const tags=t.map(x=>`<span class="vb-tag">${x}</span>`);
-  if(!q.modeB){const gl=String(q.rule.gl||q.rule.nm),m=gl.split('·');tags.push(`<span class="vb-tag gram">${esc((m[1]||m[0]).trim())}</span>`);}
-  return tags.length?`<div class="vb-tags">${tags.join('')}</div>`:'';
+  const st=q.rule.st==='polite'?'вежливая форма':q.rule.st==='plain'?'простая форма':'';
+  return st?`<div class="vb-tags"><span class="vb-tag">${st}</span></div>`:'';
+}
+// «Показать подсказку»: какую конструкцию собрать (и какие ещё подойдут) — выпадашкой из-под канваса
+function vbGramParts(r){const gl=String(r.gl||r.nm),m=gl.split('·');return{name:m[0].trim(),pat:(m[1]||'').trim()};}
+function vbHintDrop(q){
+  const main=vbGramParts(q.rule);
+  const alt=[...new Set(q.accepted.slice(1).map(a=>{const r=VERB_RULES.find(x=>x.id===a.id);return r?vbGramParts(r).pat||vbGramParts(r).name:'';}).filter(x=>x&&x!==main.pat))];
+  return`<div class="cv-drop vb-hint" data-key="hint-drop">
+    <span class="hchip"><span class="hchip-w">${esc(main.pat||main.name)}</span>${main.pat?`<span class="vb-hint-n">${esc(main.name)}</span>`:''}</span>
+    ${alt.length?`<span class="vb-hint-alt">Подойдёт и: <b class="jp">${alt.map(esc).join(', ')}</b></span>`:''}
+  </div>`;
 }
 const SPARK_SVG=`<svg class="spark" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 2c.5 4.9 3.1 7.5 8 8-4.9.5-7.5 3.1-8 8-.5-4.9-3.1-7.5-8-8 4.9-.5 7.5-3.1 8-8Z"/><path fill="currentColor" opacity=".7" d="M19 13c.25 2.4 1.6 3.75 4 4-2.4.25-3.75 1.6-4 4-.25-2.4-1.6-3.75-4-4 2.4-.25 3.75-1.6 4-4Z"/></svg>`;
 function buildVerbActive(q){
-  const filled=q.picks.map(i=>q.options[i]);   // выбранные окончания по порядку слотов
-  // задание без суффикса « · вежливо» — вежливость показана тегом
+  const filled=q.picks.map(i=>q.options[i]);   // выбранные окончания по порядку
+  // задание без суффикса « · вежливо» — стиль показан тегом
   const task=String(q.task).replace(/ · вежливо$/,'');
-  let slots;
-  if(q.modeB){
-    // переменная длина: показываем собранные чипы + один пустой слот, пока есть куда добавлять
-    const chips=filled.map(j=>`<span class="vb-suf${S.quizDone?(q.result?' ok':' bad'):''}">${esc(j)}</span>`).join('');
-    const tail=(!S.quizDone&&q.picks.length<q.maxLen)?`<span class="vb-slot"></span>`:'';
-    slots=chips+tail;
-  }else{
-    slots=q.target.map((_,i)=>filled[i]!=null
-      ?`<span class="vb-suf${S.quizDone?(q.result?' ok':' bad'):''}">${esc(filled[i])}</span>`
-      :`<span class="vb-slot"></span>`).join('');
-  }
-  let correctLine='';
-  if(S.quizDone&&!q.result){
-    const ans=q.modeB?(q.stem.jp+q.accepted[0].seq.join('')):(q.stem.jp+q.target.join(''));
-    correctLine=`<div class="cmp-correct">Правильно: <span>${esc(ans)}</span></div>`;
-  }
+  // длина ответа может быть разной (несколько способов): собранные чипы + пустой слот, пока есть куда добавлять
+  const slots=filled.map(j=>`<span class="vb-suf${S.quizDone?(q.result?' ok':' bad'):''}">${esc(j)}</span>`).join('')
+    +((!S.quizDone&&q.picks.length<q.maxLen)?`<span class="vb-slot"></span>`:'');
+  const correctLine=S.quizDone&&!q.result?`<div class="cmp-correct">Правильно: <span>${esc(q.stem.jp+q.accepted[0].seq.join(''))}</span></div>`:'';
   // «Ошибка в задании» — флажок в углу канваса: сохраняет задание и ответы (Настройки → Отметки)
   const flag=`<button class="vb-flag" data-a="verb-flag" role="checkbox" aria-checked="${!!q.flagged}" aria-label="Ошибка в задании" title="Ошибка в задании">⚑</button>`;
   const inner=`${flag}<div class="vb-cv">
@@ -882,21 +909,20 @@ function buildVerbActive(q){
       <div class="vb-word"><span class="vb-base">${esc(q.stem.jp)}</span>${slots}</div>${correctLine}
     </div>`;
   const canvasCls=S.quizDone?(q.result?' ok':' bad'):'';
-  // «Объясни почему» — только после ответа (верного или нет); объяснение выезжает из-под канваса
-  const aiOn=!!(S.ai&&S.ai.open);
+  // пилюли канваса: подсказка формы — всегда; «Объясни почему» — только после ответа (верного или нет)
+  const aiOn=!!(S.ai&&S.ai.open),hintOn=!!S.quizHint;
+  const hint=`<button class="cv-hint${hintOn?' on':''}" data-a="toggle-hint" aria-expanded="${hintOn}">${hintOn?'Скрыть подсказку':'Показать подсказку'}</button>`;
   const why=S.quizDone?`<button class="cv-hint ai-why${aiOn?' on':''}" data-a="${aiOn?'ai-close':'ai-open'}" aria-expanded="${aiOn}">${aiOn?'Скрыть объяснение':'Объясни почему'}${SPARK_SVG}</button>`:'';
-  const canvas=qCanvas(inner,canvasCls,null,false,'',why,aiOn?buildAiDrawer():'');
+  const canvas=qCanvas(inner,canvasCls,null,false,'',hint+why,(hintOn?vbHintDrop(q):'')+(aiOn?buildAiDrawer():''));
   // Банк окончаний — hug-content чипы (как в дуалинго)
   const opts=q.options.map((o,i)=>{
-    const at=q.picks.indexOf(i);let cls='';
-    if(S.quizDone){ if(at>=0)cls=q.modeB?(q.result?'ok':'bad'):((o===q.target[at])?'ok':'bad'); }
-    else if(at>=0)cls='on';
+    const at=q.picks.indexOf(i);
+    const cls=S.quizDone?(at>=0?(q.result?'ok':'bad'):''):(at>=0?'on':'');
     return`<button class="qchip ${cls}" ${S.quizDone?'disabled':''} data-a="verb-pick:${i}">${esc(o)}</button>`;
   }).join('');
-  const bankLbl=q.modeB?'Соберите форму — способ выберите сами:':'Соберите нужную форму глагола:';
   // при открытом объяснении банк остаётся, но уходит ниже — до него можно долистать
-  const panel=`<div class="quiz-panel"><div class="quiz-panel-lbl">${bankLbl}</div><div class="quiz-bank">${opts}</div></div>`;
-  return`<div class="pg">${canvas}${panel}${qActions(q.modeB&&q.picks.length?'verb-check':null)}</div>`;
+  const panel=`<div class="quiz-panel"><div class="quiz-panel-lbl">Соберите форму — способ выберите сами:</div><div class="quiz-bank">${opts}</div></div>`;
+  return`<div class="pg">${canvas}${panel}${qActions(q.picks.length?'verb-check':null)}</div>`;
 }
 
 /* ── WORDS ── */
