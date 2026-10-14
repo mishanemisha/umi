@@ -110,9 +110,10 @@ function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 function render(){document.getElementById('app').innerHTML=buildApp();bindAll();if(practiceAvailable)uBind();syncBackButton();}
 // Куда ведёт «Назад» на текущем экране (null — корневой экран вкладки)
 function backAction(){
+  if(S.ai&&S.ai.open)return'ai-close';
   if(S.screen==='import')return'back-import';
   if(S.studyQueue.length||S.studyResults)return'stop-study';
-  if(S.quizQ)return'stop-quiz';
+  if(S.quizQ||S.quizResults)return'stop-quiz';
   if(S.cfgScreen)return'close-cfg';
   if(S.tab==='words'&&S.selecting)return S.selSheet?'sel-sheet-close':'sel-cancel';
   if(S.tab==='practice'&&practiceAvailable){const a=uBackAction();return a?'up:'+a:null;}
@@ -128,6 +129,7 @@ function buildApp(){
   if(S.studyQueue.length&&!S.studyResults)return buildStudyActive()+nav();
   if(S.studyResults&&!S.cfgScreen)return buildStudyDone()+nav();
   if(S.quizQ)return buildQuizActive()+nav();
+  if(S.quizResults)return buildQuizDone()+nav();
   if(S.cfgScreen)return buildCfgScreen()+nav();
   switch(S.tab){
     case'home':    return buildHome()+nav();
@@ -420,7 +422,7 @@ function buildStudyActive(){
   const hintOn=isKanji&&S.cardHint;
   const face=(body,back)=>`<div class="fc-face${back?' fc-back':''}">
       <div class="qscore"><div class="qbadge">${curr} / ${total}</div></div>
-      <div class="qbody">${body}${hintOn?hintChips(w):''}</div>
+      <div class="qbody">${body}</div>
       ${isKanji?hintPill(w,hintOn,'toggle-card-hint'):''}
     </div>`;
   const front=buildCardVariant(w,S.studyCfg.front,S.studyCfg.type)
@@ -429,8 +431,11 @@ function buildStudyActive(){
 
   // Канвас (Figma 157:4626): обе стороны — полноценный канвас; переворачивается целиком
   return`<div class="pg">
-    <div class="fc-wrap" data-a="flip">
-      <div class="fc${S.cardFlipped?' flipped':''}">${face(front,false)}${face(back,true)}</div>
+    <div class="cv-wrap">
+      <div class="fc-wrap" data-a="flip">
+        <div class="fc${S.cardFlipped?' flipped':''}">${face(front,false)}${face(back,true)}</div>
+      </div>
+      ${hintOn?hintDrop(w):''}
     </div>
     <div class="mark-row">
       <button class="mbtn r" data-a="mark:unknown">Не знаю</button>
@@ -444,17 +449,21 @@ function buildStudyActive(){
   </div>`;
 }
 
-/* ── Подсказки к кандзи (Figma: «Показать подсказки» в канвасе, чип «Подсказка» 157:5134) ──
- * Слова из словаря с этим иероглифом; показываются внутри канваса. */
+/* ── Подсказки к кандзи (Figma «Раскрывашка "показать подсказки"» 158:384) ──
+ * Кнопка — внутри канваса; слова с этим иероглифом выезжают шторкой из-под канваса,
+ * поэтому не теснят содержимое карточки и видны при любой длине значений. */
 function hintPill(item,on,action){
   if(!S.hintsEnabled||!item||!item.kanji)return'';
   return`<button class="cv-hint${on?' on':''}" data-a="${action}">${on?'Скрыть подсказки':'Показать подсказки'}</button>`;
 }
-function hintChips(item){
+function hintDrop(item){
   const ch=item&&item.kanji?String(item.kanji):'';if(!ch)return'';
   const words=exampleWords(ch).slice(0,4);
-  if(!words.length)return`<div class="hchips"><span class="hchip-empty">Нет слов с этим иероглифом в словаре</span></div>`;
-  return`<div class="hchips">${words.map(w=>`<span class="hchip"><span class="hchip-w">${esc(w.kanji)}</span>${w.reading?`<span class="hchip-l">kana:</span><span class="hchip-r">${esc(w.reading)}</span>`:''}</span>`).join('')}</div>`;
+  const body=words.length
+    ?words.map(w=>`<span class="hchip"><span class="hchip-w">${esc(w.kanji)}</span>${w.reading?`<span class="hchip-k"><span class="hchip-l">kana:</span><span class="hchip-r">${esc(w.reading)}</span></span>`:''}</span>`).join('')
+    :`<span class="hchip-empty">Нет слов с этим иероглифом среди ваших кандзи</span>`;
+  const anim=S.hintAnim;S.hintAnim=false;   // выезжает только при открытии, не на каждом перерендере
+  return`<div class="cv-drop${anim?' anim':''}">${body}</div>`;
 }
 
 function buildStudyDone(){
@@ -474,6 +483,27 @@ function buildStudyDone(){
         <div class="btn-row">
           <button class="btn btn-p" data-a="restart-study">🔄 Снова</button>
           <button class="btn btn-s" data-a="stop-study">Завершить</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* Итоги сессии квиза: набор из «Количества» пройден */
+function buildQuizDone(){
+  const r=S.quizResults;
+  return`
+    <div class="done">
+      <div class="done-i">🎉</div>
+      <h2>Набор пройден!</h2>
+      <p style="color:var(--t2);margin-top:6px;font-size:13px">${r.total?`Записей в наборе: ${r.total}`:''}</p>
+      <div class="res-grid" style="grid-template-columns:repeat(2,1fr)">
+        <div class="rc g"><div class="rn">${r.ok}</div><div class="rl">Верно</div></div>
+        <div class="rc r"><div class="rn">${r.bad}</div><div class="rl">Неверно</div></div>
+      </div>
+      <div style="padding:0 16px">
+        <div class="btn-row">
+          <button class="btn btn-p" data-a="start-quiz">🔄 Снова</button>
+          <button class="btn btn-s" data-a="stop-quiz">Завершить</button>
         </div>
       </div>
     </div>`;
@@ -583,13 +613,14 @@ function qScoreBar(){
   return`<div class="qscore">
     <div class="qbadge qok" aria-label="Верно">${ok}</div>
     <div class="qbadge qbad" aria-label="Неверно">${bad}</div>
-    <div class="qbadge">${ok+bad}${size?` / ${size}`:''}</div>
+    <div class="qbadge">${quizSessionSize()&&size?`${Math.min(S.quizAsked,size)} / ${size}`:`${ok+bad}${size?` / ${size}`:''}`}</div>
   </div>`;
 }
-// Канвас вопроса (Figma 157:4624): фиксированная высота, счёт сверху, содержимое по центру,
-// подсказки и кнопка «Показать подсказки» — внутри канваса, чтобы экран не прыгал
-function qCanvas(inner,cls='',hintItem=null,hintOn=false,hintAction=''){
-  return`<div class="quiz-q${cls}">${qScoreBar()}<div class="qbody">${inner}${hintOn?hintChips(hintItem):''}</div>${hintPill(hintItem,hintOn,hintAction)}</div>`;
+// Канвас вопроса (Figma 157:4624): фиксированная высота, счёт сверху, содержимое по центру.
+// Внизу канваса — пилюли (подсказки, переключатели режима); подсказки выезжают из-под канваса.
+function qCanvas(inner,cls='',hintItem=null,hintOn=false,hintAction='',foot=''){
+  const pills=hintPill(hintItem,hintOn,hintAction)+foot;
+  return`<div class="cv-wrap"><div class="quiz-q${cls}">${qScoreBar()}<div class="qbody">${inner}</div>${pills?`<div class="cv-pills">${pills}</div>`:''}</div>${hintOn&&hintItem?hintDrop(hintItem):''}</div>`;
 }
 // Стоп / Пропустить / Дальше — одним рядом. Третья кнопка: «Дальше» после ответа,
 // «Проверить» там, где ответ подтверждается вручную, иначе неактивная «Дальше».
@@ -654,10 +685,11 @@ function buildComposeActive(q){
     canvasInner=`<div class="cmp-canvas"><div class="cmp-build" ${fs}>${slots.join('')}</div>${lines.join('')}</div>`;
   }
   const canvasCls=S.quizDone?(q.result?' ok':' bad'):'';
-  const canvas=qCanvas(canvasInner,canvasCls);
-  // Свитчеры: в reverse «Кана» скрыта; в ultra свитчеров нет (значение показано всегда)
-  const sw=(k,label)=>`<button class="cmp-sw${cs[k]?' on':''}" data-a="compose-switch:${k}">${cs[k]?'<span class="cmp-arrow">→</span>':''}${label}</button>`;
-  const switches=ultra?'':`<div class="cmp-switch">${reverse?'':sw('reading','Кана')}${sw('meaning','Значение')}</div>`;
+  // Переключатели «Кана / Значение» — пилюлями внизу канваса, как «Показать подсказки».
+  // В reverse «Кана» скрыта; в ultra переключателей нет (значение показано всегда)
+  const sw=(k,label)=>`<button class="cv-hint${cs[k]?' on':''}" data-a="compose-switch:${k}" aria-pressed="${!!cs[k]}">${label}</button>`;
+  const switches=ultra?'':(reverse?'':sw('reading','Кана'))+sw('meaning','Значение');
+  const canvas=qCanvas(canvasInner,canvasCls,null,false,'',switches);
   // Варианты: кандзи (normal/ultra) или части каны (reverse). В ultra — только знакомые кандзи.
   const opts=q.options.map((o,i)=>{
     const picked=q.picks.includes(i);
@@ -667,7 +699,7 @@ function buildComposeActive(q){
     return`<button class="qopt ${reverse?'':'kanji '}${cls}" ${S.quizDone?'disabled':''} data-a="compose-pick:${i}">${esc(o)}</button>`;
   }).join('');
   const panel=`<div class="quiz-panel"><div class="quiz-panel-lbl">Выберите вариант:</div><div class="quiz-opts">${opts}</div></div>`;
-  return`<div class="pg">${canvas}${switches}${panel}${qActions()}</div>`;
+  return`<div class="pg">${canvas}${panel}${qActions()}</div>`;
 }
 
 /* ── PAIRS ACTIVE (Figma: Выбери пару) ── */
@@ -758,7 +790,11 @@ function buildVerbActive(q){
     correctLine=`<div class="cmp-correct">Правильно: <span>${esc(ans)}</span></div>`;
   }
   const canvasCls=S.quizDone?(q.result?' ok':' bad'):'';
-  const canvas=qCanvas(`<div class="cmp-canvas">${taskLine}${meaningLine}${gramLine}${wordHtml}${correctLine}</div>`,canvasCls);
+  // «Ошибка в задании»: отметка сохраняет задание и ответы для проверки (Настройки → Отметки)
+  const flag=`<button class="cv-hint vb-flag" data-a="verb-flag" role="checkbox" aria-checked="${!!q.flagged}"><span class="vb-box">${q.flagged?'✓':''}</span>Ошибка в задании</button>`;
+  // «Объясни почему» — только после ответа (верного или нет)
+  const why=S.quizDone?`<button class="cv-hint ai-why" data-a="ai-open">✦ Объясни почему</button>`:'';
+  const canvas=qCanvas(`<div class="cmp-canvas">${taskLine}${meaningLine}${gramLine}${wordHtml}${correctLine}</div>`,canvasCls,null,false,'',why+flag);
   // Банк окончаний — hug-content чипы (как в дуалинго)
   const opts=q.options.map((o,i)=>{
     const at=q.picks.indexOf(i);let cls='';
@@ -768,7 +804,7 @@ function buildVerbActive(q){
   }).join('');
   const bankLbl=q.modeB?'Соберите форму — способ выберите сами:':'Соберите нужную форму глагола:';
   const panel=`<div class="quiz-panel"><div class="quiz-panel-lbl">${bankLbl}</div><div class="quiz-bank">${opts}</div></div>`;
-  return`<div class="pg">${canvas}${panel}${qActions(q.modeB&&q.picks.length?'verb-check':null)}</div>`;
+  return`<div class="pg">${canvas}${panel}${qActions(q.modeB&&q.picks.length?'verb-check':null)}</div>${buildAiSheet()}`;
 }
 
 /* ── WORDS ── */
@@ -834,7 +870,7 @@ function selAttrs(w){
 // под разделителем — по примеру слова на он- и кун-чтение (значение, слово, чтение с выделением)
 function kanjiCard(w,p,single,showFolder){
   const{sel,attrs,mark}=selAttrs(w);
-  const mean=mSplit(w.meaning||w.translation||'');
+  const mean=mSplit(shownMeaning(w));
   const ex=kanjiExamples(w);
   // в сетке — первое чтение (как в макете), на отдельной странице — до четырёх
   const two=s=>String(s||'').split(/[、,;・]/).map(x=>x.trim()).filter(Boolean).slice(0,single?4:1).join('、');
@@ -861,7 +897,7 @@ function buildWordsResults(){
   const item=w=>{
     const{sel,attrs,mark}=selAttrs(w);
     const reading=esc(w.reading||'');
-    const meaning=esc(w.meaning||w.translation||'');
+    const meaning=esc(shownMeaning(w));
     return`<div class="ditem${sel?' sel':''}"${attrs}>
         ${mark}<span class="ditem-k">${esc(w.kanji)}</span>
         <span class="ditem-info">${reading?`<span class="ditem-r">${reading}</span>`:''}${meaning?`<span class="ditem-m">${meaning}</span>`:''}${folderTag(w,showFolderTag)}</span>
@@ -926,6 +962,12 @@ function buildSettings(){
     <div class="cfg-card" style="margin-bottom:12px">${chips([{v:'full',l:'Целиком'},{v:'kana',l:'Только кана'}],S.wordDisplay,'word-display')}</div>
     <div style="margin-bottom:6px;padding:0 16px"><div class="sset-lbl">Подсказки кандзи</div></div>
     <div class="cfg-card" style="margin-bottom:12px">${chips([{v:'on',l:'Включены'},{v:'off',l:'Выключены'}],S.hintsEnabled?'on':'off','hints-toggle')}</div>
+    <div style="margin-bottom:6px;padding:0 16px"><div class="sset-lbl">Отметки «Ошибка в задании» (формы глаголов)</div></div>
+    <div class="sset">
+      <div class="srow"><span class="srow-l">Отмечено карточек</span><span class="srow-r">${S.verbReports.length}</span></div>
+      ${S.verbReports.length?`<div class="srow" data-a="verb-reports"><span class="srow-l">Скачать CSV отметок</span><span class="srow-r">↓</span></div>
+      <div class="srow" data-a="verb-reports-clear"><span class="srow-l" style="color:var(--y)">Очистить отметки</span><span class="srow-r">›</span></div>`:''}
+    </div>
     <div style="margin-bottom:6px;padding:0 16px"><div class="sset-lbl">Данные</div></div>
     <div class="sset">
       <div class="srow" data-a="go-import-home"><span class="srow-l">Импортировать</span><span class="srow-r">›</span></div>

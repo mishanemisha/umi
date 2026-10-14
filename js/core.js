@@ -56,9 +56,10 @@ const S={
   quizCfg:{type:'words',mode:'choice6',question:['kanji'],answer:['reading'],filter:'all',count:'all',folders:[],composeShow:{reading:true,meaning:false},composeMode:'normal',ultraDifficulty:'all',
     verbStyle:'both',verbMode:'A',verbLevel:'medium',verbSource:'all',verbCats:VERB_CATS_DEFAULT.slice(),
     matchLeft:['meaning'],matchRight:['kanji','reading'],matchSenses:'one'},
-  quizQ:null, quizLimit:null, quizSeen:{}, quizRound:0, quizScore:{ok:0,bad:0}, quizDone:false, quizSel:-1, quizInputVal:'',
+  quizQ:null, quizLimit:null, quizSeen:{}, quizRound:0, quizAsked:0, quizResults:null, quizScore:{ok:0,bad:0}, quizDone:false, quizSel:-1, quizInputVal:'',
   quizHint:false, cardHint:false, quizRecent:[],
   wordDisplay:'full', // 'full' — слово целиком (кандзи), 'kana' — только кана
+  verbReports:[],     // отметки «Ошибка в задании» из форм глаголов: задание + ответ для проверки
   hintsEnabled:true,  // подсказки в квизе/карточках кандзи (можно выключить в настройках)
   cfgScreen:null,     // 'cards' | 'quiz' — экран настроек режима (формы глаголов из практики)
   homeOpen:null,      // раскрытая карточка режима на главной: 'cards' | 'quiz' | 'quiz-compose' | 'quiz-pairs' | 'quiz-match'
@@ -109,6 +110,7 @@ function load(){
     if(!S.quizCfg.verbCats.some(v=>VERB_CAT_BY_ID[v].k==='form'))S.quizCfg.verbCats=VERB_CATS_DEFAULT.slice();
     if(d.wordDisplay==='kana'||d.wordDisplay==='full')S.wordDisplay=d.wordDisplay;
     if(typeof d.hintsEnabled==='boolean')S.hintsEnabled=d.hintsEnabled;
+    if(Array.isArray(d.verbReports))S.verbReports=d.verbReports;
     // Папки: старые записи без папки → «Общая»
     S.words.forEach(w=>{if(!w.folder)w.folder='Общая';});
     S.kanjiItems.forEach(w=>{if(!w.folder)w.folder='Общая';});
@@ -142,6 +144,7 @@ function save(){
       kanjiItems:S.kanjiItems,kanjiProgress:S.kanjiProgress,
       wordsCsv:S.wordsCsv,kanjiCsv:S.kanjiCsv,
       studyCfg:S.studyCfg,quizCfg:S.quizCfg,wordDisplay:S.wordDisplay,hintsEnabled:S.hintsEnabled,
+      verbReports:S.verbReports,
     }));
     return true;
   }catch{
@@ -409,6 +412,23 @@ function quizLimit(pool,p){
   }
   return pool.filter(w=>S.quizLimit.ids.has(w.id));
 }
+// «Количество» = длина сессии: N вопросов, а в раундовых режимах (пары, сопоставление) —
+// пока не показаны все N записей. Без лимита («Все») тренировка идёт до «Стоп».
+function quizSessionSize(){return S.quizCfg.count!=='all'&&S.quizLimit?S.quizLimit.ids.size:0;}
+function roundIds(q){return q.pairs?q.options.map(o=>o.id):q.match?q.items.map(it=>it.id):null;}
+// следующий вопрос или null, если набор исчерпан (тогда S.quizResults — итоги)
+function nextInSession(){
+  const n=quizSessionSize(),cur=S.quizQ;
+  if(n&&cur&&!roundIds(cur)&&S.quizAsked>=n)return finishQuiz();
+  const before={...S.quizSeen};
+  const q=nextQuizQ();
+  const ids=q&&roundIds(q);
+  // раунд целиком из уже показанных записей — значит, весь набор пройден
+  if(n&&ids&&ids.every(id=>before[id]))return finishQuiz();
+  if(q)S.quizAsked++;
+  return q;
+}
+function finishQuiz(){S.quizResults={...S.quizScore,total:quizSessionSize()};return null;}
 // Давно не показанные — первыми (для раундов из нескольких записей: пары, сопоставление)
 function leastRecent(pool){
   const seen=S.quizSeen||{};
@@ -430,6 +450,9 @@ function buildStudyQueue(){
     return da-db;
   });
 }
+// значение для показа: русское из meaning/translation (повторный импорт с переводом мог положить
+// русский в «Перевод», а английский остался в «Значении»), иначе что есть
+function shownMeaning(w){return[w.meaning,w.translation].find(v=>/[а-яё]/i.test(String(v||'')))||w.meaning||w.translation||'';}
 function arr(x){return Array.isArray(x)?x:(x==null?[]:[x]);}
 // Отображение слова: 'kana' → показываем чтение вместо кандзи-формы (только для слов)
 function wordGlyph(w,type){

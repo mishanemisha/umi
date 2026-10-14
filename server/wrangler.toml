@@ -1,0 +1,25 @@
+# umi AI — объяснения форм глаголов. Деплой: см. server/README.md
+name = "umi-ai"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+workers_dev = true      # адрес https://umi-ai.umi-app.workers.dev
+preview_urls = false    # без лишних публичных адресов для пробных версий
+
+[vars]
+ALLOWED_ORIGINS = "https://mishanemisha.github.io"
+AI_MODEL = "gpt-6.1-sol"          # дешевле: gpt-6-luna (проверить качество японского)
+AI_REASONING = "low"
+AI_MAX_VARIANTS = "4"             # вариантов «объяснение + 3 задания» на форму; дальше — только из базы
+AI_USER_DAILY_GENERATIONS = "10"  # новых генераций на пользователя в сутки
+AI_USER_DAILY_REQUESTS = "300"
+AI_DAILY_BUDGET_USD = "2"         # потолок расхода на модель в сутки
+
+# секреты (не в этом файле!): wrangler secret put OPENAI_API_KEY / TELEGRAM_BOT_TOKEN
+
+[[d1_databases]]
+binding = "DB"
+database_name = "umi-ai"
+database_id = "84eb5948-ae9c-4013-acaa-1b7c4963e983"
+
+[observability]
+enabled = true

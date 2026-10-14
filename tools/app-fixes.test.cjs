@@ -10,7 +10,7 @@ function app({storage=new Map(),tg=null,canStore=()=>true}={}){
  const document={getElementById:id=>nodes[id]||null,addEventListener(){},querySelector(){return null},activeElement:null};
  const ctx=vm.createContext({window:tg?{Telegram:{WebApp:tg}}:{},document,navigator:{},location:{hash:''},localStorage:{getItem:k=>storage.has(k)?storage.get(k):null,setItem:(k,v)=>{if(!canStore(k,v))throw Error('QuotaExceededError');storage.set(k,v);}},setTimeout(){},clearTimeout(){},console,Blob,URL,atob,FileReader:class{readAsText(f){this.onload({target:{result:f.text}});}}});
  runApp(ctx);
- return {run:code=>vm.runInContext(code,ctx),nodes,storage,handlers};
+ return {run:code=>vm.runInContext(code,ctx),nodes,storage,handlers,ctx};
 }
 function searchInput(a){
  const listeners={};
@@ -69,12 +69,14 @@ function fakeTelegram(){
 }
 const manyWords=n=>`S.words=Array.from({length:${n}},(_,i)=>({id:'w'+i,kanji:'語'+i,reading:'ご'+i,meaning:'слово '+i,folder:'Общая'}));`;
 
-test('quiz «Количество» fixes the set of words for the whole session',()=>{
+test('quiz «Количество» fixes the set of words and ends the session after N questions',()=>{
  const a=app();
  a.run(manyWords(200)+`S.quizCfg={...S.quizCfg,type:'words',mode:'choice4',question:['kanji'],answer:['reading'],count:'50',filter:'all',folders:[]};act('start-quiz');`);
- const ids=JSON.parse(a.run(`(()=>{const seen=new Set();for(let i=0;i<300;i++){seen.add(S.quizQ.word.id);act('skip-q');}return JSON.stringify([...seen])})()`));
- assert(ids.length<=50,`asked ${ids.length} different words with count 50`);
- assert(ids.length>40,'session should cover most of its words');
+ const r=JSON.parse(a.run(`(()=>{const seen=new Set();let n=0;while(S.quizQ&&n<300){seen.add(S.quizQ.word.id);n++;if(n%2){act('quiz-ans:0');act('next-q');}else act('skip-q');}return JSON.stringify({ids:[...seen],n,res:S.quizResults})})()`));
+ assert.equal(r.n,50,'session stops after the chosen count');
+ assert(r.ids.length<=50&&r.ids.length>30,'session covers most of its words');
+ assert.equal(r.res.total,50);
+ assert.match(a.run('buildApp()'),/Набор пройден/);
  a.run(`act('stop-quiz');act('start-quiz')`);
  assert.equal(a.run('S.quizLimit&&S.quizLimit.ids.size'),50,'a new session draws a new set');
 });
@@ -149,8 +151,17 @@ function solveMatch(a){a.run(`(()=>{const q=S.quizQ;q.items.forEach((_,i)=>{act(
 
 test('match session survives rounds even when filter «Не знаю» empties out',()=>{
  const a=app();
- a.run(manyKanji(8)+`S.quizCfg={...S.quizCfg,type:'kanji',mode:'match6',matchLeft:['meaning'],matchRight:['kanji'],filter:'unknown',count:'50',folders:[]};act('start-quiz');`);
+ a.run(manyKanji(8)+`S.quizCfg={...S.quizCfg,type:'kanji',mode:'match6',matchLeft:['meaning'],matchRight:['kanji'],filter:'unknown',count:'all',folders:[]};act('start-quiz');`);
  for(let r=0;r<4;r++){assert(a.run('Boolean(S.quizQ&&S.quizQ.match)'),'round '+r+' must have a question');solveMatch(a);a.run(`act('next-q')`);}
+});
+
+test('match with «Количество» ends once every word of the set was shown',()=>{
+ const a=app();
+ a.run(manyKanji(30)+`S.quizCfg={...S.quizCfg,type:'kanji',mode:'match6',matchLeft:['meaning'],matchRight:['kanji'],filter:'all',count:'20',folders:[]};act('start-quiz');`);
+ const seen=new Set();let rounds=0;
+ while(a.run('Boolean(S.quizQ)')&&rounds<20){for(const id of JSON.parse(a.run('JSON.stringify(S.quizQ.items.map(x=>x.id))')))seen.add(id);solveMatch(a);a.run(`act('next-q')`);rounds++;}
+ assert.equal(seen.size,20);assert.equal(rounds,4);
+ assert(a.run('Boolean(S.quizResults)'));
 });
 
 test('match rounds cycle through the pool before repeating',()=>{
@@ -291,4 +302,114 @@ test('training screens: Стоп / Пропустить / Дальше in one ro
  assert.match(a.run('buildApp()'),/class="qact-btn primary" data-a="next-q">Дальше/);
  a.run(`act('stop-quiz')`);
  assert.doesNotMatch(a.run('buildApp()'),/class="bnav mini"/);
+});
+
+test('verb forms: every generated task is answerable from its chips and the task names the form unambiguously',()=>{
+ const a=app();
+ const r=JSON.parse(a.run(`(()=>{
+  const bad=[];let n=0;
+  const allCats=VERB_CATS_DATA.map(c=>c.v);
+  const ms=(arr)=>{const c={};arr.forEach(j=>{c[j]=(c[j]||0)+1;});return c;};
+  const fits=(seq,opts)=>{const c=ms(opts);return seq.every(j=>c[j]-->0);};
+  for(const mode of ['A','B'])for(const lvl of ['easy','medium','hard'])for(const style of ['plain','polite','both']){
+   S.quizCfg.verbMode=mode;S.quizCfg.verbLevel=lvl;S.quizCfg.verbStyle=style;S.quizCfg.verbCats=allCats.slice();
+   S.quizRecent=[];
+   for(let i=0;i<400;i++){
+    const q=buildVerbQ();if(!q){bad.push('null '+mode+lvl+style);break;}n++;
+    const tag=q.verb.d+' '+q.rule.id+' '+lvl+': ';
+    if(!vbTextOk(q.task))bad.push(tag+'task '+q.task);
+    if(q.options.includes('∅')||(q.stem.jp==='∅'))bad.push(tag+'∅ chip');
+    if(mode==='A'){if(!fits(q.target,q.options))bad.push(tag+'target not in chips');}
+    else{
+     if(!fits(q.accepted[0].seq,q.options))bad.push(tag+'primary not in chips');
+     if(q.accepted[0].seq.join('|')!==vbCards(q.verb,q.rule,LVL[lvl]).slice(1).map(c=>c.jp).join('|'))bad.push(tag+'primary is not the asked form');
+     // все принятые формы дают то же задание
+     q.accepted.forEach(x=>{const r=VERB_RULES.find(r=>r.id===x.id);if(vbText(q.verb,r.tp)!==vbText(q.verb,q.rule.tp))bad.push(tag+'accepts '+x.id);});
+    }
+   }
+  }
+  // скриншоты-примеры: задание передаёт время/отрицание/вежливость
+  const V=id=>VERB_BANK.find(v=>v.d===id);
+  const R=id=>VERB_RULES.find(r=>r.id===id);
+  const ex={
+   cause:vbText(V('寄る'),R('causative_masu_negative_past').tp),
+   peel:vbText(V('剥く'),R('teiru_negative_ba').tp),
+   praise:vbText(V('褒める'),R('teiru_negative_te').tp),
+   peelAcc:vbAccepted(V('剥く'),vbText(V('剥く'),R('teiru_negative').tp),'剥','m').map(x=>x.id),
+  };
+  return JSON.stringify({bad:bad.slice(0,20),n,ex});
+ })()`));
+ assert.deepEqual(r.bad,[]);
+ assert(r.n>=7000);
+ assert.equal(r.ex.cause,'не заставил(а) зайти · вежливо');
+ assert.equal(r.ex.peel,'если сейчас не чищу');
+ assert.equal(r.ex.praise,'сейчас не хвалю, и…');
+ assert.deepEqual(r.ex.peelAcc,['teiru_negative'],'«сейчас не чищу» принимает только 〜ていない');
+});
+
+/* ── Апдейт 14.10: подсказки шторкой, переключатели на канвасе, отметки ошибок, повторный импорт ── */
+test('kanji hints slide out under the canvas instead of squeezing it; compose switches live on the canvas',()=>{
+ const a=app();
+ a.run(`S.kanjiItems=['食','事','物','見'].map((c,i)=>({id:'k'+i,kanji:c,on_reading:'ショク'+i,kun_reading:'た.べる',meaning:'m'+i,folder:'Общая'}));S.quizCfg={...S.quizCfg,type:'kanji',mode:'choice4',question:['kanji'],answer:['on_reading'],count:'all'};act('start-quiz');S.quizQ.word=S.kanjiItems[0];act('toggle-hint')`);
+ assert.match(a.nodes.app.innerHTML,/cv-drop anim/,'drop slides out when opened');
+ const html=a.run('buildApp()');
+ assert.match(html,/<\/div><div class="cv-drop">.*食べる.*たべる/s,'hint drop follows the canvas');
+ assert.doesNotMatch(html.split('cv-drop')[0],/hchip/,'no hint chips inside the canvas');
+ a.run(`act('stop-quiz');S.kanjiItems=[...new Set(BUILTIN_WORDS.flatMap(w=>[...w.w]).filter(isKanjiChar))].map((c,i)=>({id:'k'+i,kanji:c,folder:'Общая'}));S.quizCfg={...S.quizCfg,mode:'compose',composeMode:'normal'};act('start-quiz')`);
+ const c=a.run('buildApp()');
+ assert.match(c,/class="cv-pills">.*compose-switch:reading.*compose-switch:meaning/s);
+ assert.doesNotMatch(c,/cmp-switch/);
+});
+
+test('verb card «Ошибка в задании» stores the task and answers and can be exported',()=>{
+ const a=app();
+ a.run(`S.quizCfg={...S.quizCfg,mode:'verbs',verbMode:'B'};act('start-quiz');act('verb-flag')`);
+ assert.match(a.run('buildApp()'),/role="checkbox" aria-checked="true"/);
+ a.run(`act('verb-pick:0');act('next-q')`);
+ const r=JSON.parse(a.run('JSON.stringify(S.verbReports)'));
+ assert.equal(r.length,1);
+ assert(r[0].task&&r[0].answers.length&&r[0].form&&r[0].built,'report keeps task, answers, form and what was built');
+ assert.match(a.run('verbReportsCsv()'),/^ts,verb,reading/);
+ assert.equal(JSON.parse(a.storage.get('jl4')).verbReports.length,1,'reports persist');
+ a.run(`act('verb-flag');act('verb-flag')`);
+ assert.equal(a.run('S.verbReports.length'),1,'unflagging a card removes only its own report');
+});
+
+test('re-import updates every copy of a kanji, and examples prefer Russian meanings',()=>{
+ const a=app();
+ a.run(`S.kanjiItems=[{id:'a',kanji:'海',on_reading:'カイ',kun_reading:'うみ',meaning:'sea',folder:'Общая'},{id:'b',kanji:'海',on_reading:'カイ',kun_reading:'うみ',meaning:'sea',folder:'Моя'}];
+  S.importType='kanji';S.importPreview={words:[{id:'n',kanji:'海',on_reading:'カイ',kun_reading:'うみ',meaning:'море'}],headers:['kanji','meaning']};act('confirm-import')`);
+ assert.equal(a.run(`S.kanjiItems.map(w=>w.meaning).join(',')`),'море,море');
+ assert.equal(a.run('S.kanjiItems.length'),2);
+ a.run(`S.words=[{id:'w',kanji:'海辺',reading:'うみべ',meaning:'seaside',folder:'Общая'}]`);
+ assert.doesNotMatch(a.run(`kanjiExamples({kanji:'海',on_reading:'カイ',kun_reading:'うみ'}).kun.meaning`),/[a-z]/i);
+});
+
+test('«Объясни почему»: button only after an answer, explanation then 3 drills in order, signed request, closes on next',async()=>{
+ const a=app({tg:{...fakeTelegram(),initData:'signed'}});
+ const calls=[];
+ a.run(`S.quizCfg={...S.quizCfg,mode:'verbs',verbMode:'A'};act('start-quiz')`);
+ assert.doesNotMatch(a.run('buildApp()'),/data-a="ai-open"/,'no button before the answer');
+ a.run(`for(let i=0;i<S.quizQ.target.length;i++)act('verb-pick:'+S.quizQ.options.indexOf(S.quizQ.target[i]))`);
+ assert.match(a.run('buildApp()'),/data-a="ai-open"/);
+ a.run(`AI_API='https://ai.example';`);
+ a.ctx.fetch=async(url,init)=>{calls.push({url,init});return{ok:true,status:200,json:async()=>({variant:1,prompt_v:1,data:a.run('AI_DEMO')})};};
+ a.run(`act('ai-open')`);
+ assert.match(a.run('buildApp()'),/ai-typing/,'loading state');
+ await new Promise(r=>setImmediate(r));await new Promise(r=>setImmediate(r));
+ assert.equal(calls[0].url,'https://ai.example/v1/explain');
+ assert.equal(calls[0].init.headers['x-telegram-init-data'],'signed');
+ assert.deepEqual(Object.keys(JSON.parse(calls[0].init.body)).sort(),['form','seen'],'only the form id goes to the server');
+ let html=a.run('buildApp()');
+ assert.match(html,/ai-pattern/);assert.match(html,/data-a="ai-drill"/);assert.doesNotMatch(html,/ai-opt/);
+ a.run(`act('ai-drill')`);
+ html=a.run('buildApp()');
+ assert.equal((html.match(/data-a="ai-pick:/g)||[]).length,4,'one drill at a time');
+ a.run(`act('ai-pick:1:0');act('ai-pick:0:0')`);
+ assert.equal(a.run('S.ai.picks.length'),1,'drills are answered in order');
+ a.run(`act('ai-pick:1:0');act('ai-pick:2:0')`);
+ assert.match(a.run('buildApp()'),/из 3/);
+ assert.equal(a.run(`localStorage.getItem('umi.ai.v1')`),JSON.stringify({seen:{[a.run('S.ai.form')]:[1]}}));
+ a.run(`act('next-q')`);
+ assert.equal(a.run('S.ai'),null);
 });

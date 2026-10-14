@@ -133,7 +133,9 @@ function act(action){
         // не дублируется: ID, папка и прогресс остаются, значение обновляется из файла
         // (например, английское → русское), а запись добавляется в целевую папку.
         const list=itype==='kanji'?S.kanjiItems:S.words;
-        const existing=new Map();list.forEach(w=>{const k=importMatchKey(w,itype);if(!existing.has(k))existing.set(k,w);});
+        // все записи с тем же ключом: старые импорты могли оставить копии в других папках —
+        // обновляем каждую, иначе в папках остаются прежние (английские) значения
+        const existing=new Map();list.forEach(w=>{const k=importMatchKey(w,itype);(existing.get(k)||existing.set(k,[]).get(k)).push(w);});
         const seen=new Set();
         const oldLength=list.length,oldCsv=itype==='kanji'?S.kanjiCsv:S.wordsCsv;
         const before=new Map(); // запись → её копия до импорта (для отката при нехватке места)
@@ -142,14 +144,18 @@ function act(action){
           const k=importMatchKey(w,itype);
           if(seen.has(k)){skipped++;continue;}
           seen.add(k);
-          const old=existing.get(k);
-          if(!old){w.folder=targetFolder;list.push(w);added++;continue;}
-          const copy=JSON.stringify(old);
+          const olds=existing.get(k);
+          if(!olds){w.folder=targetFolder;list.push(w);added++;continue;}
           let changed=false;
-          for(const f of['meaning','translation','notes'])if(w[f]&&w[f]!==old[f]){old[f]=w[f];changed=true;}
-          for(const f of itype==='kanji'?['on_reading','kun_reading']:['reading'])if(w[f]&&!old[f]){old[f]=w[f];changed=true;}
-          if(addToFolder(old,targetFolder))changed=true;
-          if(changed){before.set(old,copy);updated++;}else skipped++;
+          olds.forEach((old,i)=>{
+            const copy=JSON.stringify(old);
+            let ch=false;
+            for(const f of['meaning','translation','notes'])if(w[f]&&w[f]!==old[f]){old[f]=w[f];ch=true;}
+            for(const f of itype==='kanji'?['on_reading','kun_reading']:['reading'])if(w[f]&&!old[f]){old[f]=w[f];ch=true;}
+            if(i===0&&!olds.some(o=>inFolder(o,targetFolder))&&addToFolder(old,targetFolder))ch=true;
+            if(ch){before.set(old,copy);changed=true;}
+          });
+          if(changed)updated++;else skipped++;
         }
         if(itype==='kanji')S.kanjiCsv=S.importRawText||'';
         else S.wordsCsv=S.importRawText||'';
@@ -222,8 +228,8 @@ function act(action){
       const mode=S.quizCfg.mode;
       const fieldModes=mode==='pairs'||mode==='compose'||mode==='verbs'||mode==='match6';
       if(!fieldModes&&!aFields.some(f=>d.some(w=>w[f]))){toast(`Поле "${fldShort(aFields[0],S.quizCfg.type)}" пустое во всех записях`);break;}
-      S.quizRecent=[];S.quizLimit=null;S.quizSeen={};S.quizRound=0;
-      S.quizScore={ok:0,bad:0};S.quizQ=nextQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';S.quizHint=false;
+      S.quizRecent=[];S.quizLimit=null;S.quizSeen={};S.quizRound=0;S.quizAsked=0;S.quizResults=null;
+      S.quizScore={ok:0,bad:0};S.quizQ=nextInSession();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';S.quizHint=false;
       if(!S.quizQ)toast(startQuizError());
       break;}
     case'quiz-check':{
@@ -238,8 +244,8 @@ function act(action){
         save();
       }
       break;}
-    case'toggle-hint':S.quizHint=!S.quizHint;break;
-    case'toggle-card-hint':S.cardHint=!S.cardHint;break;
+    case'toggle-hint':S.quizHint=!S.quizHint;S.hintAnim=S.quizHint;break;
+    case'toggle-card-hint':S.cardHint=!S.cardHint;S.hintAnim=S.cardHint;break;
     case'compose-switch':{
       const cs=S.quizCfg.composeShow||{reading:true,meaning:false};
       cs[val]=!cs[val];
@@ -295,6 +301,18 @@ function act(action){
         save();
       }
       break;}
+    case'verb-flag':vbFlagToggle(S.quizQ);haptic('light');break;
+    // «Объясни почему»: объяснение формы и 3 задания от umi AI (js/ai.js)
+    case'ai-open':aiOpen();haptic('light');break;
+    case'ai-close':aiClose();break;
+    case'ai-retry':if(S.ai){const f=S.ai.form;S.ai.status='loading';aiLoad(f,++_aiReq,0);}break;
+    case'ai-drill':if(S.ai){S.ai.step='drill';S.ai.scroll=true;}break;
+    case'ai-pick':aiPick(val);if(S.ai)S.ai.scroll=true;break;
+    case'ai-report':aiReport();break;
+    case'verb-reports':
+      if(!S.verbReports.length){toast('Отметок нет');return;}
+      saveFile('verb-reports.csv',verbReportsCsv(),'text/csv;charset=utf-8');return;
+    case'verb-reports-clear':S.verbReports=[];save();toast('Отметки очищены');break;
     case'verb-check':{                                        // Mode B: явная проверка сборки
       const q=S.quizQ;if(!q||!q.verbs||!q.modeB||S.quizDone||!q.picks.length)break;
       const built=q.picks.map(x=>q.options[x]);
@@ -384,15 +402,17 @@ function act(action){
       }
       break;}
     case'next-q':
-      S.quizQ=nextQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
-      if(!S.quizQ)toast(startQuizError());break;
-    case'skip-q':
-      // Пропуск без оценки — просто следующий вопрос
-      S.quizQ=nextQuizQ();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
-      if(!S.quizQ)toast(startQuizError());break;
+    case'skip-q':  // пропуск — без оценки, но вопрос засчитывается в «Количество»
+      if(S.quizQ&&S.quizQ.flagged){vbFlagSync(S.quizQ);save();}
+      aiClose();
+      S.quizQ=nextInSession();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
+      if(!S.quizQ&&!S.quizResults)toast(startQuizError());break;
     case'stop-quiz':
+      if(S.quizQ&&S.quizQ.flagged){vbFlagSync(S.quizQ);save();}
+      aiClose();
       S.quizQ=null;S.quizDone=false;S.quizInputVal='';S.quizHint=false;
       S.quizScore={ok:0,bad:0};S.quizSel=-1;S.quizRecent=[];S.quizLimit=null;S.quizSeen={};S.quizRound=0;
+      S.quizAsked=0;S.quizResults=null;
       break;
 
     case'download-csv':{
@@ -527,6 +547,9 @@ function animateHomeOpen(){
 }
 function bindAll(){
   animateHomeOpen();
+  // чат объяснения: новое сообщение (задание, ответ) — прокручиваем к нему
+  const ab=document.getElementById('ai-body');
+  if(ab&&S.ai&&S.ai.scroll){S.ai.scroll=false;ab.scrollTo?ab.scrollTo({top:ab.scrollHeight,behavior:'smooth'}):(ab.scrollTop=ab.scrollHeight);}
   // Front-chips toggle (study, multi-select)
   const cf=document.getElementById('chips-front');
   if(cf)cf.addEventListener('click',e=>{

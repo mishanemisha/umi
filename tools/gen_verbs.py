@@ -60,7 +60,7 @@ def build(v, tmpl, romaji=False):
     for card in tmpl.split("|"):
         s = "".join(p for p in (resolve(v, t.strip(), romaji) for t in card.split("+")) if p and p != "∅")
         for part in s.split("|"):
-            if part:
+            if part and part != "∅":   # у 来る на hard основа «∅|た»: чтение меняется, карточки нет
                 out.append(part)
     return out
 
@@ -141,3 +141,9 @@ with open(OUT, "w", encoding="utf-8") as f:
     f.write("// Сгенерировано tools/gen_verbs.py — не править вручную\n")
     f.write("\n".join([J("VERB_CH", VC), J("VERB_RULES", VR), J("VERB_CATS_DATA", CATS), J("VERB_BANK", VB)]) + "\n")
 print("written", os.path.relpath(OUT, os.path.join(HERE, "..")))
+# те же данные — серверу объяснений (server/): он сам строит и проверяет формы для заданий
+SRV = os.path.join(HERE, "..", "server", "data", "verbs.json")
+os.makedirs(os.path.dirname(SRV), exist_ok=True)
+with open(SRV, "w", encoding="utf-8") as f:
+    json.dump({"VERB_CH": VC, "VERB_RULES": VR, "VERB_CATS_DATA": CATS, "VERB_BANK": VB}, f, ensure_ascii=False, separators=(',', ':'))
+print("written", os.path.relpath(SRV, os.path.join(HERE, "..")))

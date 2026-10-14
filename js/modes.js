@@ -138,8 +138,13 @@ function kanjiExamples(item){
   // встроенные слова — по частотности для этого знака
   const bank=[...BUILTIN_WORDS,...ADDITIONAL_WORDS].filter(w=>w.w.includes(ch))
     .map((w,i)=>({w:w.w,r:w.r,k:w.k,m:w.m,o:examplePri(ch,w.w,i)})).sort((a,b)=>a.o-b.o);
+  // значение примера — по-русски: из своего слова (meaning или translation), иначе из банка
+  // по тому же слову; английское — только если русского нет нигде
+  const ruM=new Map();bank.forEach(b=>{if(!ruM.has(b.w))ruM.set(b.w,b.m);});
+  const cyr=v=>/[а-яё]/i.test(String(v||''));
+  const userM=w=>[w.meaning,w.translation,ruM.get(String(w.kanji||''))].find(cyr)||w.meaning||w.translation;
   const cands=[
-    ...S.words.map(w=>({w:String(w.kanji||''),r:w.reading,k:null,m:w.meaning||w.translation})),
+    ...S.words.map(w=>({w:String(w.kanji||''),r:w.reading,k:null,m:userM(w)})),
     ...bank,
   ].filter(x=>x.r&&x.w.includes(ch));
   const out={on:null,kun:null};
@@ -373,15 +378,17 @@ function vbCards(v,rule,lvl){
   tmpl.split('|').forEach(card=>{
     let jp='',stem=false;const toks=[];
     card.split('+').forEach(t=>{t=t.trim();const r=vbResolve(v,t);if(r.jp&&r.jp!=='∅'){jp+=r.jp;toks.push(t);if(r.stem)stem=true;}});
-    jp.split('|').forEach(part=>{if(part)out.push({jp:part,stem,toks});});
+    jp.split('|').forEach(part=>{if(part&&part!=='∅')out.push({jp:part,stem,toks});}); // 来る hard: «∅|た»
   });
   return out;
 }
-// русское задание из формы (иногда — альтернативный вариант, напр. «тогда не мог пойти»)
+// русское задание из шаблона формы; незаполненный слот остаётся «{…}» — такую пару пропускаем
+function vbText(v,tmpl){return String(tmpl||'').replace(/\{ru_([a-z0-9_]+)\}/g,(m,k)=>v.ru[k]||('{'+k+'}'));}
+function vbTextOk(t){return!!t&&t.indexOf('∅')<0&&!/\{/.test(t);}
+// задание (иногда — альтернативная формулировка того же смысла, напр. «смогу пойти» вместо «могу пойти»)
 function vbTask(v,rule){
-  let tmpl=rule.tp;
-  if(rule.al&&Math.random()<0.4)tmpl=rule.al;
-  return tmpl.replace(/\{ru_([a-z0-9_]+)\}/g,(m,k)=>v.ru[k]||('{'+k+'}'));
+  const alt=rule.al&&Math.random()<0.4?vbText(v,rule.al):'';
+  return vbTextOk(alt)?alt:vbText(v,rule.tp);
 }
 // дистракторы для одной карточки-слота
 function vbCardDistractors(v,card){
@@ -456,8 +463,8 @@ function buildVerbQ(){
     if(!vbFormAvail(cv,cr,lvl))continue;       // формы нет у глагола (напр. ら抜き у годан)
     const cc=vbCards(cv,cr,lvl);
     if(cc.length<2)continue;                  // нужна хотя бы основа + 1 слот
+    if(!vbTextOk(vbText(cv,cr.tp)))continue;  // у глагола нет русской формы под это задание
     const tk=vbTask(cv,cr);
-    if(!tk||tk.indexOf('—')>=0||tk.indexOf('∅')>=0||/\{/.test(tk))continue; // у глагола нет такой формы
     if(rec.includes(cv.id+'|'+cr.id+'|'+lvl)&&att<28)continue;
     v=cv;rule=cr;cards=cc;task=tk;break;
   }
@@ -475,10 +482,23 @@ function buildVerbQ(){
   return{verbs:true,verb:v,rule,level:lvl,stem,cards,target,options,picks:[],result:null,task};
 }
 
-// Mode B: показываем только смысл, принимаем несколько грамматических конструкций.
-// Группируем формы по mode_b_semantic_key; принимаем любую сборку из группы, что резолвится
-// для глагола и имеет ту же основу. Длина ответа варьируется → проверка по кнопке «Проверить».
+// Mode B: показываем только смысл, способ выбирает ученик. Принимаются все формы, у которых
+// для этого глагола ТО ЖЕ задание (ば/たら, варианты обязанности 〜なければならない/〜なきゃいけない…):
+// задание однозначно задаёт смысл — время, отрицание, вежливость, — а всё, что с ним совпадает, верно.
 function seqEq(a,b){return a.length===b.length&&a.every((x,i)=>x===b[i]);}
+// принимаемые сборки для глагола и задания: [{id, seq}] с общей основой
+function vbAccepted(v,prompt,stemJp,lvl){
+  const acc=[],seen=new Set();
+  VERB_RULES.forEach(g=>{
+    if(!g.mb||!vbFormAvail(v,g,lvl)||vbText(v,g.tp)!==prompt)return;
+    const cc=vbCards(v,g,lvl);
+    if(cc.length<2||cc[0].jp!==stemJp)return;     // общая основа со стволом задания
+    const seq=cc.slice(1).map(c=>c.jp),key=seq.join('|');
+    if(seen.has(key))return;seen.add(key);
+    acc.push({id:g.id,seq,style:vbStyleOk(g)});
+  });
+  return acc;
+}
 function buildVerbQB(){
   const lvl=LVL[S.quizCfg.verbLevel]||'m';
   const forms=vbPool(r=>r.mb);
@@ -491,38 +511,62 @@ function buildVerbQB(){
     if(!vbFormAvail(cv,cr,lvl))continue;
     const primary=vbCards(cv,cr,lvl);
     if(primary.length<2)continue;
-    const tk=vbTask(cv,cr);
-    if(!tk||tk.indexOf('—')>=0||tk.indexOf('∅')>=0||/\{/.test(tk))continue;
-    if(rec.includes('B|'+cv.id+'|'+cr.mk+'|'+lvl)&&att<28)continue;
-    // группа: все mode_b-формы с тем же смысловым ключом (включая саму)
-    const group=VERB_RULES.filter(r=>r.mb&&r.mk===cr.mk&&vbGateOk(cv,r));
-    const acc=[];const seen=new Set();
-    group.forEach(g=>{
-      if(!vbFormAvail(cv,g,lvl))return;             // напр. ら抜き недоступна годан-глаголу
-      const cc=vbCards(cv,g,lvl);
-      if(cc.length<2)return;
-      if(cc[0].jp!==primary[0].jp)return;          // общая основа со стволом задания
-      const seq=cc.slice(1).map(c=>c.jp),key=seq.join('');
-      if(seen.has(key))return;seen.add(key);
-      acc.push({id:g.id,seq});
-    });
+    const prompt=vbText(cv,cr.tp);
+    if(!vbTextOk(prompt))continue;
+    if(rec.includes('B|'+cv.id+'|'+cr.tp+'|'+lvl)&&att<28)continue;
+    const acc=vbAccepted(cv,prompt,primary[0].jp,lvl);
     if(!acc.length)continue;
-    v=cv;rule=cr;stem=primary[0];accepted=acc;task=tk;break;
+    // основной ответ (сборка спрошенной формы) — первым: его показываем как «Правильно»
+    const pk=primary.slice(1).map(c=>c.jp).join('|');
+    acc.sort((a,b)=>(b.seq.join('|')===pk)-(a.seq.join('|')===pk));
+    v=cv;rule=cr;stem=primary[0];accepted=acc;task=vbTask(cv,cr);break;
   }
   if(!accepted)return null;
-  noteRecent('B|'+v.id+'|'+rule.mk+'|'+lvl,bank.length*forms.length);
-  // банк: объединение чипов всех принимаемых ответов (с нужной кратностью) + дистракторы
-  const need={};
-  accepted.forEach(a=>{const cnt={};a.seq.forEach(j=>{cnt[j]=(cnt[j]||0)+1;});for(const j in cnt)need[j]=Math.max(need[j]||0,cnt[j]);});
+  noteRecent('B|'+v.id+'|'+rule.tp+'|'+lvl,bank.length*forms.length);
+  // банк: чипы основного ответа и альтернатив выбранного стиля (кратность — максимум по сборкам;
+  // альтернатива входит, только если банк остаётся ≤7 чипов) + дистракторы.
+  // Проверка идёт по всем принимаемым сборкам, даже не попавшим в банк.
+  const merge=(need,seq)=>{const n={...need},cnt={};seq.forEach(j=>{cnt[j]=(cnt[j]||0)+1;});for(const j in cnt)n[j]=Math.max(n[j]||0,cnt[j]);return n;};
+  const size=n=>Object.values(n).reduce((a,b)=>a+b,0);
+  let need=merge({},accepted[0].seq);
+  accepted.slice(1).filter(a=>a.style).forEach(a=>{const n=merge(need,a.seq);if(size(n)<=7)need=n;});
   const opts=[];Object.keys(need).forEach(j=>{for(let i=0;i<need[j];i++)opts.push(j);});
   const maxLen=Math.max(...accepted.map(a=>a.seq.length));
   const used=new Set(opts);const cap=opts.length+5;
-  // дистракторы — из семейств чипов первого принимаемого ответа
+  // дистракторы — из семейств чипов основного ответа
   const primaryCards=vbCards(v,rule,lvl).slice(1);
   primaryCards.forEach(c=>{for(const d of vbCardDistractors(v,c)){if(opts.length>=cap)break;if(!used.has(d)){opts.push(d);used.add(d);}}});
   if(opts.length<maxLen+3){const keys=shuffle(Object.keys(VERB_CH));for(const k of keys){if(opts.length>=maxLen+3)break;const j=VERB_CH[k].j;if(!used.has(j)){opts.push(j);used.add(j);}}}
   const options=shuffle(opts);
   return{verbs:true,modeB:true,verb:v,rule,level:lvl,stem,accepted,maxLen,options,picks:[],result:null,task};
+}
+
+/* ── Отметка «Ошибка в задании» (формы глаголов) ──
+ * Сохраняем всё, что нужно для проверки карточки: глагол, форму, задание, правильные ответы
+ * и собранное учеником. Запись обновляется, пока вопрос на экране (ответ мог появиться позже). */
+function vbReport(q){
+  const full=seq=>q.stem.jp+seq.join('');
+  return{id:q.reportId,ts:new Date().toISOString(),verb:q.verb.d,reading:q.verb.r,verbId:q.verb.id,meaning:q.verb.m,
+    form:q.rule.id,grammar:q.rule.gl||q.rule.nm,mode:q.modeB?'B':'A',level:q.level,task:q.task,
+    answers:q.modeB?q.accepted.map(a=>full(a.seq)):[full(q.target)],
+    options:q.options.slice(),built:q.picks.map(i=>q.options[i]).join(''),
+    result:S.quizDone?(q.result?'верно':'неверно'):'не отвечено'};
+}
+function vbFlagSync(q){
+  if(!q||!q.verbs||!q.flagged)return;
+  const r=vbReport(q),i=S.verbReports.findIndex(x=>x.id===r.id);
+  if(i>=0)S.verbReports[i]=r;else S.verbReports.push(r);
+}
+function vbFlagToggle(q){
+  if(!q||!q.verbs)return;
+  q.flagged=!q.flagged;
+  if(q.flagged){q.reportId=q.reportId||uid();vbFlagSync(q);}
+  else S.verbReports=S.verbReports.filter(x=>x.id!==q.reportId);
+  save();
+}
+function verbReportsCsv(){
+  const cols=['ts','verb','reading','verbId','meaning','form','grammar','mode','level','task','answers','built','result','options'];
+  return[cols.join(','),...S.verbReports.map(r=>cols.map(c=>csvCell(Array.isArray(r[c])?r[c].join(' | '):r[c])).join(','))].join('\n')+'\n';
 }
 
 function nextQuizQ(){

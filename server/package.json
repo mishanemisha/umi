@@ -1,0 +1,11 @@
+{
+  "name": "umi-ai",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/worker.test.mjs",
+    "dev": "npx wrangler dev",
+    "deploy": "npx wrangler deploy",
+    "db:init": "npx wrangler d1 execute umi-ai --remote --file=schema.sql"
+  }
+}
