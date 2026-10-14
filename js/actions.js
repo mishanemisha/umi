@@ -244,8 +244,13 @@ function act(action){
         save();
       }
       break;}
-    case'toggle-hint':S.quizHint=!S.quizHint;S.hintAnim=S.quizHint;break;
-    case'toggle-card-hint':S.cardHint=!S.cardHint;S.hintAnim=S.cardHint;break;
+    // закрытие шторки — сначала плавно сворачиваем, потом перерисовываем
+    case'toggle-hint':
+      if(S.quizHint&&collapseDrawer('.cv-drop',()=>{S.quizHint=false;render();}))return;
+      S.quizHint=!S.quizHint;break;
+    case'toggle-card-hint':
+      if(S.cardHint&&collapseDrawer('.cv-drop',()=>{S.cardHint=false;render();}))return;
+      S.cardHint=!S.cardHint;break;
     case'compose-switch':{
       const cs=S.quizCfg.composeShow||{reading:true,meaning:false};
       cs[val]=!cs[val];
@@ -304,12 +309,11 @@ function act(action){
     case'verb-flag':vbFlagToggle(S.quizQ);haptic('light');break;
     // «Объясни почему»: объяснение формы и 3 задания от umi AI (js/ai.js)
     case'ai-open':aiOpen();haptic('light');break;
-    case'ai-close':aiClose();break;
+    case'ai-close':if(collapseDrawer('.ai-drawer',()=>{aiClose();render();}))return;aiClose();break;
     case'ai-retry':if(S.ai){const f=S.ai.form;S.ai.status='loading';aiLoad(f,++_aiReq,0);}break;
-    case'ai-drill':if(S.ai){S.ai.step='drill';S.ai.scroll=true;}break;
-    case'ai-pick':aiPick(val);if(S.ai)S.ai.scroll=true;break;
+    case'ai-pick':aiPick(val);break;
     case'ai-report':aiReport();break;
-    case'ai-more':aiMore();S.ai&&(S.ai.scroll=true);break;
+    case'ai-more':aiMore();break;
     case'verb-reports':
       if(!S.verbReports.length){toast('Отметок нет');return;}
       saveFile('verb-reports.csv',verbReportsCsv(),'text/csv;charset=utf-8');return;
@@ -548,12 +552,6 @@ function animateHomeOpen(){
 }
 function bindAll(){
   animateHomeOpen();
-  // чат объяснения: новое сообщение (задание, ответ) — прокручиваем к нему
-  const ab=document.getElementById('ai-body');
-  if(ab&&S.ai&&S.ai.scroll){S.ai.scroll=false;ab.scrollTo?ab.scrollTo({top:ab.scrollHeight,behavior:'smooth'}):(ab.scrollTop=ab.scrollHeight);}
-  // панель только что открыта — докручиваем страницу, чтобы она была видна
-  const dr=document.querySelector('.ai-drawer');
-  if(dr&&S.ai&&S.ai.reveal){S.ai.reveal=false;setTimeout(()=>dr.scrollIntoView&&dr.scrollIntoView({behavior:'smooth',block:'nearest'}),60);}
   // Front-chips toggle (study, multi-select)
   const cf=document.getElementById('chips-front');
   if(cf)cf.addEventListener('click',e=>{

@@ -107,7 +107,82 @@ function buildCardFront(word,frontField,dataType){
 /* ── Render ── */
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-function render(){document.getElementById('app').innerHTML=buildApp();bindAll();if(practiceAvailable)uBind();syncBackButton();}
+/* ── Отрисовка ──
+ * Экраны тренировки обновляются точечно (morph): элементы, которые не изменились, остаются на месте,
+ * поэтому канвас не мигает, а анимации (переворот карточки, шторки) идут плавно. Остальные экраны —
+ * целиком через innerHTML: там к элементам привязаны обработчики, которые ставятся заново. */
+let _morphed=false;
+function render(){
+  const app=document.getElementById('app'),html=buildApp(),sess=inSession();
+  if(sess&&_morphed&&app.firstChild&&typeof document.createElement==='function'){
+    const before=new Map();
+    app.querySelectorAll(DRAWERS).forEach(e=>before.set(e,e.offsetHeight));
+    const added=morphInto(app,html);
+    animateDrawers(app,before,added);
+  }else app.innerHTML=html;
+  _morphed=sess;
+  bindAll();if(practiceAvailable)uBind();syncBackButton();
+}
+// Шторки под канвасом: подсказки и объяснение ИИ. Раскрываются и меняют высоту плавно.
+const DRAWERS='.cv-drop,.ai-drawer';
+const EASE_OUT='cubic-bezier(.22,1,.36,1)';
+const reducedMotion=()=>typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+function animateDrawers(root,before,added){
+  if(reducedMotion())return;
+  root.querySelectorAll(DRAWERS).forEach(el=>{
+    if(!el.animate)return;
+    const to=el.offsetHeight,from=added.includes(el)?21:before.get(el);   // 21px — часть, спрятанная под канвасом
+    if(from==null||Math.abs(from-to)<2)return;
+    el.style.overflow='hidden';
+    const an=el.animate([{height:from+'px'},{height:to+'px'}],{duration:added.includes(el)?420:300,easing:EASE_OUT});
+    if(added.includes(el))el.firstElementChild?.animate?.([{opacity:0,transform:'translateY(-10px)'},{opacity:1,transform:'none'}],{duration:360,delay:60,easing:EASE_OUT,fill:'backwards'});
+    an.onfinish=an.oncancel=()=>{el.style.overflow='';};
+  });
+}
+// Сворачивает шторку и затем выполняет done (перерисовку без неё). false — шторки нет.
+function collapseDrawer(sel,done){
+  const el=typeof document.querySelector==='function'&&document.querySelector(sel);
+  if(!el||!el.animate||reducedMotion())return false;
+  el.style.overflow='hidden';
+  el.animate([{height:el.offsetHeight+'px',opacity:1},{height:'21px',opacity:.4}],{duration:260,easing:'cubic-bezier(.4,0,.2,1)'}).onfinish=done;
+  return true;
+}
+// Точечное обновление: дети root приводятся к разметке html. Совпадающие узлы сохраняются
+// (по data-key/id, иначе по тегу и первому классу); возвращает новые элементы.
+function morphInto(root,html){
+  const t=document.createElement('template');t.innerHTML=html;
+  const added=[];
+  morphChildren(root,t.content,added);
+  return added;
+}
+function mKey(n){return n.nodeType===1?(n.getAttribute('data-key')||n.id||null):null;}
+function mKind(n){return n.nodeName+(n.nodeType===1?'.'+(n.classList[0]||''):'');}
+function morphChildren(from,to,added){
+  const olds=[...from.childNodes],used=new Set(),keyed=new Map();
+  olds.forEach(o=>{const k=mKey(o);if(k)keyed.set(k,o);});
+  let cursor=0,ref=from.firstChild;
+  for(const n of[...to.childNodes]){
+    const k=mKey(n);let m=null;
+    if(k){m=keyed.get(k);if(m&&(used.has(m)||mKind(m)!==mKind(n)))m=null;}
+    else for(let i=cursor;i<olds.length;i++){const o=olds[i];if(!used.has(o)&&!mKey(o)&&mKind(o)===mKind(n)){m=o;cursor=i+1;break;}}
+    if(m){
+      used.add(m);morphNode(m,n,added);
+      if(m!==ref)from.insertBefore(m,ref);else ref=ref.nextSibling;
+    }else{
+      from.insertBefore(n,ref);
+      if(n.nodeType===1)added.push(n);
+    }
+  }
+  olds.forEach(o=>{if(!used.has(o))o.remove();});
+}
+function morphNode(o,n,added){
+  if(o.nodeType!==1){if(o.nodeValue!==n.nodeValue)o.nodeValue=n.nodeValue;return;}
+  for(const a of[...o.attributes])if(!n.hasAttribute(a.name))o.removeAttribute(a.name);
+  for(const a of[...n.attributes])if(o.getAttribute(a.name)!==a.value)o.setAttribute(a.name,a.value);
+  // введённый текст не затираем, пока поле в фокусе; иначе — значение из разметки
+  if(o.tagName==='INPUT'&&o.type!=='file'&&document.activeElement!==o){const v=n.getAttribute('value')||'';if(o.value!==v)o.value=v;}
+  morphChildren(o,n,added);
+}
 // Куда ведёт «Назад» на текущем экране (null — корневой экран вкладки)
 function backAction(){
   if(S.ai&&S.ai.open)return'ai-close';
@@ -462,8 +537,7 @@ function hintDrop(item){
   const body=words.length
     ?words.map(w=>`<span class="hchip"><span class="hchip-w">${esc(w.kanji)}</span>${w.reading?`<span class="hchip-k"><span class="hchip-l">kana:</span><span class="hchip-r">${esc(w.reading)}</span></span>`:''}</span>`).join('')
     :`<span class="hchip-empty">Нет слов с этим иероглифом среди ваших кандзи</span>`;
-  const anim=S.hintAnim;S.hintAnim=false;   // выезжает только при открытии, не на каждом перерендере
-  return`<div class="cv-drop${anim?' anim':''}">${body}</div>`;
+  return`<div class="cv-drop" data-key="hint-drop">${body}</div>`;
 }
 
 function buildStudyDone(){
@@ -812,7 +886,7 @@ function buildVerbActive(q){
   const aiOn=!!(S.ai&&S.ai.open);
   const why=S.quizDone?`<button class="cv-hint ai-why${aiOn?' on':''}" data-a="${aiOn?'ai-close':'ai-open'}" aria-expanded="${aiOn}">${aiOn?'Скрыть объяснение':'Объясни почему'}${SPARK_SVG}</button>`:'';
   const canvas=qCanvas(inner,canvasCls,null,false,'',why,aiOn?buildAiDrawer():'');
-  // Банк окончаний — hug-content чипы (как в дуалинго); при открытом объяснении его место занимает чат
+  // Банк окончаний — hug-content чипы (как в дуалинго)
   const opts=q.options.map((o,i)=>{
     const at=q.picks.indexOf(i);let cls='';
     if(S.quizDone){ if(at>=0)cls=q.modeB?(q.result?'ok':'bad'):((o===q.target[at])?'ok':'bad'); }
@@ -820,7 +894,8 @@ function buildVerbActive(q){
     return`<button class="qchip ${cls}" ${S.quizDone?'disabled':''} data-a="verb-pick:${i}">${esc(o)}</button>`;
   }).join('');
   const bankLbl=q.modeB?'Соберите форму — способ выберите сами:':'Соберите нужную форму глагола:';
-  const panel=aiOn?'':`<div class="quiz-panel"><div class="quiz-panel-lbl">${bankLbl}</div><div class="quiz-bank">${opts}</div></div>`;
+  // при открытом объяснении банк остаётся, но уходит ниже — до него можно долистать
+  const panel=`<div class="quiz-panel"><div class="quiz-panel-lbl">${bankLbl}</div><div class="quiz-bank">${opts}</div></div>`;
   return`<div class="pg">${canvas}${panel}${qActions(q.modeB&&q.picks.length?'verb-check':null)}</div>`;
 }
 

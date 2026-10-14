@@ -4,13 +4,14 @@
 // в задании всегда верный, даже если модель ошибётся.
 import { RULE, VERB, VERB_BANK, VERB_RULES, cards, surface, text, usable } from './verbs.js';
 
-export const PROMPT_VERSION = 1;
+// 2 — формула ответа: шаги сборки → примеры → проверка; японский текст с чтениями 漢字[かな]
+export const PROMPT_VERSION = 2;
 
 // примеры для объяснения: по одному глаголу каждого типа, где форма существует
 const EXAMPLE_TYPES = [['ichidan', 'taberu'], ['godan-ku', 'kaku'], ['godan-u', 'kau'], ['godan-mu', 'yomu'],
   ['godan-ru', 'toru'], ['suru', 'suru'], ['kuru', 'kuru']];
 
-function examples(rule) {
+export function examples(rule) {
   const out = [];
   for (const [type, id] of EXAMPLE_TYPES) {
     const v = VERB[id] || VERB_BANK.find(x => x.t === type && usable(x, rule));
@@ -49,18 +50,23 @@ export function candidates(rule, { exclude = [], rnd = Math.random, n = 6 } = {}
 }
 
 export const INSTRUCTIONS = `Ты — преподаватель японского для русскоязычных учеников уровня N5–N3 в приложении umi.
-Объясни одну грамматическую форму глагола и подготовь 3 задания на закрепление.
+Объясни одну грамматическую форму глагола строго по формуле: 1) как собрать форму по шагам, 2) примеры, 3) короткая проверка.
 
 Правила:
-- Пиши по-русски, коротко и просто, без воды и без обращения к ученику по имени. Никаких вопросов ученику вне заданий.
-- Японские формы бери ТОЛЬКО из присланных примеров и кандидатов, не придумывай свои и не меняй их написание.
+- Пиши по-русски, коротко и просто, без воды, без приветствий и без обращения по имени.
+- Японские формы глаголов бери ТОЛЬКО из присланных examples и candidates, не меняй их написание.
+- Чтения: после каждого слова или части слова с кандзи сразу пиши чтение этих кандзи в квадратных скобках:
+  書[か]かせる, 食[た]べる, 来[こ]ない, 勉強[べんきょう]する. Чтение — только для кандзи, кану не дублируй.
 - summary — 1–2 предложения: что значит форма и когда её используют.
-- steps — 2–4 шага, как собрать форму из словарной (какую основу взять, что добавить); учитывай разные типы глаголов из примеров.
-- pattern — схема в одну строку, например «V-ない-основа + させ + ませんでした».
-- notes — 0–3 коротких замечания: оттенок смысла, вежливость, частая ошибка.
-- exercises — ровно 3 задания из разных кандидатов. Для каждого: candidate_id, question — формулировка по-русски,
-  что нужно выбрать (используй task_ru кандидата и укажи глагол с переводом), wrong_ids — ровно 3 неверных варианта
-  из wrong этого кандидата (выбирай самые правдоподобные), why — одно предложение, почему верен правильный ответ.
+- pattern — схема в одну строку, например «V-ない-основа + させ + ませんでした» (без чтений).
+- steps — 2–4 шага сборки из словарной формы: какую основу взять, что добавить. В каждом шаге — мини-пример
+  на одном из examples (например «書[か]く → 書[か]か»). Покажи разницу для разных типов глаголов из examples.
+- notes — 0–2 коротких замечания: оттенок смысла, вежливость или частая ошибка.
+- sentences — 1–2 коротких естественных предложения уровня N5–N4 с этой формой (глагол — из examples), jp с чтениями
+  для всех кандзи и ru — перевод.
+- exercises — ровно 3 задания из разных candidates. question — что выбрать, по-русски (опирайся на task_ru, укажи глагол
+  с переводом); wrong_ids — ровно 3 неверных варианта из wrong этого кандидата, самые правдоподобные; why — одно
+  предложение, почему верен правильный ответ.
 - Не используй Markdown, HTML и эмодзи.`;
 
 export function buildInput(rule, cands) {
@@ -74,11 +80,14 @@ export function buildInput(rule, cands) {
 const str = (max) => ({ type: 'string', maxLength: max });
 export const SCHEMA = {
   type: 'object', additionalProperties: false,
-  required: ['title', 'summary', 'pattern', 'steps', 'notes', 'exercises'],
+  required: ['title', 'summary', 'pattern', 'steps', 'notes', 'sentences', 'exercises'],
   properties: {
     title: str(80), summary: str(400), pattern: str(120),
-    steps: { type: 'array', minItems: 2, maxItems: 4, items: str(240) },
-    notes: { type: 'array', minItems: 0, maxItems: 3, items: str(240) },
+    steps: { type: 'array', minItems: 2, maxItems: 4, items: str(260) },
+    notes: { type: 'array', minItems: 0, maxItems: 2, items: str(240) },
+    sentences: { type: 'array', minItems: 1, maxItems: 2, items: {
+      type: 'object', additionalProperties: false, required: ['jp', 'ru'], properties: { jp: str(160), ru: str(200) },
+    } },
     exercises: { type: 'array', minItems: 3, maxItems: 3, items: {
       type: 'object', additionalProperties: false, required: ['candidate_id', 'question', 'wrong_ids', 'why'],
       properties: { candidate_id: str(8), question: str(240), wrong_ids: { type: 'array', minItems: 3, maxItems: 3, items: str(8) }, why: str(300) },
@@ -105,8 +114,11 @@ export function assemble(raw, rule, cands) {
       options: [c.right, ...wrong.map(w => w.form)], answer: c.right, why: clean(e.why) };
   });
   need(clean(o.summary) && clean(o.pattern) && o.steps.every(clean), 'empty text');
+  const sentences = (o.sentences || []).map(x => ({ jp: clean(x && x.jp), ru: clean(x && x.ru) })).filter(x => x.jp && x.ru).slice(0, 2);
+  // примеры форм — из нашего движка (верные всегда), модель их только объясняет
+  const ex = examples(rule).map(e => ({ verb: e.verb, reading: e.reading, meaning: e.meaning, form: e.form, ru: e.task_ru }));
   return { form: rule.id, title: clean(o.title) || rule.gl, summary: clean(o.summary), pattern: clean(o.pattern),
-    steps: o.steps.map(clean), notes: (o.notes || []).map(clean).filter(Boolean), exercises };
+    steps: o.steps.map(clean), notes: (o.notes || []).map(clean).filter(Boolean), examples: ex, sentences, exercises };
 }
 
 export const ruleById = id => RULE[id] || null;

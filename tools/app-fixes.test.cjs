@@ -351,9 +351,8 @@ test('verb forms: every generated task is answerable from its chips and the task
 test('kanji hints slide out under the canvas instead of squeezing it; compose switches live on the canvas',()=>{
  const a=app();
  a.run(`S.kanjiItems=['食','事','物','見'].map((c,i)=>({id:'k'+i,kanji:c,on_reading:'ショク'+i,kun_reading:'た.べる',meaning:'m'+i,folder:'Общая'}));S.quizCfg={...S.quizCfg,type:'kanji',mode:'choice4',question:['kanji'],answer:['on_reading'],count:'all'};act('start-quiz');S.quizQ.word=S.kanjiItems[0];act('toggle-hint')`);
- assert.match(a.nodes.app.innerHTML,/cv-drop anim/,'drop slides out when opened');
  const html=a.run('buildApp()');
- assert.match(html,/<\/div><div class="cv-drop">.*食べる.*たべる/s,'hint drop follows the canvas');
+ assert.match(html,/<\/div><div class="cv-drop" data-key="hint-drop">.*食べる.*たべる/s,'hint drop follows the canvas');
  assert.doesNotMatch(html.split('cv-drop')[0],/hchip/,'no hint chips inside the canvas');
  a.run(`act('stop-quiz');S.kanjiItems=[...new Set(BUILTIN_WORDS.flatMap(w=>[...w.w]).filter(isKanjiChar))].map((c,i)=>({id:'k'+i,kanji:c,folder:'Общая'}));S.quizCfg={...S.quizCfg,mode:'compose',composeMode:'normal'};act('start-quiz')`);
  const c=a.run('buildApp()');
@@ -385,7 +384,7 @@ test('re-import updates every copy of a kanji, and examples prefer Russian meani
  assert.doesNotMatch(a.run(`kanjiExamples({kanji:'海',on_reading:'カイ',kun_reading:'うみ'}).kun.meaning`),/[a-z]/i);
 });
 
-test('«Объясни почему»: button only after an answer, explanation then 3 drills in order, signed request, closes on next',async()=>{
+test('«Объясни почему»: button only after an answer; steps → examples → check with all 3 drills at once; furigana; closes on next',async()=>{
  const a=app({tg:{...fakeTelegram(),initData:'signed'}});
  const calls=[];
  a.run(`S.quizCfg={...S.quizCfg,mode:'verbs',verbMode:'A'};act('start-quiz')`);
@@ -393,28 +392,30 @@ test('«Объясни почему»: button only after an answer, explanation 
  a.run(`for(let i=0;i<S.quizQ.target.length;i++)act('verb-pick:'+S.quizQ.options.indexOf(S.quizQ.target[i]))`);
  assert.match(a.run('buildApp()'),/data-a="ai-open"/);
  a.run(`AI_API='https://ai.example';`);
- a.ctx.fetch=async(url,init)=>{calls.push({url,init});return{ok:true,status:200,json:async()=>({variant:1,prompt_v:1,data:a.run('AI_DEMO')})};};
+ a.ctx.fetch=async(url,init)=>{calls.push({url,init});return{ok:true,status:200,json:async()=>({variant:1,prompt_v:2,data:a.run('AI_DEMO')})};};
  a.run(`act('ai-open')`);
  let h0=a.run('buildApp()');
  assert.match(h0,/ai-think/,'loading state');
- assert.match(h0,/<\/div><section class="ai-drawer/,'panel slides out under the canvas');
- assert.doesNotMatch(h0,/quiz-bank/,'chip bank gives way to the chat');
+ assert.match(h0,/<\/div><section class="ai-drawer"/,'panel slides out under the canvas');
+ assert.match(h0,/<\/section><\/div><div class="quiz-panel">/,'chip bank stays below the panel');
  await new Promise(r=>setImmediate(r));await new Promise(r=>setImmediate(r));
  assert.equal(calls[0].url,'https://ai.example/v1/explain');
  assert.equal(calls[0].init.headers['x-telegram-init-data'],'signed');
  assert.deepEqual(Object.keys(JSON.parse(calls[0].init.body)).sort(),['form','seen'],'only the form id goes to the server');
  let html=a.run('buildApp()');
- assert.match(html,/ai-pattern/);assert.match(html,/data-a="ai-drill"/);assert.doesNotMatch(html,/ai-opt/);
- a.run(`act('ai-drill')`);
+ assert.match(html,/Как собрать[\s\S]*Примеры[\s\S]*Проверка/,'answer follows the formula');
+ assert.equal((html.match(/data-a="ai-pick:/g)||[]).length,12,'all three drills at once');
+ assert.match(html,/<ruby>書<rt>か<\/rt><\/ruby>かせ/,'furigana from 漢字[かな] markup and on engine forms');
+ assert.doesNotMatch(html,/\[か\]/);
+ a.run(`act('ai-pick:2:0');act('ai-pick:2:1');act('ai-pick:0:0')`);
+ assert.equal(a.run('S.ai.picks.filter(x=>x!=null).length'),2,'any order, one answer per drill');
+ a.run(`act('ai-pick:1:0')`);
  html=a.run('buildApp()');
- assert.equal((html.match(/data-a="ai-pick:/g)||[]).length,4,'one drill at a time');
- a.run(`act('ai-pick:1:0');act('ai-pick:0:0')`);
- assert.equal(a.run('S.ai.picks.length'),1,'drills are answered in order');
- a.run(`act('ai-pick:1:0');act('ai-pick:2:0')`);
- assert.match(a.run('buildApp()'),/из 3/);
- assert.match(a.run('buildApp()'),/data-a="ai-more"/,'quick replies instead of an input line');
- assert.doesNotMatch(a.run('buildApp()'),/<input|<textarea/);
- assert.equal(a.run(`localStorage.getItem('umi.ai.v1')`),JSON.stringify({seen:{[a.run('S.ai.form')]:[1]}}));
+ assert.match(html,/ai-score/);
+ assert.match(html,/data-a="ai-more"/,'quick replies instead of an input line');
+ assert.doesNotMatch(html,/<input|<textarea/);
+ assert.equal(a.run(`localStorage.getItem('umi.ai.v1')`),JSON.stringify({seen:{[a.run('S.ai.form')]:['2:1']}}));
+ assert.equal(a.run(`aiFuriForm('来る','くる','来ない')+'|'+aiFuriForm('来る','くる','来ました')`),'<ruby>来<rt>こ</rt></ruby>ない|<ruby>来<rt>き</rt></ruby>ました');
  a.run(`act('next-q')`);
  assert.equal(a.run('S.ai'),null);
 });

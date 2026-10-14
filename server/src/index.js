@@ -66,7 +66,9 @@ async function explain(env, req, user) {
   const body = await req.json().catch(() => null);
   const rule = body && ruleById(String(body.form || ''));
   if (!rule) return fail(env, req, 400, 'bad_form', 'Неизвестная форма');
-  const seen = Array.isArray(body.seen) ? body.seen.filter(Number.isInteger).slice(0, 20) : [];
+  // seen — «версия:вариант»: после смены промпта старые просмотры не мешают получить новые варианты
+  const seen = (Array.isArray(body.seen) ? body.seen : []).slice(0, 40)
+    .map(x => String(x).match(/^(\d+):(\d+)$/)).filter(m => m && Number(m[1]) === PROMPT_VERSION).map(m => Number(m[2]));
   const db = env.DB, maxV = num(env.AI_MAX_VARIANTS, 4);
 
   const usage = await touchUsage(db, user.id, 'requests');
