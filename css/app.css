@@ -248,9 +248,11 @@ button,input,select{font-family:inherit}
 
 /* ─── Счёт (Figma 155:3551: пилюли 12px, серый текст, цветная обводка) ─── */
 .qscore{display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap}
-.qbadge{display:flex;align-items:center;justify-content:center;gap:4px;padding:2px 22px;border-radius:16px;border:1px solid #bababa;font-size:12px;line-height:normal;color:#8b8b8b;white-space:nowrap}
-.qbadge.qok{border-color:#daffd6}
-.qbadge.qbad{border-color:#ffbfbf}
+/* обводка счёта — градиент (Figma «Формы глаголов» 160:786): тёмный слева сверху → светлый справа снизу */
+.qbadge{--qb:linear-gradient(160deg,#fff 0%,#bababa 100%);display:flex;align-items:center;justify-content:center;gap:4px;padding:2px 22px;border-radius:16px;
+  border:1px solid transparent;background:linear-gradient(var(--cv),var(--cv)) padding-box,var(--qb) border-box;font-size:12px;line-height:normal;color:#8b8b8b;white-space:nowrap}
+.qbadge.qok{--qb:linear-gradient(160deg,#1f6f1f 0%,#5da75c 35%,#daffd6 100%)}
+.qbadge.qbad{--qb:linear-gradient(160deg,#701a1c 0%,#c17172 40%,#ffbfbf 100%)}
 
 /* ─── Канвас вопроса ─── */
 .quiz-q{background:var(--cv);border-radius:16px;padding:8px;height:360px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
@@ -261,10 +263,6 @@ button,input,select{font-family:inherit}
 .cv-hint{flex:none;background:var(--cv2);border:1px solid #282828;border-radius:16px;padding:6px 8px;color:#7a7a7a;font-size:12px;line-height:normal;cursor:pointer}
 .cv-hint.on{color:var(--t);border-color:#3e3e3e}
 .cv-hint[aria-pressed="true"]{background:var(--a);border-color:var(--a);color:#fff}
-.vb-flag{display:inline-flex;align-items:center;gap:6px}
-.vb-box{width:14px;height:14px;border:1px solid #5a5a5a;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;line-height:1}
-.vb-flag[aria-checked="true"]{color:var(--r);border-color:var(--r)}
-.vb-flag[aria-checked="true"] .vb-box{border-color:var(--r);background:var(--r);color:#fff}
 /* подсказки-слова (Figma «Подсказка» 157:5134): слово + kana */
 /* пилюли внизу канваса: «Показать подсказки», переключатели «Кана / Значение» */
 .cv-pills{flex:none;display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
@@ -338,15 +336,32 @@ button,input,select{font-family:inherit}
 .cmp-correct{font-size:15px;color:var(--g);text-align:center}
 .cmp-correct span{font-family:var(--fjp);font-size:22px;color:var(--g);margin-left:4px}
 /* Формы глаголов (Figma: «Не Хочу … Глагол», кана-чипы #1b1b1b) */
-.vb-task{font-size:16px;font-weight:500;color:var(--t);text-align:center;line-height:normal}
+/* Формы глаголов (Figma 160:786): «Задание:» → смысл синим → теги → «Глагол:» → слово с фуриганой и значением */
+.vb-cv{width:100%;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.vb-lbl{font-size:16px;font-weight:300;color:var(--t);line-height:normal}
+.vb-task{font-size:22px;font-weight:500;color:var(--rd);line-height:1.2;margin-bottom:2px;overflow-wrap:anywhere}
+.vb-tags{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;margin-bottom:4px}
+.vb-tag{background:var(--cv2);border:1px solid #282828;border-radius:16px;padding:4px 8px;font-size:13px;color:#7a7a7a;line-height:normal}
+.vb-tag.gram{font-family:var(--fjp);color:#9db6ff;border-color:#24345c}
+.vb-verb{display:flex;align-items:flex-end;justify-content:center;flex-wrap:wrap;gap:4px 14px}
+.vb-dict{font-family:var(--fkj);font-weight:700;font-size:36px;line-height:1;color:var(--t);display:inline-flex;align-items:flex-end}
+.furi-k{display:inline-flex;flex-direction:column;align-items:center}
+.furi-r{font-family:var(--fjp);font-weight:500;font-size:12px;line-height:1;color:var(--rd);margin-bottom:3px;white-space:nowrap}
+.vb-mean{font-size:22px;font-weight:500;color:var(--rd);line-height:1.3;padding-bottom:4px}
+.vb-flag{position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:14px;border:1px solid #282828;background:var(--cv2);
+  color:#5a5a5a;font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2}
+.vb-flag[aria-checked="true"]{color:#fff;background:var(--r);border-color:var(--r)}
+.cv-hint .spark{width:14px;height:14px;vertical-align:-2px;margin-left:6px}
+.ai-why{font-size:14px;padding:6px 12px}
+.ai-why.on{color:var(--t);border-color:#3e3e3e}
 .vb-gram{font-size:13px;color:var(--rd);text-align:center;line-height:1.3}
-.vb-word{display:flex;align-items:flex-end;justify-content:center;flex-wrap:wrap;gap:2px;min-height:64px}
-.vb-base{font-family:var(--fjp);font-size:32px;line-height:normal;color:var(--t);background:#1b1b1b;border-radius:4px;padding:4px 8px}
+.vb-word{display:flex;align-items:flex-end;justify-content:center;flex-wrap:wrap;gap:2px;min-height:44px;margin-top:4px}
+.vb-base{font-family:var(--fjp);font-size:24px;line-height:normal;color:var(--t);background:#1b1b1b;border-radius:4px;padding:3px 8px}
 .vb-base ruby{ruby-position:over;-webkit-ruby-position:before}
 .vb-base rt{font-size:13px;color:var(--rd);line-height:1.2}
-.vb-suf{font-family:var(--fjp);font-size:32px;line-height:normal;color:var(--rd);background:#1b1b1b;border-radius:4px;padding:4px 8px}
+.vb-suf{font-family:var(--fjp);font-size:24px;line-height:normal;color:var(--rd);background:#1b1b1b;border-radius:4px;padding:3px 8px}
 .vb-suf.ok{color:var(--g)}.vb-suf.bad{color:var(--r)}
-.vb-slot{min-width:38px;height:47px;border-bottom:2px dashed var(--a);display:inline-block}
+.vb-slot{min-width:32px;height:38px;border-bottom:2px dashed var(--a);display:inline-block}
 /* банк окончаний — hug-content чипы */
 .quiz-bank{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;width:100%}
 .qchip{font-family:var(--fjp);background:var(--cv2);border:1px solid var(--ln);color:var(--t);border-radius:4px;padding:10px 16px;font-size:20px;line-height:1;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
@@ -545,56 +560,79 @@ td{padding:7px 10px;border-top:1px solid rgba(255,255,255,.05);white-space:nowra
 /* ─── Mono ─── */
 .mono{font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;color:var(--al);line-height:1.7}
 
-/* ─── «Объясни почему»: выпадашка-чат umi AI (формы глаголов) ───
- * Лист снизу поверх экрана: сообщения ИИ слева, выбор ученика справа, без строки ввода. */
-.ai-why{color:#cfdcff;border-color:#2c4a8f;background:#14203d}
-.ai-scrim{position:fixed;inset:0;z-index:250;background:rgba(0,0,0,.55);animation:aifade .2s ease}
-.ai-sheet{position:fixed;left:50%;transform:translateX(-50%);bottom:0;z-index:260;width:100%;max-width:480px;max-height:78vh;
-  display:flex;flex-direction:column;background:#141414;border:1px solid #262626;border-bottom:0;border-radius:20px 20px 0 0;
-  padding-bottom:env(safe-area-inset-bottom)}
-.ai-sheet.anim{animation:aisheet .32s cubic-bezier(.2,.8,.2,1)}
-@keyframes aisheet{from{transform:translate(-50%,100%)}}
-@keyframes aifade{from{opacity:0}}
-.ai-head{flex:none;display:flex;align-items:center;gap:8px;padding:14px 12px 10px 16px;border-bottom:1px solid #222}
-.ai-badge{flex:none;font-size:10px;font-weight:500;letter-spacing:.3px;color:#fff;background:var(--a);border-radius:10px;padding:3px 8px}
-.ai-title{flex:1;min-width:0;font-size:14px;font-weight:500;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ai-x{flex:none;width:32px;height:32px;border-radius:16px;border:0;background:#1f1f1f;color:#9a9a9a;font-size:20px;line-height:1;cursor:pointer}
-.ai-body{flex:1;min-height:0;overflow-y:auto;padding:12px 12px 16px;display:flex;flex-direction:column;gap:8px;overscroll-behavior:contain}
-.ai-msg{align-self:flex-start;max-width:92%;background:#1d1d1d;border:1px solid #262626;border-radius:4px 14px 14px 14px;
-  padding:10px 12px;font-size:14px;line-height:1.45;color:#e8e8e8;animation:aimsg .22s ease}
-@keyframes aimsg{from{opacity:0;transform:translateY(6px)}}
-.ai-msg p{margin:0}
-.ai-msg.short{padding:8px 12px}
-.ai-msg.err{color:#ffb3b3;border-color:#5a2626}
-.ai-msg.me{align-self:flex-end;border-radius:14px 4px 14px 14px;background:var(--a);border-color:var(--a);color:#fff;font-family:var(--fjp);font-size:16px}
-.ai-msg.me.bad{background:#3a1515;border-color:var(--r);color:#ffb3b3}
-.ai-msg .jp,.ai-msg b.jp{font-family:var(--fjp);font-weight:500;color:var(--g)}
-.ai-pattern{margin-top:8px;padding:6px 10px;border-radius:8px;background:#111;border:1px solid #2c4a8f;color:#cfdcff;font-family:var(--fjp);font-size:14px}
-.ai-parts{margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:4px}
-.ai-part{font-family:var(--fjp);font-size:18px;font-weight:500;color:var(--g);background:#111;border-radius:4px;padding:2px 8px}
+/* ─── «Объясни почему»: панель umi AI под канвасом (Figma «Формы глаголов» 160:786) ───
+ * Выезжает из-под канваса (как подсказки): серая подложка #181818, внутри чёрная панель-чат. */
+.ai-drawer{margin-top:-21px;padding:29px 8px 8px;background:#181818;border-radius:0 0 16px 16px}
+.ai-drawer.anim{animation:cvdrop .3s cubic-bezier(.2,.8,.2,1)}
+.ai-panel{background:#000;border-radius:8px;border:1px solid #1f1f1f;display:flex;flex-direction:column;overflow:hidden}
+.ai-head{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 12px;border-bottom:1px solid #161616}
+.ai-ava{flex:none;width:26px;height:26px;border-radius:13px;display:flex;align-items:center;justify-content:center;color:#fff;
+  background:radial-gradient(circle at 30% 25%,#7aa2ff,#3f6fcf 55%,#22397a)}
+.ai-ava .spark{width:14px;height:14px}
+.ai-who{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25}
+.ai-who b{font-size:13px;font-weight:500;color:var(--t)}
+.ai-who span{font-size:11px;color:#7a7a7a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ai-x{flex:none;width:28px;height:28px;border-radius:14px;border:1px solid #262626;background:#111;color:#8b8b8b;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.ai-body{max-height:min(52vh,440px);overflow-y:auto;padding:14px 12px 6px;display:flex;flex-direction:column;gap:14px;overscroll-behavior:contain;scrollbar-width:none}
+.ai-body::-webkit-scrollbar{display:none}
+.ai-row{display:flex;gap:10px;align-items:flex-start}
+.ai-row.in{animation:aiin .38s cubic-bezier(.2,.8,.2,1) both}
+@keyframes aiin{from{opacity:0;transform:translateY(8px)}}
+.ai-text{flex:1;min-width:0;font-size:14px;line-height:1.5;color:#e6e6e6}
+.ai-row.me{justify-content:flex-end}
+.ai-bubble{max-width:80%;background:#1f1f1f;border:1px solid #2a2a2a;border-radius:16px 16px 4px 16px;padding:7px 12px;font-size:14px;color:var(--t)}
+.ai-bubble .jp{font-family:var(--fjp);font-size:16px}
+.ai-bubble.bad{border-color:#5a2626;color:#ffb3b3}
+.ai-sec-t{display:flex;align-items:center;gap:6px;font-size:16px;font-weight:500;color:var(--t);margin-bottom:6px}
+.ai-sec-t .spark{width:14px;height:14px;color:#8b8b8b}
+.ai-p{margin:0}
+.ai-p b.jp,.ai-text b.jp{font-family:var(--fjp);font-weight:500;color:var(--g)}
+.ai-pattern{display:inline-block;margin-top:10px;padding:6px 10px;border-radius:8px;background:#0d1426;border:1px solid #24345c;color:#bcd0ff;font-family:var(--fjp);font-size:14px}
+.ai-parts{margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.ai-part{font-family:var(--fjp);font-size:16px;font-weight:500;color:var(--rd);background:#141414;border:1px solid #232323;border-radius:4px;padding:2px 8px}
 .ai-part.stem{color:var(--t)}
-.ai-plus{color:#6a6a6a;font-size:12px}
-.ai-steps,.ai-notes{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
-.ai-notes{margin-top:8px;padding-top:8px;border-top:1px solid #2a2a2a;list-style:none;padding-left:0;color:#b9b9b9;font-size:13px}
-.ai-notes li::before{content:'! ';color:var(--y)}
-.ai-q{display:flex;gap:8px;align-items:baseline;font-weight:500}
-.ai-n{flex:none;font-size:11px;color:var(--al)}
-.ai-verb{margin-top:4px;font-size:12px;color:#9a9a9a}
-.ai-verb b{font-family:var(--fjp);color:var(--t);font-weight:500}
-.ai-opts{margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px}
-.ai-opt{background:var(--cv2);border:1px solid var(--ln);border-radius:4px;color:var(--t);font-family:var(--fjp);font-size:15px;
-  padding:10px 6px;cursor:pointer;overflow-wrap:anywhere;transition:background .15s,border-color .15s,opacity .15s}
-.ai-opt.ok{background:rgba(122,255,120,.14);border-color:var(--g);color:var(--g)}
-.ai-opt.bad{background:rgba(255,60,60,.18);border-color:var(--r);color:var(--r)}
+.ai-part.res{color:var(--g)}
+.ai-plus,.ai-eq{color:#5a5a5a;font-size:12px}
+.ai-steps{margin:0;padding:0;list-style:none;counter-reset:st;display:flex;flex-direction:column;gap:8px}
+.ai-steps li{counter-increment:st;position:relative;padding-left:26px}
+.ai-steps li::before{content:counter(st);position:absolute;left:0;top:1px;width:18px;height:18px;border-radius:9px;background:#141414;border:1px solid #2a2a2a;
+  font-size:11px;color:#9db6ff;display:flex;align-items:center;justify-content:center}
+.ai-notes{margin-top:10px;padding:8px 10px;border-radius:8px;background:#141208;border:1px solid #3a3514;color:#d9d3a6;font-size:13px;display:flex;flex-direction:column;gap:4px}
+.ai-notes p{margin:0}
+.ai-task{display:flex;flex-direction:column;gap:6px}
+.ai-q{display:flex;gap:8px;align-items:baseline;font-weight:500;color:var(--t)}
+.ai-n{flex:none;font-size:11px;color:#9db6ff;background:#0d1426;border-radius:8px;padding:1px 6px}
+.ai-verb{display:flex;gap:6px;align-items:baseline;font-size:12px;color:#8b8b8b}
+.ai-verb b{font-family:var(--fjp);font-size:15px;font-weight:500;color:var(--t)}
+.ai-opts{display:flex;flex-direction:column;gap:2px;margin-top:2px}
+.ai-opt{display:flex;align-items:center;gap:10px;text-align:left;background:transparent;border:1px solid transparent;border-radius:8px;padding:7px 8px;
+  color:var(--t);font-family:var(--fjp);font-size:15px;cursor:pointer;transition:background .15s,border-color .15s,opacity .15s}
+.ai-opt:not([aria-disabled]):active{background:#141414}
+.ai-radio{flex:none;width:16px;height:16px;border-radius:8px;border:1.5px solid #4a4a4a;position:relative}
+.ai-opt[aria-checked="true"] .ai-radio::after{content:'';position:absolute;inset:3px;border-radius:50%;background:currentColor}
+.ai-opt.ok{background:rgba(122,255,120,.08);border-color:rgba(122,255,120,.35);color:var(--g)}
+.ai-opt.ok .ai-radio{border-color:var(--g)}
+.ai-opt.bad{background:rgba(255,60,60,.08);border-color:rgba(255,60,60,.35);color:#ff8f8f}
+.ai-opt.bad .ai-radio{border-color:#ff8f8f}
 .ai-opt.dim{opacity:.4}
 .ai-opt[aria-disabled="true"]{cursor:default}
-.ai-row{display:flex;justify-content:center;padding:4px 0}
-.ai-btn{border:1px solid #3e3e3e;background:var(--cv2);color:var(--t);border-radius:16px;padding:8px 16px;font-size:13px;cursor:pointer}
-.ai-btn.primary{background:var(--a);border-color:var(--a);color:#fff}
-.ai-typing{display:inline-flex;gap:4px;padding:2px 0}
-.ai-typing i{width:6px;height:6px;border-radius:3px;background:#8b8b8b;animation:aidot 1s infinite ease-in-out}
-.ai-typing i:nth-child(2){animation-delay:.15s}.ai-typing i:nth-child(3){animation-delay:.3s}
-@keyframes aidot{0%,80%,100%{opacity:.3;transform:none}40%{opacity:1;transform:translateY(-3px)}}
-.ai-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px;font-size:11px;color:#6a6a6a}
-.ai-link{background:none;border:0;padding:0;color:#8b8b8b;font-size:11px;text-decoration:underline;cursor:pointer}
+.ai-verdict{font-size:13px;font-weight:500;margin-bottom:2px}
+.ai-verdict.ok{color:var(--g)}.ai-verdict.bad{color:#ff8f8f}
+.ai-score{padding:8px 10px;border-radius:8px;background:#0f1a0f;border:1px solid #1f3a1f;color:#cfe9ce}
+.ai-score b{color:var(--g);font-weight:500}
+.ai-err{color:#ffb3b3}
+/* «печатает»: мерцающий текст и строки-скелетоны */
+.ai-think{display:flex;flex-direction:column;gap:8px;padding-top:2px}
+.ai-shimmer{font-size:13px;background:linear-gradient(90deg,#5a5a5a 0%,#d6d6d6 45%,#5a5a5a 90%);background-size:200% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;animation:aishim 1.4s linear infinite}
+.ai-skel{display:block;height:10px;border-radius:5px;width:92%;background:linear-gradient(90deg,#141414 0%,#232323 50%,#141414 100%);background-size:200% 100%;animation:aishim 1.4s linear infinite}
+.ai-skel.w2{width:78%}.ai-skel.w3{width:56%}
+@keyframes aishim{from{background-position:100% 0}to{background-position:-100% 0}}
+.ai-chips{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;padding:8px 12px 10px}
+.ai-chip{border:1px solid #2f2f2f;background:#111;color:#d6d6d6;border-radius:16px;padding:7px 14px;font-size:13px;cursor:pointer}
+.ai-chip.primary{background:var(--a);border-color:var(--a);color:#fff}
+.ai-chip:active{opacity:.8}
+.ai-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px 10px;border-top:1px solid #161616;font-size:10px;color:#5a5a5a}
+.ai-link{flex:none;background:none;border:0;padding:0;color:#7a7a7a;font-size:11px;text-decoration:underline;cursor:pointer}
 .ai-link[aria-disabled="true"]{text-decoration:none;cursor:default}
+@media (prefers-reduced-motion:reduce){.ai-row.in,.ai-drawer.anim{animation:none}.ai-shimmer,.ai-skel{animation:none}}

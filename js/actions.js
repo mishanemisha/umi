@@ -309,6 +309,7 @@ function act(action){
     case'ai-drill':if(S.ai){S.ai.step='drill';S.ai.scroll=true;}break;
     case'ai-pick':aiPick(val);if(S.ai)S.ai.scroll=true;break;
     case'ai-report':aiReport();break;
+    case'ai-more':aiMore();S.ai&&(S.ai.scroll=true);break;
     case'verb-reports':
       if(!S.verbReports.length){toast('Отметок нет');return;}
       saveFile('verb-reports.csv',verbReportsCsv(),'text/csv;charset=utf-8');return;
@@ -550,6 +551,9 @@ function bindAll(){
   // чат объяснения: новое сообщение (задание, ответ) — прокручиваем к нему
   const ab=document.getElementById('ai-body');
   if(ab&&S.ai&&S.ai.scroll){S.ai.scroll=false;ab.scrollTo?ab.scrollTo({top:ab.scrollHeight,behavior:'smooth'}):(ab.scrollTop=ab.scrollHeight);}
+  // панель только что открыта — докручиваем страницу, чтобы она была видна
+  const dr=document.querySelector('.ai-drawer');
+  if(dr&&S.ai&&S.ai.reveal){S.ai.reveal=false;setTimeout(()=>dr.scrollIntoView&&dr.scrollIntoView({behavior:'smooth',block:'nearest'}),60);}
   // Front-chips toggle (study, multi-select)
   const cf=document.getElementById('chips-front');
   if(cf)cf.addEventListener('click',e=>{

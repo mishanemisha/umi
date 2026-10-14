@@ -618,9 +618,9 @@ function qScoreBar(){
 }
 // Канвас вопроса (Figma 157:4624): фиксированная высота, счёт сверху, содержимое по центру.
 // Внизу канваса — пилюли (подсказки, переключатели режима); подсказки выезжают из-под канваса.
-function qCanvas(inner,cls='',hintItem=null,hintOn=false,hintAction='',foot=''){
+function qCanvas(inner,cls='',hintItem=null,hintOn=false,hintAction='',foot='',drop=''){
   const pills=hintPill(hintItem,hintOn,hintAction)+foot;
-  return`<div class="cv-wrap"><div class="quiz-q${cls}">${qScoreBar()}<div class="qbody">${inner}</div>${pills?`<div class="cv-pills">${pills}</div>`:''}</div>${hintOn&&hintItem?hintDrop(hintItem):''}</div>`;
+  return`<div class="cv-wrap"><div class="quiz-q${cls}">${qScoreBar()}<div class="qbody">${inner}</div>${pills?`<div class="cv-pills">${pills}</div>`:''}</div>${hintOn&&hintItem?hintDrop(hintItem):''}${drop}</div>`;
 }
 // Стоп / Пропустить / Дальше — одним рядом. Третья кнопка: «Дальше» после ответа,
 // «Проверить» там, где ответ подтверждается вручную, иначе неактивная «Дальше».
@@ -758,20 +758,31 @@ function buildMatchActive(q){
  * Задание (русское, из флагов) + основа глагола; собрать нужную форму из окончаний. */
 // фуригана над основой: ruby на весь кусок основы (корректно и для составных глаголов
 // типа 役に立つ, где между кандзи есть кана). kuru/suru пропускаем — у них меняется чтение.
-function vbFuriStem(v,stemJp){
-  const chars=[...stemJp];
-  if(!chars.some(isKanjiChar)||v.t==='kuru'||v.t==='suru')return`<span class="vb-base">${esc(stemJp)}</span>`;
-  const rr=[...v.r],okLen=[...v.d].length-chars.length;   // окуригана за пределами основы
-  const read=okLen>=0?rr.slice(0,rr.length-okLen).join(''):'';
-  if(!read)return`<span class="vb-base">${esc(stemJp)}</span>`;
-  return`<span class="vb-base"><ruby>${esc(stemJp)}<rt>${esc(read)}</rt></ruby></span>`;
+// словарная форма с фуриганой только над кандзи-частью: 食べる → 食(た)べる
+function vbFuriDict(v){
+  const d=[...v.d],r=[...v.r];let k=0;
+  while(k<d.length&&k<r.length&&d[d.length-1-k]===r[r.length-1-k])k++;   // общая окуригана в конце
+  const head=d.slice(0,d.length-k).join(''),tail=d.slice(d.length-k).join(''),read=r.slice(0,r.length-k).join('');
+  if(!head||![...head].some(isKanjiChar)||!read)return esc(v.d);
+  // не <ruby>: его высота зависит от шрифта и движка, а здесь чтение должно стоять вплотную к знаку
+  return`<span class="furi-k"><span class="furi-r">${esc(read)}</span>${esc(head)}</span>${esc(tail)}`;
 }
+// теги задания (Figma «Формы глаголов» 160:786): вежливость, отрицание, прошлое — подсказки к смыслу;
+// в режиме «Грамматика» добавляется сама конструкция (〜ません)
+function vbTags(q){
+  const t=[],fs=q.rule.fs||[];
+  if(q.rule.st==='polite')t.push('вежливо');
+  if(fs.includes('negative'))t.push('отрицание');
+  if(fs.includes('past'))t.push('прошедшее');
+  const tags=t.map(x=>`<span class="vb-tag">${x}</span>`);
+  if(!q.modeB){const gl=String(q.rule.gl||q.rule.nm),m=gl.split('·');tags.push(`<span class="vb-tag gram">${esc((m[1]||m[0]).trim())}</span>`);}
+  return tags.length?`<div class="vb-tags">${tags.join('')}</div>`:'';
+}
+const SPARK_SVG=`<svg class="spark" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 2c.5 4.9 3.1 7.5 8 8-4.9.5-7.5 3.1-8 8-.5-4.9-3.1-7.5-8-8 4.9-.5 7.5-3.1 8-8Z"/><path fill="currentColor" opacity=".7" d="M19 13c.25 2.4 1.6 3.75 4 4-2.4.25-3.75 1.6-4 4-.25-2.4-1.6-3.75-4-4 2.4-.25 3.75-1.6 4-4Z"/></svg>`;
 function buildVerbActive(q){
   const filled=q.picks.map(i=>q.options[i]);   // выбранные окончания по порядку слотов
-  const taskLine=`<div class="vb-task">${esc(q.task)}</div>`;
-  const meaningLine=`<div class="cmp-line"><span class="lbl">${esc(q.verb.d)}</span> <span class="val">${esc(q.verb.m)}</span></div>`;
-  // подсказка грамматики (Mode A): какую конструкцию собирать. В Mode B скрыта — только смысл.
-  const gramLine=q.modeB?'':`<div class="vb-gram">${esc(q.rule.gl||q.rule.nm)}</div>`;
+  // задание без суффикса « · вежливо» — вежливость показана тегом
+  const task=String(q.task).replace(/ · вежливо$/,'');
   let slots;
   if(q.modeB){
     // переменная длина: показываем собранные чипы + один пустой слот, пока есть куда добавлять
@@ -783,19 +794,25 @@ function buildVerbActive(q){
       ?`<span class="vb-suf${S.quizDone?(q.result?' ok':' bad'):''}">${esc(filled[i])}</span>`
       :`<span class="vb-slot"></span>`).join('');
   }
-  const wordHtml=`<div class="vb-word">${vbFuriStem(q.verb,q.stem.jp)}${slots}</div>`;
   let correctLine='';
   if(S.quizDone&&!q.result){
     const ans=q.modeB?(q.stem.jp+q.accepted[0].seq.join('')):(q.stem.jp+q.target.join(''));
     correctLine=`<div class="cmp-correct">Правильно: <span>${esc(ans)}</span></div>`;
   }
+  // «Ошибка в задании» — флажок в углу канваса: сохраняет задание и ответы (Настройки → Отметки)
+  const flag=`<button class="vb-flag" data-a="verb-flag" role="checkbox" aria-checked="${!!q.flagged}" aria-label="Ошибка в задании" title="Ошибка в задании">⚑</button>`;
+  const inner=`${flag}<div class="vb-cv">
+      <div class="vb-lbl">Задание:</div><div class="vb-task">${esc(task)}</div>${vbTags(q)}
+      <div class="vb-lbl">Глагол:</div>
+      <div class="vb-verb"><span class="vb-dict">${vbFuriDict(q.verb)}</span><span class="vb-mean">${esc(q.verb.m)}</span></div>
+      <div class="vb-word"><span class="vb-base">${esc(q.stem.jp)}</span>${slots}</div>${correctLine}
+    </div>`;
   const canvasCls=S.quizDone?(q.result?' ok':' bad'):'';
-  // «Ошибка в задании»: отметка сохраняет задание и ответы для проверки (Настройки → Отметки)
-  const flag=`<button class="cv-hint vb-flag" data-a="verb-flag" role="checkbox" aria-checked="${!!q.flagged}"><span class="vb-box">${q.flagged?'✓':''}</span>Ошибка в задании</button>`;
-  // «Объясни почему» — только после ответа (верного или нет)
-  const why=S.quizDone?`<button class="cv-hint ai-why" data-a="ai-open">✦ Объясни почему</button>`:'';
-  const canvas=qCanvas(`<div class="cmp-canvas">${taskLine}${meaningLine}${gramLine}${wordHtml}${correctLine}</div>`,canvasCls,null,false,'',why+flag);
-  // Банк окончаний — hug-content чипы (как в дуалинго)
+  // «Объясни почему» — только после ответа (верного или нет); объяснение выезжает из-под канваса
+  const aiOn=!!(S.ai&&S.ai.open);
+  const why=S.quizDone?`<button class="cv-hint ai-why${aiOn?' on':''}" data-a="${aiOn?'ai-close':'ai-open'}" aria-expanded="${aiOn}">${aiOn?'Скрыть объяснение':'Объясни почему'}${SPARK_SVG}</button>`:'';
+  const canvas=qCanvas(inner,canvasCls,null,false,'',why,aiOn?buildAiDrawer():'');
+  // Банк окончаний — hug-content чипы (как в дуалинго); при открытом объяснении его место занимает чат
   const opts=q.options.map((o,i)=>{
     const at=q.picks.indexOf(i);let cls='';
     if(S.quizDone){ if(at>=0)cls=q.modeB?(q.result?'ok':'bad'):((o===q.target[at])?'ok':'bad'); }
@@ -803,8 +820,8 @@ function buildVerbActive(q){
     return`<button class="qchip ${cls}" ${S.quizDone?'disabled':''} data-a="verb-pick:${i}">${esc(o)}</button>`;
   }).join('');
   const bankLbl=q.modeB?'Соберите форму — способ выберите сами:':'Соберите нужную форму глагола:';
-  const panel=`<div class="quiz-panel"><div class="quiz-panel-lbl">${bankLbl}</div><div class="quiz-bank">${opts}</div></div>`;
-  return`<div class="pg">${canvas}${panel}${qActions(q.modeB&&q.picks.length?'verb-check':null)}</div>${buildAiSheet()}`;
+  const panel=aiOn?'':`<div class="quiz-panel"><div class="quiz-panel-lbl">${bankLbl}</div><div class="quiz-bank">${opts}</div></div>`;
+  return`<div class="pg">${canvas}${panel}${qActions(q.modeB&&q.picks.length?'verb-check':null)}</div>`;
 }
 
 /* ── WORDS ── */

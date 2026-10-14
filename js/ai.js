@@ -18,7 +18,7 @@ let _aiReq=0;
 function aiOpen(){
   const q=S.quizQ;if(!q||!q.verbs||!S.quizDone)return;
   const form=q.rule.id,req=++_aiReq;
-  S.ai={open:true,form,qid:q,status:'loading',data:null,step:'read',picks:[],anim:true};
+  S.ai={open:true,form,status:'loading',data:null,step:'read',picks:[],anim:true,reveal:true};
   if(_aiCache.has(form)){Object.assign(S.ai,_aiCache.get(form),{status:'ready'});return;}
   aiLoad(form,req,0);
 }
@@ -40,6 +40,12 @@ async function aiLoad(form,req,attempt){
   }catch(e){done({status:'error',error:navigator.onLine===false?'Нет подключения к интернету':(e.message||'Не удалось получить объяснение')});}
 }
 function aiClose(){S.ai=null;_aiReq++;}
+function aiMore(){
+  const a=S.ai;if(!a)return;
+  _aiCache.delete(a.form);
+  Object.assign(a,{status:'loading',data:null,step:'read',picks:[],reported:false,shown:null});
+  aiLoad(a.form,++_aiReq,0);
+}
 function aiPick(val){
   const a=S.ai;if(!a||a.status!=='ready')return;
   const[ei,oi]=val.split(':').map(Number);
@@ -62,53 +68,79 @@ function aiReport(){
     body:JSON.stringify({form:a.form,variant:a.variant,prompt_v:a.prompt_v})}).catch(()=>{});
 }
 
-/* ── Выпадашка с чатом ── */
-function aiBubble(html,cls=''){return`<div class="ai-msg${cls?' '+cls:''}">${html}</div>`;}
-function buildAiSheet(){
+/* ── Панель объяснения (Figma «Формы глаголов» 160:786) ──
+ * Выезжает из-под канваса на месте банка чипов. Как в чатах с ИИ: ответы ИИ — текстом без пузыря (аватар — в шапке),
+ * выбор ученика — пузырём справа, быстрые ответы вместо строки ввода. Новые сообщения проявляются
+ * по очереди (как печать), остальные при перерисовке не мигают. */
+function aiAvatar(){return`<span class="ai-ava" aria-hidden="true">${SPARK_SVG}</span>`;}
+function aiSection(title,html){return`<div class="ai-sec"><div class="ai-sec-t">${SPARK_SVG}<span>${title}</span></div>${html}</div>`;}
+function aiMessages(a,q){
+  const m=[];   // [{k: ключ, html, me?}]
+  if(a.status==='loading'){
+    m.push({k:'load',html:`<div class="ai-think"><span class="ai-shimmer">umi AI разбирает правило…</span><i class="ai-skel"></i><i class="ai-skel w2"></i><i class="ai-skel w3"></i></div>`});
+    return m;
+  }
+  if(a.status==='error'){
+    m.push({k:'err',html:`<div class="ai-err">${esc(a.error)}</div>`});
+    return m;
+  }
+  const d=a.data;
+  // разбор формы с карточки — из нашего движка, не от модели
+  const parts=q&&q.verbs?[q.stem.jp,...(q.modeB?q.accepted[0].seq:q.target)]:[];
+  const breakdown=parts.length?`<div class="ai-parts">${parts.map((p,i)=>`<span class="ai-part${i?'':' stem'}">${esc(p)}</span>`).join('<span class="ai-plus">+</span>')}<span class="ai-eq">=</span><span class="ai-part res">${esc(parts.join(''))}</span></div>`:'';
+  m.push({k:'ex',html:aiSection('Объяснение',`<p class="ai-p">${esc(d.summary)}</p><div class="ai-pattern">${esc(d.pattern)}</div>${breakdown}`)});
+  m.push({k:'steps',html:`<ol class="ai-steps">${d.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`+
+    (d.notes.length?`<div class="ai-notes">${d.notes.map(s=>`<p>${esc(s)}</p>`).join('')}</div>`:'')});
+  if(a.step==='read')return m;
+  m.push({k:'me-drill',me:true,html:'Понятно, дай задания'});
+  m.push({k:'drill',html:aiSection('Закрепим','<p class="ai-p">Три коротких задания — выберите вариант.</p>')});
+  for(let ei=0;ei<d.exercises.length&&ei<=a.picks.length;ei++){
+    const ex=d.exercises[ei],opts=aiOptions(ex,ei),pick=a.picks[ei];
+    m.push({k:'q'+ei,html:`<div class="ai-task"><div class="ai-q"><span class="ai-n">${ei+1}/3</span><span>${esc(ex.question)}</span></div>
+      <div class="ai-verb"><b>${esc(ex.verb)}</b><span>${esc(ex.reading)} · ${esc(ex.meaning)}</span></div>
+      <div class="ai-opts" role="radiogroup">${opts.map((o,oi)=>{
+        const st=pick==null?'':o===ex.answer?' ok':oi===pick?' bad':' dim';
+        return`<button class="ai-opt${st}" role="radio" aria-checked="${oi===pick}"${pick!=null?' aria-disabled="true"':''} data-a="ai-pick:${ei}:${oi}"><i class="ai-radio"></i><span>${esc(o)}</span></button>`;}).join('')}</div></div>`});
+    if(pick!=null){
+      const ok=opts[pick]===ex.answer;
+      m.push({k:'a'+ei,me:true,html:`<span class="jp">${esc(opts[pick])}</span>`,bad:!ok});
+      m.push({k:'r'+ei,html:`<div class="ai-verdict ${ok?'ok':'bad'}">${ok?'✓ Правильно!':'✗ Не совсем'}</div><p class="ai-p">${ok?'':`Верно: <b class="jp">${esc(ex.answer)}</b>. `}${esc(ex.why)}</p>`});
+    }
+  }
+  if(a.picks.length===d.exercises.length){
+    const n=d.exercises.filter((ex,ei)=>aiOptions(ex,ei)[a.picks[ei]]===ex.answer).length;
+    m.push({k:'end',html:`<div class="ai-score"><b>${n} из 3</b>${n===3?' — форма закреплена.':' — перечитайте шаги выше и попробуйте эту форму ещё раз в тренировке.'}</div>`});
+  }
+  return m;
+}
+function buildAiDrawer(){
   const a=S.ai;if(!a||!a.open)return'';
   const q=S.quizQ;
+  const msgs=aiMessages(a,q);
+  // новые сообщения (которых не было в прошлой отрисовке) проявляются по очереди
+  const before=a.shown||new Set();let n=0;
+  const body=msgs.map(x=>{
+    const fresh=!before.has(x.k),st=fresh?` style="animation-delay:${(n++)*140}ms"`:'';
+    return x.me
+      ?`<div class="ai-row me${fresh?' in':''}"${st}><div class="ai-bubble${x.bad?' bad':''}">${x.html}</div></div>`
+      :`<div class="ai-row${fresh?' in':''}"${st}><div class="ai-text">${x.html}</div></div>`;
+  }).join('');
+  a.shown=new Set(msgs.map(x=>x.k));
+  // быстрые ответы вместо строки ввода
+  const chips=[];
+  if(a.status==='error')chips.push(`<button class="ai-chip" data-a="ai-retry">Повторить</button>`);
+  if(a.status==='ready'&&a.step==='read')chips.push(`<button class="ai-chip primary" data-a="ai-drill">Понятно, дай задания</button>`);
+  if(a.status==='ready'&&a.picks.length===a.data.exercises.length)chips.push(`<button class="ai-chip" data-a="ai-more">Объясни по-другому</button>`,`<button class="ai-chip primary" data-a="next-q">Дальше</button>`);
   const anim=a.anim;a.anim=false;
-  const head=`<div class="ai-head"><span class="ai-badge">umi AI</span><span class="ai-title">${esc(a.data?a.data.title:'Объясняю правило')}</span>
-    <button class="ai-x" data-a="ai-close" aria-label="Закрыть">×</button></div>`;
-  let body='';
-  if(a.status==='loading')body=aiBubble(`<span class="ai-typing"><i></i><i></i><i></i></span>`,'typing');
-  else if(a.status==='error')body=aiBubble(esc(a.error),'err')+`<div class="ai-row"><button class="ai-btn" data-a="ai-retry">Повторить</button></div>`;
-  else{
-    const d=a.data;
-    // разбор формы с карточки — из нашего движка, не от модели
-    const parts=q&&q.verbs?[q.stem.jp,...(q.modeB?q.accepted[0].seq:q.target)]:[];
-    const breakdown=parts.length?`<div class="ai-parts">${parts.map((p,i)=>`<span class="ai-part${i?'':' stem'}">${esc(p)}</span>`).join('<span class="ai-plus">+</span>')}</div>`:'';
-    const msgs=[
-      aiBubble(`<p>${esc(d.summary)}</p><div class="ai-pattern">${esc(d.pattern)}</div>${breakdown}`),
-      aiBubble(`<ol class="ai-steps">${d.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`+
-        (d.notes.length?`<ul class="ai-notes">${d.notes.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`:'')),
-    ];
-    if(a.step==='read'){
-      msgs.push(`<div class="ai-row"><button class="ai-btn primary" data-a="ai-drill">Понятно, дай задания</button></div>`);
-    }else{
-      msgs.push(aiBubble('Закрепим: 3 коротких задания.','short'));
-      for(let ei=0;ei<d.exercises.length&&ei<=a.picks.length;ei++){
-        const ex=d.exercises[ei],opts=aiOptions(ex,ei),pick=a.picks[ei];
-        msgs.push(aiBubble(`<div class="ai-q"><span class="ai-n">${ei+1}/3</span>${esc(ex.question)}</div>
-          <div class="ai-verb"><b>${esc(ex.verb)}</b> ${esc(ex.reading)} · ${esc(ex.meaning)}</div>
-          <div class="ai-opts">${opts.map((o,oi)=>{
-            const cls=pick==null?'':o===ex.answer?' ok':oi===pick?' bad':' dim';
-            return`<button class="ai-opt${cls}"${pick!=null?' aria-disabled="true"':''} data-a="ai-pick:${ei}:${oi}">${esc(o)}</button>`;}).join('')}</div>`));
-        if(pick!=null){
-          const ok=opts[pick]===ex.answer;
-          msgs.push(aiBubble(esc(opts[pick]),'me'+(ok?' ok':' bad')));
-          msgs.push(aiBubble(`${ok?'Верно.':`Правильно: <b class="jp">${esc(ex.answer)}</b>.`} ${esc(ex.why)}`,'short'));
-        }
-      }
-      if(a.picks.length===d.exercises.length){
-        const n=d.exercises.filter((ex,ei)=>aiOptions(ex,ei)[a.picks[ei]]===ex.answer).length;
-        msgs.push(aiBubble(n===3?'3 из 3 — форма закреплена.':`${n} из 3. Перечитайте шаги выше и попробуйте эту форму ещё раз в тренировке.`,'short'));
-      }
-    }
-    body=msgs.join('')+`<div class="ai-foot"><button class="ai-link" data-a="ai-report"${a.reported?' aria-disabled="true"':''}>${a.reported?'Отправлено на проверку':'Ошибка в объяснении?'}</button><span>Ответ сгенерирован ИИ</span></div>`;
-  }
-  return`<div class="ai-scrim" data-a="ai-close"></div>
-    <section class="ai-sheet${anim?' anim':''}" role="dialog" aria-label="Объяснение правила">${head}<div class="ai-body" id="ai-body">${body}</div></section>`;
+  return`<section class="ai-drawer${anim?' anim':''}" aria-label="Объяснение правила">
+    <div class="ai-panel">
+      <div class="ai-head">${aiAvatar()}<div class="ai-who"><b>umi AI</b><span>${a.status==='loading'?'печатает…':esc(a.data?a.data.title:'объяснение правила')}</span></div>
+        <button class="ai-x" data-a="ai-close" aria-label="Скрыть объяснение"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 9l4-4 4 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></button></div>
+      <div class="ai-body" id="ai-body">${body}</div>
+      ${chips.length?`<div class="ai-chips">${chips.join('')}</div>`:''}
+      ${a.status==='ready'?`<div class="ai-foot"><span>Ответ сгенерирован ИИ и может содержать неточности</span><button class="ai-link" data-a="ai-report"${a.reported?' aria-disabled="true"':''}>${a.reported?'Отправлено':'Сообщить об ошибке'}</button></div>`:''}
+    </div>
+  </section>`;
 }
 
 // пример ответа для просмотра дизайна без сервера: открыть приложение с #aidemo

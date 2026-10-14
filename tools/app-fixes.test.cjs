@@ -395,7 +395,10 @@ test('«Объясни почему»: button only after an answer, explanation 
  a.run(`AI_API='https://ai.example';`);
  a.ctx.fetch=async(url,init)=>{calls.push({url,init});return{ok:true,status:200,json:async()=>({variant:1,prompt_v:1,data:a.run('AI_DEMO')})};};
  a.run(`act('ai-open')`);
- assert.match(a.run('buildApp()'),/ai-typing/,'loading state');
+ let h0=a.run('buildApp()');
+ assert.match(h0,/ai-think/,'loading state');
+ assert.match(h0,/<\/div><section class="ai-drawer/,'panel slides out under the canvas');
+ assert.doesNotMatch(h0,/quiz-bank/,'chip bank gives way to the chat');
  await new Promise(r=>setImmediate(r));await new Promise(r=>setImmediate(r));
  assert.equal(calls[0].url,'https://ai.example/v1/explain');
  assert.equal(calls[0].init.headers['x-telegram-init-data'],'signed');
@@ -409,7 +412,27 @@ test('«Объясни почему»: button only after an answer, explanation 
  assert.equal(a.run('S.ai.picks.length'),1,'drills are answered in order');
  a.run(`act('ai-pick:1:0');act('ai-pick:2:0')`);
  assert.match(a.run('buildApp()'),/из 3/);
+ assert.match(a.run('buildApp()'),/data-a="ai-more"/,'quick replies instead of an input line');
+ assert.doesNotMatch(a.run('buildApp()'),/<input|<textarea/);
  assert.equal(a.run(`localStorage.getItem('umi.ai.v1')`),JSON.stringify({seen:{[a.run('S.ai.form')]:[1]}}));
  a.run(`act('next-q')`);
  assert.equal(a.run('S.ai'),null);
+});
+
+test('verb canvas follows the design: task, tags instead of « · вежливо», furigana over the kanji only, gradient score',()=>{
+ const a=app();
+ const r=JSON.parse(a.run(`(()=>{
+  const v=VERB_BANK.find(v=>v.d==='食べる'),rule=VERB_RULES.find(r=>r.id==='masu_negative');
+  S.quizQ={verbs:true,modeB:true,verb:v,rule,stem:{jp:'食べ'},accepted:[{seq:['ません']}],maxLen:1,options:['ません','ない'],picks:[],task:vbText(v,rule.tp)};
+  S.quizDone=false;const h=buildApp();
+  return JSON.stringify({h,furi:vbFuriDict(v),furi2:vbFuriDict(VERB_BANK.find(v=>v.d==='役に立つ'))});
+ })()`));
+ assert.match(r.h,/Задание:<\/div><div class="vb-task">не ем<\/div>/);
+ assert.match(r.h,/<span class="vb-tag">вежливо<\/span><span class="vb-tag">отрицание<\/span>/);
+ assert.doesNotMatch(r.h,/· вежливо/);
+ assert.equal(r.furi,'<span class="furi-k"><span class="furi-r">た</span>食</span>べる');
+ assert.equal(r.furi2,'<span class="furi-k"><span class="furi-r">やくにた</span>役に立</span>つ');
+ assert.doesNotMatch(r.h,/data-a="ai-open"/,'no AI button before the answer');
+ const css=require('node:fs').readFileSync(require('node:path').join(root,'css/app.css'),'utf8');
+ assert.match(css,/\.qbadge\.qok\{--qb:linear-gradient\(160deg,#1f6f1f/);
 });
