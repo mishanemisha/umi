@@ -10,7 +10,7 @@ ALLOWED_ORIGINS = "https://mishanemisha.github.io"
 AI_MODEL = "gpt-6.1-sol"          # дешевле: gpt-6-luna (проверить качество японского)
 AI_REASONING = "low"
 AI_MAX_VARIANTS = "4"             # вариантов «объяснение + 3 задания» на форму; дальше — только из базы
-AI_USER_DAILY_GENERATIONS = "10"  # новых генераций на пользователя в сутки
+AI_USER_DAILY_GENERATIONS = "40"  # новых генераций на пользователя в сутки (готовые из базы — без лимита)
 AI_USER_DAILY_REQUESTS = "300"
 AI_DAILY_BUDGET_USD = "2"         # потолок расхода на модель в сутки
 

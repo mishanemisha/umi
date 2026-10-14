@@ -1,7 +1,4 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-/* Цифры статистики на главной — подмножество 源暎ぽっぷる Pw Black (SIL OFL 1.1, см. assets/fonts/OFL.txt) */
-@font-face{font-family:'Umi Digits';font-weight:900;font-style:normal;font-display:swap;
-  src:url('../assets/fonts/umi-digits.woff2') format('woff2')}
 :root{
   --f:'Inter',-apple-system,BlinkMacSystemFont,'Noto Sans JP',system-ui,sans-serif; /* интерфейс */
   --fjp:'Noto Sans JP','Hiragino Sans',sans-serif;                                 /* кана и чтения */
@@ -116,8 +113,10 @@ button,input,select{font-family:inherit}
 .ncard b{font-size:16px;font-weight:400;color:var(--t)}
 /* ─── Главная (Figma «Обновление дизайна» 155:2949) ─── */
 .home{display:flex;flex-direction:column;gap:16px;padding:24px 16px 48px}
-.hlogo{display:flex;justify-content:center;padding:10px 11px}
-.hlogo img{width:50px;height:50px;object-fit:contain;display:block}
+.htop{display:flex;align-items:center;gap:12px;padding:6px 0 2px}
+.hlogo{flex:none;width:25px;height:25px;object-fit:contain;display:block}
+.htop .hseg{flex:1;align-self:auto}
+.htop .hseg-btn{flex:1;width:auto}
 .hsect{display:flex;flex-direction:column;gap:8px}
 .hseg{align-self:center;display:flex;gap:4px;padding:2px;border:1px solid var(--cv2);border-radius:16px}
 .hseg-btn{width:120px;padding:4px 2px;border:none;border-radius:300px;background:none;color:#8b8b8b;font-size:14px;font-weight:500;line-height:normal;cursor:pointer;transition:background .15s,color .15s}
@@ -125,7 +124,7 @@ button,input,select{font-family:inherit}
 .hstats{background:var(--cv);border-radius:16px;padding:8px;display:flex;flex-direction:column;align-items:center;gap:16px}
 .hstats-row{display:flex;align-items:center;justify-content:center;gap:16px}
 .hstat{width:60px;display:flex;flex-direction:column;align-items:center;gap:4px;white-space:nowrap}
-.hstat .n{font-family:'Umi Digits',var(--fkj);font-weight:900;font-size:36px;line-height:normal}
+.hstat .n{font-family:var(--fjp);font-weight:500;font-size:36px;line-height:normal}
 .hstat .l{font-size:12px;font-weight:500}
 .hstat.g .n{color:var(--g)}.hstat.y .n{color:var(--y)}.hstat.r .n{color:var(--r)}
 .hstat-sep{width:1px;height:60px;border-radius:300px;background:var(--stroke)}
@@ -680,8 +679,8 @@ td{padding:7px 10px;border-top:1px solid rgba(255,255,255,.05);white-space:nowra
 .vfs .mstart{margin-top:8px}
 /* подсказка формы в канвасе глаголов */
 .vb-hint{flex-direction:column;align-items:center;gap:6px}
-.vb-hint .hchip{padding:4px 10px}
-.vb-hint-n{font-size:13px;color:#9a9a9a}
+.vb-hint-l{font-size:12px;color:#8b8b8b}
+.vb-hint-f{font-size:20px;font-weight:500;color:var(--t);background:var(--cv);border-radius:6px;padding:4px 12px}
 .vb-hint-alt{font-size:12px;color:#8b8b8b}
 .vb-hint-alt b{font-family:var(--fjp);color:var(--rd);font-weight:500}
 .cv-drop+.ai-drawer{margin-top:0;padding-top:0;border-top:1px solid #222;border-radius:0 0 16px 16px}

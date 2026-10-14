@@ -111,10 +111,11 @@ test('explain: per-user generation limit and the daily budget stop paid calls', 
   const e = env({ fetch: fakeOpenAI({ log }), AI_USER_DAILY_GENERATIONS: '1', AI_MAX_VARIANTS: '4' });
   assert.equal((await call(e, '/v1/explain', { form: 'masu_past' })).status, 200);
   const r = await call(e, '/v1/explain', { form: 'te_form' });
-  assert.equal(r.status, 503);
+  assert.equal(r.status, 429);
+  assert.match(r.body.message, /новые объяснения закончились/, 'the learner is told it is the daily limit');
   assert.equal(log.length, 1);
   const e2 = env({ fetch: fakeOpenAI({ log: [] }), AI_DAILY_BUDGET_USD: '0' });
-  assert.equal((await call(e2, '/v1/explain', { form: 'masu_past' })).status, 503);
+  assert.equal((await call(e2, '/v1/explain', { form: 'masu_past' })).status, 429);
 });
 
 test('report stores a complaint against the served variant', async () => {

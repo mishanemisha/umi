@@ -85,9 +85,10 @@ async function explain(env, req, user) {
   const taken = new Set(rows.filter(r => r.status !== 'pending' || now - r.created_at < PENDING_TTL).map(r => r.variant));
   const slot = [...Array(maxV).keys()].find(v => !taken.has(v));
   const budget = await db.prepare('SELECT cost_usd FROM ai_budget WHERE day = ?1').bind(day()).first();
-  const canGen = slot != null && env.OPENAI_API_KEY
-    && usage.generations < num(env.AI_USER_DAILY_GENERATIONS, 10)
-    && (budget?.cost_usd || 0) < num(env.AI_DAILY_BUDGET_USD, 2);
+  const userLimit = num(env.AI_USER_DAILY_GENERATIONS, 40);
+  const overUser = usage.generations >= userLimit;
+  const overBudget = (budget?.cost_usd || 0) >= num(env.AI_DAILY_BUDGET_USD, 2);
+  const canGen = slot != null && env.OPENAI_API_KEY && !overUser && !overBudget;
 
   if (canGen) {
     // занимаем слот: двойное нажатие или второй пользователь не запустят вторую платную генерацию
@@ -114,6 +115,9 @@ async function explain(env, req, user) {
   if (ok.length) return json(env, req, 200, await serve(db, ok[0]));
   if (rows.some(r => r.status === 'pending' && now - r.created_at < PENDING_TTL))
     return json(env, req, 202, { pending: true, retry_after: 3 });
+  // честная причина: лимит новых объяснений на сегодня (готовые формы открываются как обычно)
+  if (overUser) return fail(env, req, 429, 'user_limit', `На сегодня новые объяснения закончились (до ${userLimit} в день). Уже разобранные формы открываются как обычно, новые — завтра.`);
+  if (overBudget) return fail(env, req, 429, 'budget', 'Дневной лимит объяснений исчерпан. Уже разобранные формы открываются как обычно, новые — завтра.');
   return fail(env, req, 503, 'unavailable', 'Объяснения сейчас недоступны, попробуйте позже');
 }
 

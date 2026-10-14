@@ -505,3 +505,18 @@ test('verb filter menu: collapsible groups with a summary, construction hints, S
  assert.match(h,/Каузатив<\/span><small>〜せる, 〜させる — «заставлю, разрешу»<\/small>/);
  assert.match(h,/data-a="start-quiz">Старт/);
 });
+
+test('verb hint shows how the form is built, not its name; home: logo left of the toggle, Noto digits',()=>{
+ const a=app();
+ const f=JSON.parse(a.run(`JSON.stringify(['teiru_negative_te','causative_masu_negative_past','tai_nonpast','dictionary'].map(id=>vbFormula(VERB_RULES.find(r=>r.id===id))))`));
+ assert.deepEqual(f,['Vて + いなくて','V(あせ / させ) + ませんでした','Vます-основа + たい','Vる']);
+ const h=a.run(`(()=>{const v=VERB_BANK.find(v=>v.d==='褒める'),rule=VERB_RULES.find(r=>r.id==='ba_conditional');
+  S.quizQ={verbs:true,modeB:true,verb:v,rule,stem:{jp:'褒め'},accepted:vbAccepted(v,vbText(v,rule.tp),'褒め','m'),maxLen:2,options:['れ','ば'],picks:[],task:vbText(v,rule.tp)};
+  S.quizHint=true;return buildApp();})()`);
+ assert.match(h,/Как образуется:<\/span>\s*<span class="vb-hint-f jp">V\(え\) \+ ば<\/span>/);
+ assert.match(h,/Подойдёт и: <b class="jp">Vた \+ ら<\/b>/,'ば and たら are both accepted');
+ a.run(`S.quizQ=null;S.tab='home'`);
+ assert.match(a.run('buildApp()'),/<div class="htop"><img class="hlogo"[^>]*><div class="hseg">/);
+ const css=require('node:fs').readFileSync(require('node:path').join(root,'css/app.css'),'utf8');
+ assert.match(css,/\.hstat \.n\{font-family:var\(--fjp\);font-weight:500/);
+});

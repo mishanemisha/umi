@@ -261,12 +261,11 @@ function buildHome(){
   const anim=S.homeAnim;S.homeAnim=null;   // анимация раскрытия — только в первом рендере
   const cards=homeModes(type).map(k=>modeCard(k,anim===k)).join('');
   return`<div class="home">
-    <div class="hlogo"><img src="${ASSETS.logo}" alt="日本語"></div>
     <div class="hsect">
-      <div class="hseg">
+      <div class="htop"><img class="hlogo" src="${ASSETS.logo}" alt="umi"><div class="hseg">
         <button class="hseg-btn${type==='words'?' on':''}" data-a="home-tab:words">слова</button>
         <button class="hseg-btn${type==='kanji'?' on':''}" data-a="home-tab:kanji">кандзи</button>
-      </div>
+      </div></div>
       <div class="hstats">
         <div class="hstats-row">
           <div class="hstat g"><div class="n">${know}</div><div class="l">Знаю</div></div>
@@ -881,14 +880,27 @@ function vbTags(q){
   const st=q.rule.st==='polite'?'вежливая форма':q.rule.st==='plain'?'простая форма':'';
   return st?`<div class="vb-tags"><span class="vb-tag">${st}</span></div>`:'';
 }
-// «Показать подсказку»: какую конструкцию собрать (и какие ещё подойдут) — выпадашкой из-под канваса
-function vbGramParts(r){const gl=String(r.gl||r.nm),m=gl.split('·');return{name:m[0].trim(),pat:(m[1]||'').trim()};}
+// «Показать подсказку»: формула, как образуется форма (Vて + いる, V(さ)せ + ませんでした) — из шаблона
+// формы: основа глагола обозначается по форме, от которой строим, дальше — добавляемые окончания.
+const VB_FORMULA_STEM={DICT_M:'Vる',DICT_H:'Vる',MASU_LINK:'Vます-основа',NAI_LINK:'Vない-основа',BA_M:'V(え)',BA_H:'V(え)',
+  TE_M:'Vて',TE_H:'Vて',TA_M:'Vた',TA_H:'Vた',POT_M:'V(え / られ)',POT_H:'V(え / られ)',PASS_M:'V(あれ / られ)',PASS_H:'V(あれ / られ)',
+  CAUSE_M:'V(あせ / させ)',CAUSE_H:'V(あせ / させ)',CAUSEPASS_M:'V(あせられ / させられ)',CAUSEPASS_H:'V(あせられ / させられ)',
+  IMP_M:'V(え / ろ)',IMP_H:'V(え / ろ)',VOL_M:'V(おう / よう)',VOL_H:'V(おう / よう)',RANUKI_M:'V(れ)',RANUKI_H:'V(れ)'};
+function vbFormula(r){
+  let stem='',suf='';
+  for(const t of String(r.m).split(/[|+]/).map(x=>x.trim())){
+    if(VB_FORMULA_STEM[t])stem=stem||VB_FORMULA_STEM[t];
+    else if(VERB_CH[t])suf+=VERB_CH[t].j;
+  }
+  return suf?`${stem} + ${suf}`:stem;
+}
 function vbHintDrop(q){
-  const main=vbGramParts(q.rule);
-  const alt=[...new Set(q.accepted.slice(1).map(a=>{const r=VERB_RULES.find(x=>x.id===a.id);return r?vbGramParts(r).pat||vbGramParts(r).name:'';}).filter(x=>x&&x!==main.pat))];
+  const main=vbFormula(q.rule);
+  const alt=[...new Set(q.accepted.slice(1).map(a=>{const r=VERB_RULES.find(x=>x.id===a.id);return r?vbFormula(r):'';}).filter(x=>x&&x!==main))];
   return`<div class="cv-drop vb-hint" data-key="hint-drop">
-    <span class="hchip"><span class="hchip-w">${esc(main.pat||main.name)}</span>${main.pat?`<span class="vb-hint-n">${esc(main.name)}</span>`:''}</span>
-    ${alt.length?`<span class="vb-hint-alt">Подойдёт и: <b class="jp">${alt.map(esc).join(', ')}</b></span>`:''}
+    <span class="vb-hint-l">Как образуется:</span>
+    <span class="vb-hint-f jp">${esc(main)}</span>
+    ${alt.length?`<span class="vb-hint-alt">Подойдёт и: <b class="jp">${alt.map(esc).join(' · ')}</b></span>`:''}
   </div>`;
 }
 const SPARK_SVG=`<svg class="spark" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 2c.5 4.9 3.1 7.5 8 8-4.9.5-7.5 3.1-8 8-.5-4.9-3.1-7.5-8-8 4.9-.5 7.5-3.1 8-8Z"/><path fill="currentColor" opacity=".7" d="M19 13c.25 2.4 1.6 3.75 4 4-2.4.25-3.75 1.6-4 4-.25-2.4-1.6-3.75-4-4 2.4-.25 3.75-1.6 4-4Z"/></svg>`;
