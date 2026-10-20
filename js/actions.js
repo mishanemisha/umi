@@ -9,7 +9,7 @@ function act(action){
   switch(type){
     case'up':if(practiceAvailable)uAction(val);return;
     case'tab':
-      S.navMini=false;S.tab=val;if(val==='practice'&&practiceAvailable)UP.view='menu';S.confirmPending=null;S.cfgScreen=null;
+      S.navMini=false;S.tab=val;S.kanjiPage=null;S.kanjiFlip=false;if(val==='practice'&&practiceAvailable)UP.view='menu';S.confirmPending=null;S.cfgScreen=null;
       S.studyQueue=[];S.studyResults=null;S.quizQ=null;S.quizDone=false;
       // формы глаголов в практике переключают режим квиза — раскрытая карточка возвращает свой
       if(val==='home'&&S.homeOpen)prepareMode(S.homeOpen,S.homeTab);
@@ -248,6 +248,13 @@ function act(action){
     case'toggle-hint':
       if(S.quizHint&&collapseDrawer('[data-key="hint-drop"]',()=>{S.quizHint=false;render();}))return;
       S.quizHint=!S.quizHint;break;
+    // оборот канваса / карточки словаря: словарная карточка иероглифа
+    case'kanji-flip':S.kanjiPage=val;S.kanjiFlip=true;haptic('light');flipRender();return;
+    case'kanji-flip-back':S.kanjiFlip=false;flipRender();return;
+    // источники примеров (Tatoeba) — во внешнем браузере
+    case'open-link':
+      if(/^https:\/\/tatoeba\.org\//.test(val)){if(tg?.openLink)tg.openLink(val);else window.open?.(val,'_blank','noopener');}
+      return;
     case'toggle-card-hint':
       if(S.cardHint&&collapseDrawer('.cv-drop',()=>{S.cardHint=false;render();}))return;
       S.cardHint=!S.cardHint;break;
@@ -332,8 +339,6 @@ function act(action){
         S.quizCfg[k]=[...cur,f];S.quizCfg[o]=rest;
       }
       S.quizQ=null;S.quizDone=false;save();break;}
-    case'match-senses':
-      S.quizCfg.matchSenses=val==='all'?'all':'one';S.quizQ=null;S.quizDone=false;save();break;
     case'match-pick':{
       const q=S.quizQ;if(!q||!q.match||S.quizDone)break;
       const[side,ids]=val.split(':');const pid=+ids;
@@ -404,12 +409,12 @@ function act(action){
     case'next-q':
     case'skip-q':  // пропуск — без оценки, но вопрос засчитывается в «Количество»
       if(S.quizQ&&S.quizQ.flagged){vbFlagSync(S.quizQ);save();}
-      aiClose();
+      aiClose();S.kanjiPage=null;S.kanjiFlip=false;
       S.quizQ=nextInSession();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
       if(!S.quizQ&&!S.quizResults)toast(startQuizError());break;
     case'stop-quiz':
       if(S.quizQ&&S.quizQ.flagged){vbFlagSync(S.quizQ);save();}
-      aiClose();
+      aiClose();S.kanjiPage=null;S.kanjiFlip=false;
       S.quizQ=null;S.quizDone=false;S.quizInputVal='';S.quizHint=false;
       S.quizScore={ok:0,bad:0};S.quizSel=-1;S.quizRecent=[];S.quizLimit=null;S.quizSeen={};S.quizRound=0;
       S.quizAsked=0;S.quizResults=null;
@@ -475,7 +480,8 @@ function bubbleHide(){const b=document.getElementById('more-bubble');if(b)b.remo
 function bubbleShow(el){
   bubbleHide();
   const b=document.createElement('div');b.id='more-bubble';b.setAttribute('role','tooltip');
-  b.innerHTML=el.dataset.more.split('\n').map((t,i)=>`<div class="mb-row"><span class="mb-i">${i+1}.</span><span>${esc(t)}</span></div>`).join('');
+  const fmt=el.dataset.moreKind==='kun'?renderKun:esc;
+  b.innerHTML=el.dataset.more.split('\n').map((t,i)=>`<div class="mb-row"><span class="mb-i">${i+1}.</span><span>${fmt(t)}</span></div>`).join('');
   document.body.appendChild(b);
   const r=el.getBoundingClientRect(),bw=b.offsetWidth,bh=b.offsetHeight;
   const left=Math.max(8,Math.min(window.innerWidth-bw-8,r.left+r.width/2-bw/2));
@@ -502,8 +508,9 @@ function setupDelegation(){
   document.addEventListener('contextmenu',e=>{if(e.target.closest('[data-wid],[data-more]'))e.preventDefault();});
   // прокрутка: отменяет лонгтап; вниз — таббар схлопывается, вверх — раскрывается
   let lastY=0;
+  if(typeof window.addEventListener==='function')window.addEventListener('resize',()=>cvCompactSync(true),{passive:true});
   document.addEventListener('scroll',e=>{
-    lpCancel();
+    lpCancel();cvCompactOnScroll();
     const t=e.target===document?document.scrollingElement:e.target;
     if(!t||(t!==document.body&&t!==document.scrollingElement))return;
     const y=t.scrollTop,dy=y-lastY;lastY=y;

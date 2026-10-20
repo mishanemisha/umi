@@ -282,6 +282,20 @@ button,input,select{font-family:inherit}
 .quiz-qm.sm{font-family:var(--f);font-weight:500;font-size:20px}
 .quiz-qh{font-size:14px;color:var(--t2)}
 @media (max-height:700px){.quiz-q,.fc-face{height:300px}}
+/* Листание под канвасом (Figma 168:154): канвас прилипает сверху, при прокрутке сжимается
+ * (--k: 0 → 1 — доля сжатия, ставит cvCompactSync). Сверху его прикрывает фон, снизу — тень */
+.pg>.cv-stick{position:sticky;top:12px;z-index:5}
+.cv-stick.cv-mini{overflow:clip;border-radius:16px;
+  box-shadow:0 -12px 0 12px var(--bg),0 16px 18px -6px rgba(0,0,0,.95),0 4px 4px rgba(0,0,0,.25)}
+.cv-mini>.quiz-q{gap:calc(8px + 12px*var(--k,0));padding:calc(12px - 4px*var(--k,0)) 8px 8px}
+.cv-mini .qscore{zoom:calc(1 - .5*var(--k,0))}
+.cv-mini .qbody>*{zoom:calc(1 - .33*var(--k,0))}
+.cv-mini .cv-pills{overflow:hidden;max-height:calc((1 - var(--k,0))*80px);opacity:calc(1 - 2*var(--k,0))}
+/* «Стоп / Пропустить / Дальше» прибиты над таббаром; контент уходит под них в фон */
+/* отступ таббара (как у .bnav) + его свёрнутое стекло (~38px) + зазор 12px */
+.pg>.quiz-actions{position:sticky;bottom:calc(max(24px,calc(env(safe-area-inset-bottom) + 12px)) + 50px);z-index:6}
+.pg>.quiz-actions::before{content:'';position:absolute;inset:-18px -16px -64px;z-index:-1;pointer-events:none;
+  background:linear-gradient(rgba(0,0,0,0),var(--bg) 18px)}
 
 /* ─── Варианты ответа (Figma 155:3578) ─── */
 .quiz-panel{background:var(--cv);border-radius:16px;padding:8px;display:flex;flex-direction:column;gap:16px;align-items:center}
@@ -405,12 +419,76 @@ button,input,select{font-family:inherit}
 .mtile.bad .mt-sub{color:var(--r)}
 .mtile.done{background:rgba(122,255,120,.14);border-color:var(--g);color:var(--g);opacity:.5}
 .mtile.done .mt-sub{color:var(--g)}
-/* собранная пара сжимается в узкую строку, чтобы 6 пар помещались на одном экране */
-.mtile.done{min-height:0;padding:3px 6px;flex-direction:row;gap:6px;transition:none}
-.mtile.done .mt-main{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.mtile.done .mt-main.jp{font-size:14px}
-.mtile.done .mt-sub{display:none}
-.mtile:disabled{cursor:default}
+/* собранная пара сохраняет размер плитки — сетка не прыгает (общий .done экрана итогов сюда не доходит) */
+.mtile.done{padding:8px}
+.mtile[aria-disabled="true"]{cursor:default}
+
+/* ─── Оборот: словарная карточка иероглифа ───
+ * Канвас (и карточка кандзи в словаре) переворачивается; видимая сторона в потоке,
+ * другая — поверх неё, поэтому высота следует за видимой стороной */
+.flip{position:relative;transform-style:preserve-3d;-webkit-transform-style:preserve-3d;
+  transform:perspective(1400px) rotateY(0);transition:transform .5s cubic-bezier(.4,0,.2,1)}
+.flip.on{transform:perspective(1400px) rotateY(180deg)}
+.flip>.f-front,.flip>.f-back{backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.flip>.f-back{position:absolute;inset:0;transform:rotateY(180deg);overflow:hidden;pointer-events:none}
+.flip.on>.f-back{position:relative;inset:auto;pointer-events:auto}
+.flip.on>.f-front{position:absolute;inset:0 0 auto 0;pointer-events:none}
+.cv-wrap>.flip{z-index:1}
+.flip>.quiz-q{position:relative}
+/* значок «漢字» справа сверху канваса — на высоте пилюль счёта (как .qbadge); на обороте — «Назад» */
+.kflip-badge{position:absolute;top:12px;right:8px;z-index:2;display:inline-flex;align-items:center;gap:5px;
+  background:var(--cv2);border:1px solid #3e3e3e;border-radius:16px;padding:1px 10px;color:var(--t);font-size:12px;line-height:normal;cursor:pointer}
+.kb-k{font-family:var(--fkj);font-weight:700;font-size:12px;letter-spacing:1px}
+.cv-mini .kflip-badge{opacity:calc(1 - 2*var(--k,0));pointer-events:none}
+.cv-back{background:var(--cv);border-radius:16px;height:min(640px,calc(100dvh - 190px))}
+.kc-back{background:var(--cv);border-radius:8px}
+.kb-scroll{height:100%;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  padding:44px 10px 14px;display:flex;flex-direction:column;gap:10px;text-align:left;scrollbar-width:none}
+.kb-scroll::-webkit-scrollbar{display:none}
+.kc-back .kb-scroll{height:auto;overflow:visible}
+.kgrid>.kflip.on{grid-column:1/-1}
+.kflip>.kcard{height:100%}
+.kp-hero{display:flex;align-items:center;gap:20px;padding:0 6px 4px}
+.kp-k{font-family:var(--fkj);font-weight:700;font-size:112px;line-height:1;color:var(--t);flex:none}
+.kp-reads{display:flex;flex-direction:column;gap:10px;min-width:0}
+.kp-rrow{display:flex;flex-direction:column;gap:4px}
+.kp-rl{font-size:11px;font-weight:500;color:#8b8b8b}
+.kp-chips{display:flex;flex-wrap:wrap;gap:4px}
+.kp-chip{font-family:var(--fjp);font-weight:500;font-size:16px;color:var(--rd);background:var(--cv2);border-radius:4px;padding:1px 8px;line-height:1.5}
+.kp-sec{background:var(--cv2);border-radius:12px;padding:12px 12px 14px;display:flex;flex-direction:column;gap:12px}
+.kp-h{font-size:12px;font-weight:500;color:#d6d6d6;letter-spacing:.2px}
+.kp-strokes{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:4px}
+.kp-sc{width:100%;aspect-ratio:1;background:var(--cv);border-radius:4px;fill:none;stroke:#555;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.kp-sc .now{stroke:var(--t)}
+.kp-sc .kp-guide{stroke:#2a2a2a;stroke-width:1;stroke-dasharray:3 3}
+.kp-sc circle{fill:var(--rd);stroke:none}
+.kp-mean{list-style:none;counter-reset:m;display:flex;flex-direction:column;gap:8px}
+.kp-mean li{counter-increment:m;display:flex;gap:10px;font-size:17px;font-weight:500;line-height:1.3}
+.kp-mean li::before{content:counter(m)'.';font-size:12px;font-weight:400;color:#8b8b8b;min-width:14px;padding-top:3px}
+.kp-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px}
+.kp-facts dt{font-size:11px;color:#8b8b8b}
+.kp-facts dd{font-size:15px;font-weight:500;margin-top:2px;overflow-wrap:anywhere}
+.kp-words{display:flex;flex-direction:column}
+.kp-word{display:grid;grid-template-columns:auto 1fr auto;align-items:baseline;gap:2px 12px;padding:10px 0;border-top:1px solid #1f1f1f}
+.kp-word:first-child{border-top:none;padding-top:0}
+.kp-ww{font-family:var(--fkj);font-weight:700;font-size:20px}
+.kp-wr{font-size:14px;color:#bdbdbd}
+.kp-wr b{color:var(--rd);font-weight:500}
+.kp-kind{font-size:10px;color:#8b8b8b;border:1px solid #333;border-radius:8px;padding:0 6px}
+.kp-wm{grid-column:1/-1;font-size:14px;color:#d9d8db}
+.kp-sents{display:flex;flex-direction:column;gap:12px}
+.kp-sent p{line-height:1.45}
+.kp-sent .jp{font-family:var(--fjp);font-size:16px}
+.kp-sent b{color:var(--rd);font-weight:500}
+.kp-sru{font-size:13px;color:#a9a9a9}
+.kp-src{font-size:10px;color:#5f5f5f;text-align:center;padding:4px 12px}
+/* авторы примера (Tatoeba, CC BY): мелкие чипы под переводом */
+.kp-by{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.kp-tag{font:inherit;font-size:10px;line-height:normal;color:#7a7a7a;background:none;border:1px solid #2c2c2c;border-radius:8px;padding:1px 6px;cursor:default}
+button.kp-tag{cursor:pointer}
+.kp-tag.src{color:#9a9a9a;border-color:#3a3a3a}
+.f-back .jp{font-family:var(--fjp)}
+.kcard[data-a]{cursor:pointer}
 
 /* ─── Words list ─── */
 .wfilter{display:flex;gap:6px;padding:0 16px 10px;align-items:center}

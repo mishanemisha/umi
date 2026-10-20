@@ -26,6 +26,23 @@ function firstSense(v){
   const all=senses(v);if(all.length<2)return esc(String(v||'').trim());
   return`${esc(all[0])}<i class="more-i" aria-label="ещё значения">!</i>`;
 }
+/* Ответы во всех квизах: видно одно — первое значение или чтение, остальные — по лонгтапу.
+ * Если первое совпало у двух вариантов, их не различить — такие показываем целиком. */
+function optParts(field,v){
+  if(field==='meaning'||field==='translation')return senses(v);
+  if(/reading$/.test(field))return String(v||'').split(/[、・,;；]/).map(t=>t.trim()).filter(Boolean);
+  const s=String(v||'').trim();return s?[s]:[];
+}
+function moreData(field,all){
+  return` data-more="${esc(all.join('\n'))}"${field==='kun_reading'?' data-more-kind="kun"':''}`;
+}
+function optLabels(field,opts){
+  const parts=opts.map(o=>optParts(field,o)),fmt=t=>field==='kun_reading'?renderKun(t):esc(t);
+  const n=new Map();parts.forEach(p=>n.set(p[0],(n.get(p[0])||0)+1));
+  return parts.map((p,i)=>p.length>1&&n.get(p[0])===1
+    ?{html:`${fmt(p[0])}<i class="more-i" aria-label="ещё варианты">!</i>`,more:moreData(field,p)}
+    :{html:fmt(String(opts[i]||'').trim()),more:''});
+}
 function cvMeaningsBlock(word,showFields,compact){
   const has=f=>showFields.includes(f)&&word[f];
   const g=[];
@@ -121,7 +138,51 @@ function render(){
     animateDrawers(app,before,added);
   }else app.innerHTML=html;
   _morphed=sess;
-  bindAll();if(practiceAvailable)uBind();syncBackButton();
+  bindAll();if(practiceAvailable)uBind();syncBackButton();cvCompactSync(true);
+}
+/* ── Листание под канвасом (Figma 168:154) ──
+ * При прокрутке канвас прилипает сверху и сжимается до 200–260px: шрифты меньше, счёт
+ * вдвое меньше, пилюли и шторка подсказок уходят под канвас, снизу — тень. Сжатие идёт
+ * вместе с прокруткой 1:1, а отнятая высота возвращается отступом снизу, поэтому ответы
+ * не прыгают. Обратно канвас раскрывается, когда первый блок доходит до него и палец
+ * тянет дальше вниз. */
+const CV_TOP=12;
+let _cvm=null,_cvRaf=0;
+// прокручивается body (html,body{height:100%}), в других движках — окно
+function pageScrollY(){return Math.max(window.scrollY||0,document.body?.scrollTop||0,document.documentElement?.scrollTop||0);}
+function cvReset(wrap,cv){
+  wrap.classList.remove('cv-mini');
+  wrap.style.height=wrap.style.marginBottom=cv.style.height='';
+  cv.style.removeProperty('--k');
+}
+function cvCompactSync(measure){
+  if(typeof document.querySelector!=='function'||typeof window==='undefined'||!document.body)return;
+  const wrap=document.querySelector('.pg>.cv-stick'),cv=wrap&&wrap.querySelector('.quiz-q');
+  if(!wrap||!cv)return;
+  // объяснение 海先生 и оборот с карточкой иероглифа читают целиком — канвас не сжимаем
+  if((S.ai&&S.ai.open)||S.kanjiFlip){cvReset(wrap,cv);_cvm=null;return;}
+  if(measure||!_cvm||_cvm.el!==wrap){
+    cvReset(wrap,cv);
+    // высота содержимого канваса без растяжения — от неё зависит, до скольких сжиматься
+    const body=cv.querySelector('.qbody'),kids=body?[...body.children]:[];
+    const content=kids.reduce((h,e)=>h+e.offsetHeight,0)+Math.max(0,kids.length-1)*20;
+    const cvH=cv.offsetHeight;
+    _cvm={el:wrap,full:wrap.offsetHeight,cvH,top:wrap.getBoundingClientRect().top+pageScrollY(),
+      hc:Math.min(cvH,Math.round(Math.min(260,Math.max(200,content*.67+44))))};
+  }
+  const m=_cvm,D=m.full-m.hc;
+  const k=D>0?Math.min(1,Math.max(0,(pageScrollY()-(m.top-CV_TOP))/D)):0;
+  if(k<=0){cvReset(wrap,cv);return;}
+  // сначала под канвас уезжает шторка подсказок, затем сжимается сам канвас
+  const W=Math.round(m.full-D*k),H=Math.min(m.cvH,W);
+  wrap.classList.add('cv-mini');
+  wrap.style.height=W+'px';wrap.style.marginBottom=(m.full-W)+'px';
+  cv.style.height=H+'px';
+  cv.style.setProperty('--k',(m.cvH>m.hc?(m.cvH-H)/(m.cvH-m.hc):1).toFixed(3));
+}
+function cvCompactOnScroll(){
+  if(_cvRaf||typeof requestAnimationFrame!=='function')return;
+  _cvRaf=requestAnimationFrame(()=>{_cvRaf=0;cvCompactSync(false);});
 }
 // Шторки под канвасом: подсказки и объяснение ИИ. Раскрываются и меняют высоту плавно.
 const DRAWERS='.cv-drop,.ai-drawer';
@@ -185,6 +246,7 @@ function morphNode(o,n,added){
 }
 // Куда ведёт «Назад» на текущем экране (null — корневой экран вкладки)
 function backAction(){
+  if(S.kanjiFlip&&(S.quizQ||S.tab==='words'))return'kanji-flip-back';
   if(S.ai&&S.ai.open)return'ai-close';
   if(S.screen==='import')return'back-import';
   if(S.studyQueue.length||S.studyResults)return'stop-study';
@@ -349,9 +411,7 @@ function modeBody(key){
       rows=[fc];
     }else{
       const side=sd=>{const on=arr(sd==='L'?c.matchLeft:c.matchRight);return mOpts(flds.map(fo),v=>on.includes(v),v=>`data-a="match-side:${sd}:${v}"`);};
-      const senses=[...arr(c.matchLeft),...arr(c.matchRight)].some(f=>f==='meaning'||f==='translation');
-      rows=[[mGroup('Слева',side('L')),mGroup('Справа',side('R'))],
-        [senses?mGroup('Значений в плитке',mPick([{v:'one',l:'Одно'},{v:'all',l:'Все'}],c.matchSenses,'match-senses')):''],fc];
+      rows=[[mGroup('Слева',side('L')),mGroup('Справа',side('R'))],fc];
     }
     rows.push([mFolders(type,c.folders,'quiz-folder')]);
     start='start-quiz';
@@ -485,11 +545,9 @@ function buildQuizCfg(){
     const on=arr(side==='L'?S.quizCfg.matchLeft:S.quizCfg.matchRight);
     return`<div class="chips">${flds.map(f=>`<button class="chip${on.includes(f)?' on':''}" data-a="match-side:${side}:${f}">${fldShort(f,type)}</button>`).join('')}</div>`;
   };
-  const mHasSenses=[...arr(S.quizCfg.matchLeft),...arr(S.quizCfg.matchRight)].some(f=>f==='meaning'||f==='translation');
   const matchCfg=isMatch
     ?cfgCard('Слева (несколько)',mSideChips('L'))
       +cfgCard('Справа (несколько)',mSideChips('R'))
-      +(mHasSenses?cfgCard('Значений в плитке',chips([{v:'one',l:'Одно'},{v:'all',l:'Все'}],S.quizCfg.matchSenses,'match-senses')):'')
     :'';
   const composeCfg=mode==='compose'
     ?cfgCard('Направление',`<div class="chips">
@@ -570,6 +628,101 @@ function hintDrop(item){
     :`<span class="hchip-empty">Нет слов с этим иероглифом среди ваших кандзи</span>`;
   return`<div class="cv-drop" data-key="hint-drop">${body}</div>`;
 }
+/* ── Оборот канваса: словарная карточка иероглифа (по мотивам Shirabe Jisho) ──
+ * Значок «漢字» справа сверху канваса (на одной высоте со счётом) переворачивает его; на обороте — листаемая
+ * карточка: чтения, порядок черт, значения, сведения, слова, примеры. Читать можно и до
+ * ответа. В словаре так же переворачивается карточка кандзи. Свои данные пользователя —
+ * первыми; черты, ключ и предложения подгружаются из data/kanji, когда файл есть. */
+// просто значок «漢字» — что по тапу откроется словарная карточка; сам знак и значение не выдаёт
+function kanjiFlipBadge(w){
+  return`<button class="kflip-badge" data-a="kanji-flip:${esc(w.id)}" aria-label="Открыть словарную карточку иероглифа"><span class="kb-k">漢字</span></button>`;
+}
+const FLIP_SVG=`<svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7M4 4v4h4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+// клетки «черта за чертой»: прежние черты серым, новая — белым, точка — где перо начинает
+function strokeGrid(svg){
+  return svg.map((_,i)=>{
+    const m=/^[Mm]\s*(-?[\d.]+)[\s,]*(-?[\d.]+)/.exec(svg[i]);
+    return`<svg class="kp-sc" viewBox="0 0 109 109" aria-hidden="true"><path class="kp-guide" d="M54.5 0V109M0 54.5H109"/>${
+      svg.slice(0,i+1).map((d,j)=>`<path d="${esc(d)}"${j===i?' class="now"':''}/>`).join('')}${m?`<circle cx="${m[1]}" cy="${m[2]}" r="5"/>`:''}</svg>`;
+  }).join('');
+}
+// Авторы предложения Tatoeba (CC BY 2.0 FR требует указать автора каждой фразы):
+// src — {ja, ru, by:[автор японской фразы, автор перевода]} или старое «tatoeba:ja/ru»
+function sentBy(src){
+  let ids=[],by=[];
+  if(src&&typeof src==='object'){ids=[src.ja,src.ru];by=arr(src.by);}
+  else{const m=/^tatoeba:(\d+)\/(\d+)/.exec(String(src||''));if(m)ids=[m[1],m[2]];}
+  if(!ids.some(Boolean))return'';
+  const chip=(id,who,lang)=>id?`<button class="kp-tag" data-a="open-link:https://tatoeba.org/ru/sentences/show/${esc(id)}">${lang} #${esc(id)}${who?` · ${esc(who)}`:''}</button>`:'';
+  return`<div class="kp-by"><span class="kp-tag src">Tatoeba</span>${chip(ids[0],by[0],'ja')}${chip(ids[1],by[1],'ru')}<span class="kp-tag">CC BY 2.0 FR</span></div>`;
+}
+const KP_JLPT=n=>n?`N${esc(n)}`:'';
+function kanjiPageBody(w){
+  const ch=String(w.kanji),info=kanjiInfo(ch,kanjiRefresh)||{};
+  const toks=s=>String(s||'').split(/[、・,;；]/).map(t=>t.trim()).filter(Boolean);
+  const on=toks(w.on_reading).length?toks(w.on_reading):arr(info.on);
+  const kun=toks(w.kun_reading).length?toks(w.kun_reading):arr(info.kun);
+  // свои значения — если они по-русски; иначе русские из data/kanji, английские — в крайнем случае
+  const own=shownMeaning(w),cyr=/[а-яё]/i.test(own);
+  const mean=cyr||!arr(info.ru).length?(own?senses(own):[]):arr(info.ru);
+  const sec=(t,body)=>body?`<section class="kp-sec"><h3 class="kp-h">${t}</h3>${body}</section>`:'';
+  const chips=(list,f)=>list.length?`<div class="kp-chips">${list.map(t=>`<span class="kp-chip">${f(t)}</span>`).join('')}</div>`:'';
+  const readRow=(l,list,f)=>list.length?`<div class="kp-rrow"><span class="kp-rl">${l}</span>${chips(list,f)}</div>`:'';
+  // значения — готовый HTML
+  const facts=[
+    ['Черт',info.strokes&&esc(info.strokes)],['Класс школы',info.grade&&esc(info.grade)],['JLPT',KP_JLPT(info.jlpt)],
+    ['Частотность',info.freq&&`${esc(info.freq)} из 2500`],
+    ['Ключ',info.radical&&`<span class="jp">${esc(info.radical.c)}</span> (${esc(info.radical.n)})${info.radical.ru?` · ${esc(info.radical.ru)}`:''}`],
+    ['Состав',info.parts&&info.parts.length&&`<span class="jp">${info.parts.map(esc).join(' ')}</span>`],
+  ].filter(f=>f[1]);
+  const words=kanjiWords(w,info.words);
+  const kindTag=k=>k?`<span class="kp-kind">${k==='on'?'он':'кун'}</span>`:'';
+  const svg=arr(info.svg),sents=arr(info.sents);
+  return`<div class="kp-hero">
+      <div class="kp-k">${esc(ch)}</div>
+      <div class="kp-reads">${readRow('он',on,esc)}${readRow('кун',kun,renderKun)}${readRow('в именах',arr(info.nanori),esc)}</div>
+    </div>
+    ${svg.length?sec(`Порядок черт · ${svg.length}`,`<div class="kp-strokes">${strokeGrid(svg)}</div>`):''}
+    ${sec('Значение',mean.length?`<ol class="kp-mean">${mean.map(m=>`<li>${esc(m)}</li>`).join('')}</ol>`:'')}
+    ${sec('Сведения',facts.length?`<dl class="kp-facts">${facts.map(([l,v])=>`<div><dt>${l}</dt><dd>${v}</dd></div>`).join('')}</dl>`:'')}
+    ${sec('Слова',words.length?`<div class="kp-words">${words.map(x=>`<div class="kp-word">
+        <span class="kp-ww jp">${esc(x.word)}</span>
+        <span class="kp-wr jp">${x.html}</span>${kindTag(x.kind)}
+        ${x.meaning?`<span class="kp-wm">${esc(x.meaning)}</span>`:''}
+      </div>`).join('')}</div>`:'')}
+    ${sec('Примеры',sents.length?`<div class="kp-sents">${sents.map(s=>`<div class="kp-sent">
+        <p class="jp">${esc(s.jp).split(esc(ch)).join(`<b>${esc(ch)}</b>`)}</p>${s.ru?`<p class="kp-sru">${esc(s.ru)}</p>`:''}${sentBy(s.src)}
+      </div>`).join('')}</div>`:'')}
+    ${svg.length||info.strokes?`<p class="kp-src">Данные: KANJIDIC2 (EDRDG, CC BY-SA 4.0), KanjiVG (CC BY-SA 3.0), Tatoeba (CC BY 2.0 FR)</p>`:''}`;
+}
+// оборот: «Назад» справа сверху, под ним — листаемая карточка
+function kanjiBack(w,cls){
+  return`<div class="f-back ${cls}" data-kback="${esc(w.id)}">
+    <button class="kflip-badge back" data-a="kanji-flip-back" aria-label="Перевернуть обратно">${FLIP_SVG}Назад</button>
+    <div class="kb-scroll">${kanjiPageBody(w)}</div>
+  </div>`;
+}
+// данные из data/kanji пришли — обновляем оборот на месте, не сбрасывая прокрутку
+function kanjiRefresh(){
+  if(typeof document.querySelectorAll!=='function'||typeof document.createElement!=='function')return;
+  document.querySelectorAll('[data-kback]').forEach(el=>{
+    const w=ds('kanji').find(x=>x.id===el.dataset.kback)||(S.quizQ&&S.quizQ.word&&S.quizQ.word.id===el.dataset.kback?S.quizQ.word:null);
+    const sc=el.querySelector('.kb-scroll');if(!w||!sc)return;
+    morphInto(sc,kanjiPageBody(w));
+  });
+}
+// переворот без перерисовки всего экрана в словаре; высота канваса меняется плавно
+function flipRender(){
+  const q=typeof document.querySelector==='function';
+  const el=q&&S.quizQ?document.querySelector('[data-key="cv-flip"]'):null,h0=el?el.offsetHeight:0;
+  const list=!S.quizQ&&S.tab==='words'&&typeof document.createElement==='function'&&document.getElementById('words-results');
+  if(list){morphInto(list,buildWordsResults());syncBackButton();}
+  else render();
+  if(el&&el.animate&&!reducedMotion()){
+    const h1=el.offsetHeight;
+    if(Math.abs(h1-h0)>2)el.animate([{height:h0+'px'},{height:h1+'px'}],{duration:500,easing:'cubic-bezier(.4,0,.2,1)'});
+  }
+}
 
 function buildStudyDone(){
   const r=S.studyResults||{know:0,learning:0,unknown:0};
@@ -632,6 +785,7 @@ function buildQuizActive(){
 
   let choiceHtml='';
   if(showChoice&&q.options){
+    const lbl=optLabels(q.aField,q.options);
     choiceHtml=`<div class="quiz-panel">
       <div class="quiz-panel-lbl">Выберите вариант:</div>
       <div class="quiz-opts">
@@ -639,9 +793,7 @@ function buildQuizActive(){
         let cls='';
         if(S.quizDone)cls=i===q.correct?'ok':i===S.quizSel?'bad':'';
         else if(i===S.quizSel)cls='sel';
-        const sense=q.aField==='meaning'||q.aField==='translation';
-        const txt=q.aField==='kun_reading'?renderKun(opt):sense?firstSense(opt):esc(opt);
-        return`<button class="qopt ${cls}"${S.quizDone?' aria-disabled="true"':''}${sense?moreAttr(opt):''} data-a="quiz-ans:${i}">${txt}</button>`;
+        return`<button class="qopt ${cls}"${S.quizDone?' aria-disabled="true"':''}${lbl[i].more} data-a="quiz-ans:${i}">${lbl[i].html}</button>`;
       }).join('')}
       </div>
     </div>`;
@@ -684,15 +836,13 @@ function buildMultiActive(q){
         ${S.quizDone&&!isOk?`<div class="quiz-result bad">✗ ${corr}</div>`:''}
       </div>`;
     }
-    const sel=q.picks[gi];
+    const sel=q.picks[gi],ol=optLabels(g.field,g.options);
     const opts=g.options.map((opt,i)=>{
       let cls='';
       if(S.quizDone)cls=i===g.correctIdx?'ok':(sel===i?'bad':'');
       else if(sel===i)cls='sel';
-      const sense=g.field==='meaning'||g.field==='translation';
-      const txt=g.field==='kun_reading'?renderKun(opt):sense?firstSense(opt):esc(opt);
       const dis=(sel!=null||S.quizDone)?' aria-disabled="true"':'';
-      return`<button class="qopt ${cls}"${dis}${sense?moreAttr(opt):''} data-a="multi-pick:${gi}:${i}">${txt}</button>`;
+      return`<button class="qopt ${cls}"${dis}${ol[i].more} data-a="multi-pick:${gi}:${i}">${ol[i].html}</button>`;
     }).join('');
     return`<div class="quiz-panel"><div class="quiz-panel-lbl">${lbl}:</div><div class="quiz-opts">${opts}</div></div>`;
   }).join('');
@@ -725,7 +875,11 @@ function qScoreBar(){
 // Внизу канваса — пилюли (подсказки, переключатели режима); подсказки выезжают из-под канваса.
 function qCanvas(inner,cls='',hintItem=null,hintOn=false,hintAction='',foot='',drop=''){
   const pills=hintPill(hintItem,hintOn,hintAction)+foot;
-  return`<div class="cv-wrap"><div class="quiz-q${cls}">${qScoreBar()}<div class="qbody">${inner}</div>${pills?`<div class="cv-pills">${pills}</div>`:''}</div>${hintOn&&hintItem?hintDrop(hintItem):''}${drop}</div>`;
+  // у кандзи — плашка справа сверху: канвас переворачивается на словарную карточку
+  const flip=!!(hintItem&&hintItem.id&&hintItem.kanji),back=flip&&S.kanjiPage===hintItem.id;
+  const front=`<div class="quiz-q${cls}${flip?' f-front':''}">${qScoreBar()}${flip?kanjiFlipBadge(hintItem):''}<div class="qbody">${inner}</div>${pills?`<div class="cv-pills">${pills}</div>`:''}</div>`;
+  const card=flip?`<div class="flip${back&&S.kanjiFlip?' on':''}" data-key="cv-flip">${front}${back?kanjiBack(hintItem,'cv-back'):''}</div>`:front;
+  return`<div class="cv-wrap cv-stick">${card}${hintOn&&hintItem?hintDrop(hintItem):''}${drop}</div>`;
 }
 // Стоп / Пропустить / Дальше — одним рядом. Третья кнопка: «Дальше» после ответа,
 // «Проверить» там, где ответ подтверждается вручную, иначе неактивная «Дальше».
@@ -816,9 +970,10 @@ function buildPairsActive(q){
   if(q.result){
     const a=q.options[q.result.a],b=q.options[q.result.b];
     canvasCls=q.result.ok?' ok':' bad';
+    // пара сравнивается по первому он-чтению — его и показываем
     const readings=q.result.ok
-      ?`<div class="pair-on"><span class="lbl">on:</span><span class="val">${esc(a.onRaw)}</span></div>`
-      :`<div class="pair-on"><span class="val">${esc(a.onRaw)}</span> <span class="lbl">≠</span> <span class="val">${esc(b.onRaw)}</span></div>`;
+      ?`<div class="pair-on"><span class="lbl">on:</span><span class="val">${esc(a.on)}</span></div>`
+      :`<div class="pair-on"><span class="val">${esc(a.on)}</span> <span class="lbl">≠</span> <span class="val">${esc(b.on)}</span></div>`;
     canvasInner=`<div class="pair-canvas"><div class="pair-slots">${slot(a,q.result.ok)}${slot(b,q.result.ok)}</div>${readings}</div>`;
   } else if(q.firstPick!=null){
     const a=q.options[q.firstPick];
@@ -832,7 +987,7 @@ function buildPairsActive(q){
     const found=q.found.some(f=>f.includes(i));
     const sel=q.firstPick===i;
     let cls=found?'ok':sel?'sel':'';
-    const label=found?`${esc(o.kanji)}<span class="qopt-on">${esc(o.onRaw)}</span>`:esc(o.kanji);
+    const label=found?`${esc(o.kanji)}<span class="qopt-on">${esc(o.on)}</span>`:esc(o.kanji);
     return`<button class="qopt kanji ${cls}" ${found||S.quizDone?'disabled':''} data-a="pairs-pick:${i}">${label}</button>`;
   }).join('');
   const panel=`<div class="quiz-panel"><div class="quiz-panel-lbl">Выберите вариант:</div><div class="quiz-opts">${opts}</div></div>`;
@@ -849,7 +1004,9 @@ function buildMatchActive(q){
     const sel=(side==='L'?q.selL:q.selR)===pid;
     const bad=!!q.bad&&(side==='L'?q.bad.l:q.bad.r)===pid;
     const cls=done?'done':bad?'bad':sel?'sel':'';
-    return`<button class="mtile ${cls}" ${done||S.quizDone?'disabled':''} data-a="match-pick:${side}:${pid}">${side==='L'?q.items[pid].l.html:q.items[pid].r.html}</button>`;
+    const t=side==='L'?q.items[pid].l:q.items[pid].r;
+    // собранная плитка не блокируется (disabled гасит лонгтап), повторный тап по ней ничего не делает
+    return`<button class="mtile ${cls}"${done||S.quizDone?' aria-disabled="true"':''}${t.more||''} data-a="match-pick:${side}:${pid}">${t.html}</button>`;
   };
   const hint=`<div class="mt-hint">${S.quizDone?'Все пары собраны':'Выберите по плитке из каждой колонки'}</div>`;
   const cols=`<div class="mt-grid">
@@ -1007,7 +1164,9 @@ function kanjiCard(w,p,single,showFolder){
   const read=(lbl,v)=>v?`<div class="kc-r"><span class="kc-l">${lbl}</span><span class="kc-v">${v}</span></div>`:'';
   const exCol=(lbl,e)=>e?`<div class="kc-col"><span class="kc-l2">${lbl}</span>${e.meaning?`<span class="kc-t">${esc(e.meaning)}</span>`:''}<span class="kc-t">${esc(e.word)}</span><span class="kc-t kc-yomi">${e.html}</span></div>`:'';
   const exHtml=exCol('он-чтение:',ex.on)+exCol('кун-чтение:',ex.kun);
-  return`<div class="kcard${single?' kpage':''}${sel?' sel':''}"${attrs}>
+  // тап по карточке переворачивает её на словарную карточку (в режиме выбора — отмечает)
+  const back=!S.selecting&&S.kanjiPage===w.id,on=back&&S.kanjiFlip;
+  return`<div class="kflip flip${on?' on':''}" data-key="kc-${esc(w.id)}"><div class="kcard f-front${single?' kpage':''}${sel?' sel':''}"${attrs}${S.selecting?'':` data-a="kanji-flip:${esc(w.id)}" role="button" tabindex="0"`}>
       ${mark}${statusMark(statusOf(p,w.id))}
       <div class="kc-top">
         <div class="kc-k">${esc(w.kanji)}</div>
@@ -1018,7 +1177,7 @@ function kanjiCard(w,p,single,showFolder){
       </div>
       ${exHtml?`<i class="kc-div"></i><div class="kc-ex">${exHtml}</div>`:''}
       ${folderTag(w,showFolder)}
-    </div>`;
+    </div>${back?kanjiBack(w,'kc-back'):''}</div>`;
 }
 // Список отдельно от поля поиска: при вводе обновляется только он (фокус и IME не сбрасываются)
 function buildWordsResults(){

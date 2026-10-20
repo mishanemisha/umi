@@ -130,12 +130,8 @@ function segmentWord(word,reading,seg){
 // порядок: сначала слова из EXAMPLE_FOR для этого знака, затем остальные в исходном порядке
 function examplePri(ch,w,i){const f=EXAMPLE_FOR[ch];const j=f?f.indexOf(w):-1;return j>=0?j:1e4+i;}
 const _kexCache=new Map();
-function kanjiExamples(item){
-  const ch=String(item.kanji||'');
-  const key=[ch,item.on_reading,item.kun_reading,S.words.length].join('|');
-  if(_kexCache.has(key))return _kexCache.get(key);
-  const on=new Set(readingTokens(item.on_reading)),kun=new Set(readingTokens(item.kun_reading));
-  // встроенные слова — по частотности для этого знака
+// Слова с иероглифом: свои слова, затем встроенный банк по частотности для этого знака
+function kanjiCands(ch){
   const bank=[...BUILTIN_WORDS,...ADDITIONAL_WORDS].filter(w=>w.w.includes(ch))
     .map((w,i)=>({w:w.w,r:w.r,k:w.k,m:w.m,o:examplePri(ch,w.w,i)})).sort((a,b)=>a.o-b.o);
   // значение примера — по-русски: из своего слова (meaning или translation), иначе из банка
@@ -143,24 +139,59 @@ function kanjiExamples(item){
   const ruM=new Map();bank.forEach(b=>{if(!ruM.has(b.w))ruM.set(b.w,b.m);});
   const cyr=v=>/[а-яё]/i.test(String(v||''));
   const userM=w=>[w.meaning,w.translation,ruM.get(String(w.kanji||''))].find(cyr)||w.meaning||w.translation;
-  const cands=[
+  return[
     ...S.words.map(w=>({w:String(w.kanji||''),r:w.reading,k:null,m:userM(w)})),
     ...bank,
   ].filter(x=>x.r&&x.w.includes(ch));
+}
+// Слово как пример к знаку: чтение с выделенной частью этого знака и вид чтения (он/кун)
+function kanjiUse(item,x){
+  const ch=String(item.kanji||'');
+  const parts=segmentWord(x.w,x.r,x.k),mine=parts&&parts.find(p=>p.c===ch);
+  if(!mine)return null;
+  const vs=readingVariants(mine.r);
+  const kind=vs.some(v=>readingTokens(item.on_reading).includes(v))?'on':vs.some(v=>readingTokens(item.kun_reading).includes(v))?'kun':null;
+  return{word:x.w,kind,html:parts.map(p=>p.c===ch?`<b>${esc(p.r)}</b>`:esc(p.r)).join(''),
+    meaning:String(x.m||'').split(/;/)[0].trim()};
+}
+function kanjiExamples(item){
+  const ch=String(item.kanji||'');
+  const key=[ch,item.on_reading,item.kun_reading,S.words.length].join('|');
+  if(_kexCache.has(key))return _kexCache.get(key);
   const out={on:null,kun:null};
-  for(const x of cands){
+  for(const x of kanjiCands(ch)){
     if(out.on&&out.kun)break;
-    const parts=segmentWord(x.w,x.r,x.k);if(!parts)continue;
-    const mine=parts.find(p=>p.c===ch);if(!mine)continue;
-    const vs=readingVariants(mine.r);
-    const kind=vs.some(v=>on.has(v))?'on':vs.some(v=>kun.has(v))?'kun':null;
-    if(!kind||out[kind])continue;
-    out[kind]={word:x.w,html:parts.map(p=>p.c===ch?`<b>${esc(p.r)}</b>`:esc(p.r)).join(''),
-      meaning:String(x.m||'').split(/;/)[0].trim()};
+    const u=kanjiUse(item,x);
+    if(!u||!u.kind||out[u.kind])continue;
+    out[u.kind]=u;
   }
   if(_kexCache.size>2000)_kexCache.clear();
   _kexCache.set(key,out);
   return out;
+}
+// Для страницы иероглифа: до limit слов, без повторов; слова из data/kanji — после своих и банка
+function kanjiWords(item,extra,limit=12){
+  const ch=String(item.kanji||''),out=[],seen=new Set([ch]);
+  for(const x of[...kanjiCands(ch),...arr(extra).map(e=>({w:e.w,r:e.r,k:null,m:e.m}))]){
+    if(out.length>=limit)break;
+    if(seen.has(x.w))continue;
+    seen.add(x.w);
+    out.push(kanjiUse(item,x)||{word:x.w,kind:null,html:esc(x.r),meaning:String(x.m||'').split(/;/)[0].trim()});
+  }
+  return out;
+}
+// Подробности знака (черты, ключ, предложения) — data/kanji/<код>.json, по запросу.
+// undefined — не запрашивали, null — грузится или файла нет, объект — данные
+const KINFO=new Map();
+function kanjiInfo(ch,onLoad){
+  const key=String(ch||'').codePointAt(0)?.toString(16);
+  if(!key)return null;
+  if(KINFO.has(key))return KINFO.get(key);
+  KINFO.set(key,null);
+  if(typeof fetch!=='function')return null;
+  fetch(`data/kanji/${key}.json`).then(r=>r.ok?r.json():null)
+    .then(d=>{if(d&&d.k===ch){KINFO.set(key,d);onLoad&&onLoad();}}).catch(()=>{});
+  return null;
 }
 // Пример-слова для иероглифа: только встроенный банк из CSV (по загруженным кандзи)
 function exampleWords(ch){
@@ -290,24 +321,26 @@ function mSplit(v){
   out.push(cur);
   return out.map(x=>x.trim()).filter(Boolean);
 }
-function mSenses(v){
-  const parts=mSplit(v);
-  return(S.quizCfg.matchSenses==='all'?parts:parts.slice(0,1)).join(', ');
-}
-// одна сторона плитки: первое поле — крупно, остальные — подписью
+// одна сторона плитки: первое поле — крупно, остальные — подписью. У каждого поля видно
+// одно значение / чтение, остальные — по лонгтапу (как в вариантах квиза)
 function mSide(w,fields){
   const parts=[];
   fields.forEach(f=>{
-    const v=(f==='meaning'||f==='translation')?mSenses(w[f]):String(w[f]||'').trim();
-    if(v)parts.push({f,v});
+    const all=optParts(f,w[f]);
+    if(all.length)parts.push({f,v:all[0],all});
   });
   if(!parts.length)return null;
   // кун: окончание после точки — серым, как в квизе
-  const txt=p=>p.f==='kun_reading'?renderKun(p.v):esc(p.v);
+  const txt=p=>(p.f==='kun_reading'?renderKun(p.v):esc(p.v))+(p.all.length>1?'<i class="more-i" aria-label="ещё варианты">!</i>':'');
   const html=parts.map((p,i)=>i
     ?`<span class="mt-sub">${txt(p)}</span>`
     :`<span class="mt-main${p.f==='kanji'?' jp':''}">${txt(p)}</span>`).join('');
-  return{key:parts.map(p=>p.f+'\u0001'+p.v).join('\u0002'),html};
+  // в бабле — все варианты; если «ещё» есть у нескольких полей, каждое поле одной строкой
+  const extra=parts.filter(p=>p.all.length>1);
+  const more=extra.length===1?moreData(extra[0].f,extra[0].all)
+    :extra.length?` data-more="${esc(extra.map(p=>p.all.join(', ')).join('\n'))}"`:'';
+  // ключ — по видимому тексту: две плитки с одинаковой надписью не различить
+  return{key:parts.map(p=>p.f+'\u0001'+p.v).join('\u0002'),html,more};
 }
 function buildMatchQ(){
   const{type}=S.quizCfg;

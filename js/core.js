@@ -55,9 +55,9 @@ const S={
   studyCfg:{type:'words',front:['kanji'],back:['reading','meaning'],filter:'all',count:'all',folders:[]},
   quizCfg:{type:'words',mode:'choice6',question:['kanji'],answer:['reading'],filter:'all',count:'all',folders:[],composeShow:{reading:true,meaning:false},composeMode:'normal',ultraDifficulty:'all',
     verbStyle:'both',verbLevel:'medium',verbSource:'all',verbCats:VERB_CATS_DEFAULT.slice(),
-    matchLeft:['meaning'],matchRight:['kanji','reading'],matchSenses:'one'},
+    matchLeft:['meaning'],matchRight:['kanji','reading']},
   quizQ:null, quizLimit:null, quizSeen:{}, quizRound:0, quizAsked:0, quizResults:null, quizScore:{ok:0,bad:0}, quizDone:false, quizSel:-1, quizInputVal:'',
-  quizHint:false, cardHint:false, quizRecent:[],
+  quizHint:false, cardHint:false, kanjiPage:null, kanjiFlip:false, quizRecent:[],
   wordDisplay:'full', // 'full' — слово целиком (кандзи), 'kana' — только кана
   verbReports:[],     // отметки «Ошибка в задании» из форм глаголов: задание + ответ для проверки
   hintsEnabled:true,  // подсказки в квизе/карточках кандзи (можно выключить в настройках)
@@ -104,7 +104,6 @@ function load(){
     if(!['all','known'].includes(S.quizCfg.verbSource))S.quizCfg.verbSource='all';
     if(!Array.isArray(S.quizCfg.matchLeft)||!S.quizCfg.matchLeft.length)S.quizCfg.matchLeft=matchSide(S.quizCfg.type,'L');
     if(!Array.isArray(S.quizCfg.matchRight)||!S.quizCfg.matchRight.length)S.quizCfg.matchRight=matchSide(S.quizCfg.type,'R');
-    if(!['one','all'].includes(S.quizCfg.matchSenses))S.quizCfg.matchSenses='one';
     if(!Array.isArray(S.quizCfg.verbCats))S.quizCfg.verbCats=[];
     S.quizCfg.verbCats=S.quizCfg.verbCats.filter(v=>VERB_CAT_BY_ID[v]);   // старые v2-категории отбрасываем
     if(!S.quizCfg.verbCats.some(v=>VERB_CAT_BY_ID[v].k==='form'))S.quizCfg.verbCats=VERB_CATS_DEFAULT.slice();

@@ -520,3 +520,89 @@ test('verb hint shows how the form is built, not its name; home: logo left of th
  const css=require('node:fs').readFileSync(require('node:path').join(root,'css/app.css'),'utf8');
  assert.match(css,/\.hstat \.n\{font-family:var\(--fjp\);font-weight:500/);
 });
+
+test('answers show one meaning or reading everywhere; the rest is behind a long press; tiles keep their size',()=>{
+ const a=app();
+ // варианты чтений: первое + «!»; одинаковое первое у двух вариантов — показываем целиком
+ const l=JSON.parse(a.run(`JSON.stringify(optLabels('on_reading',['セイ、ショウ','セイ、ジョウ','ニチ、ジツ','カ']))`));
+ assert.equal(l[0].html,'セイ、ショウ');assert.equal(l[1].html,'セイ、ジョウ');
+ assert.match(l[2].html,/^ニチ<i class="more-i"/);assert.equal(l[2].more,' data-more="ニチ\nジツ"');
+ assert.equal(l[3].html,'カ');assert.equal(l[3].more,'');
+ assert.match(a.run(`optLabels('kun_reading',['み.る・み.える','はや.い'])[0].more`),/data-more-kind="kun"/);
+ // «Сопоставь пары»: одно значение в плитке, все — в бабле; настройки «Значений в плитке» нет
+ a.run(`S.words=['見','早','先','空'].map((c,i)=>({id:'w'+i,kanji:c,reading:'よみ'+i,meaning:'смысл'+i+'; ещё'+i+'; третье'+i,folder:'Общая'}));
+  S.quizCfg={...S.quizCfg,type:'words',mode:'match6',matchLeft:['meaning'],matchRight:['kanji'],filter:'all',count:'all'};act('start-quiz')`);
+ const html=a.run('buildMatchActive(S.quizQ)');
+ assert.match(html,/<span class="mt-main">смысл\d<i class="more-i"/);
+ assert.doesNotMatch(html,/ещё\d<\/span>/);
+ assert.match(html,/data-more="смысл\d\nещё\d\nтретье\d"/);
+ assert.doesNotMatch(a.run(`S.quizQ=null;buildApp()`),/Значений в плитке/);
+ // собранная пара не сжимается и не блокируется (лонгтап работает)
+ const css=require('node:fs').readFileSync(require('node:path').join(root,'css/app.css'),'utf8');
+ assert.doesNotMatch(css,/\.mtile\.done\{[^}]*min-height:0/);
+ assert.match(css,/\.mtile\.done\{padding:8px\}/,'the results-screen .done padding must not inflate a solved tile');
+ a.run(`act('start-quiz');const q=S.quizQ;act('match-pick:L:0');act('match-pick:R:0')`);
+ assert.match(a.run('buildMatchActive(S.quizQ)'),/class="mtile done" aria-disabled="true"/);
+});
+
+test('kanji card: a «漢字» badge flips the canvas to a dictionary card, even before the answer; back flips it back; dictionary cards flip too',()=>{
+ const tg=fakeTelegram();const a=app({tg});
+ a.run(`S.kanjiItems=['先','見','早','空','日','月'].map((c,i)=>({id:'k'+i,kanji:c,on_reading:'セン、ケン',kun_reading:'さき・ま.ず',meaning:i?'знак '+i:'перед; раньше; прежде',folder:'Общая'}));
+  S.quizCfg={...S.quizCfg,type:'kanji',mode:'choice4',question:['kanji'],answer:['meaning'],filter:'all',count:'all',folders:[]};act('start-quiz');S.quizQ.word=S.kanjiItems[0]`);
+ let html=a.run('buildApp()');
+ assert.match(html,/class="kflip-badge" data-a="kanji-flip:k0"[^>]*><span class="kb-k">漢字<\/span><\/button>/,'badge is just «漢字»: neither the asked kanji nor its meaning');
+ assert.doesNotMatch(html,/Карточка иероглифа<\/button>/,'no separate pill any more');
+ assert.doesNotMatch(html,/class="f-back/,'the back is built only when flipped');
+ a.run(`act('kanji-flip:k0')`);
+ html=a.run('buildApp()');
+ assert.match(html,/<div class="flip on" data-key="cv-flip"><div class="quiz-q f-front"/);
+ assert.match(html,/class="f-back cv-back" data-kback="k0"/);
+ assert.match(html,/<ol class="kp-mean"><li>перед<\/li><li>раньше<\/li><li>прежде<\/li><\/ol>/,'all meanings on the back');
+ assert.match(html,/<span class="kp-chip">セン<\/span><span class="kp-chip">ケン<\/span>/);
+ assert.doesNotMatch(html,/class="kp"/,'no full-screen page');
+ assert.equal(tg.BackButton.visible,true);
+ tg.BackButton.cb();
+ assert.equal(a.run('S.kanjiFlip'),false);
+ assert.match(a.run('buildApp()'),/<div class="flip" data-key="cv-flip">/,'flipped back to the question');
+ a.run(`act('kanji-flip:k0');act('skip-q')`);
+ assert.equal(a.run('S.kanjiPage'),null,'next question starts on the front');
+ // словарь: тап по карточке кандзи переворачивает её; в режиме выбора — нет
+ a.run(`act('stop-quiz');S.tab='words';S.wordsTab='kanji'`);
+ assert.match(a.run('buildWordsResults()'),/<div class="kflip flip" data-key="kc-k0"><div class="kcard f-front"[^>]*data-a="kanji-flip:k0"/);
+ a.run(`act('kanji-flip:k0')`);
+ assert.match(a.run('buildWordsResults()'),/<div class="kflip flip on" data-key="kc-k0">[\s\S]*class="f-back kc-back" data-kback="k0"/);
+ a.run(`act('kanji-flip-back');act('sel-start')`);
+ assert.doesNotMatch(a.run('buildWordsResults()'),/data-a="kanji-flip:/);
+});
+
+test('kanji card back: stroke order, facts and sentences from data/kanji, each sentence credited to its Tatoeba authors',()=>{
+ const a=app();
+ a.run(`const w={id:'k1',kanji:'書',on_reading:'ショ',kun_reading:'か.く',meaning:'писать',folder:'Общая'};S.kanjiItems=[w];
+  KINFO.set('66f8',{k:'書',strokes:2,grade:2,jlpt:5,freq:169,radical:{c:'曰',n:73,ru:'говорить'},parts:['日','聿'],nanori:['かき'],
+   svg:['M31.5,19.5c1,0,40,-2,45,-2','M20,30.5c3,0,60,0,65,0'],
+   sents:[{jp:'手紙を書く。',ru:'Писать письмо.',src:{ja:12,ru:34,by:['small_snow','marafon']}},{jp:'本を書く。',ru:'Писать книгу.',src:'tatoeba:5/6'}]})`);
+ const page=a.run(`kanjiBack(S.kanjiItems[0],'cv-back')`);
+ assert.match(page,/Порядок черт · 2/);
+ assert.equal((page.match(/class="kp-sc"/g)||[]).length,2);
+ assert.match(page,/<circle cx="20" cy="30.5"/,'start dot of the new stroke');
+ assert.match(page,/<dt>Ключ<\/dt><dd><span class="jp">曰<\/span> \(73\) · говорить<\/dd>/);
+ assert.match(page,/<dt>JLPT<\/dt><dd>N5<\/dd>/);
+ assert.match(page,/手紙を<b>書<\/b>く。/);
+ assert.match(page,/<li>писать<\/li>/,'own meaning first');
+ // английское значение из импорта уступает русскому из data/kanji
+ a.run(`S.kanjiItems[0].meaning='write';KINFO.get('66f8').ru=['писать','книга']`);
+ assert.match(a.run(`kanjiBack(S.kanjiItems[0],'cv-back')`),/<ol class="kp-mean"><li>писать<\/li><li>книга<\/li><\/ol>/);
+ assert.match(page,/<div class="kp-by"><span class="kp-tag src">Tatoeba<\/span><button class="kp-tag" data-a="open-link:https:\/\/tatoeba.org\/ru\/sentences\/show\/12">ja #12 · small_snow<\/button><button class="kp-tag" data-a="open-link:https:\/\/tatoeba.org\/ru\/sentences\/show\/34">ru #34 · marafon<\/button><span class="kp-tag">CC BY 2.0 FR<\/span><\/div>/);
+ assert.match(page,/ja #5<\/button><button class="kp-tag"[^>]*>ru #6<\/button>/,'old string source still credited');
+});
+
+test('scrolling under the canvas: the quiz canvas sticks and compacts, the action row is pinned above the tab bar',()=>{
+ const a=app();
+ a.run(manyWords(20)+`S.quizCfg={...S.quizCfg,type:'words',mode:'choice4',question:['kanji'],answer:['reading'],filter:'all',count:'all',folders:[]};act('start-quiz')`);
+ assert.match(a.run('buildApp()'),/<div class="cv-wrap cv-stick"><div class="quiz-q/);
+ const css=require('node:fs').readFileSync(require('node:path').join(root,'css/app.css'),'utf8');
+ assert.match(css,/\.pg>\.cv-stick\{position:sticky;top:12px/);
+ assert.match(css,/\.cv-mini \.qscore\{zoom:calc\(1 - \.5\*var\(--k,0\)\)\}/,'score shrinks to half');
+ assert.match(css,/\.cv-mini \.cv-pills\{[^}]*opacity:calc\(1 - 2\*var\(--k,0\)\)/,'hint pills hide');
+ assert.match(css,/\.pg>\.quiz-actions\{position:sticky;bottom:/);
+});
