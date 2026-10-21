@@ -138,6 +138,9 @@ function render(){
     animateDrawers(app,before,added);
   }else app.innerHTML=html;
   _morphed=sess;
+  // новый вопрос начинается с канваса в исходном виде, а не с прокрутки прошлого экрана
+  if(S.quizQ&&S.quizQ!==_cvQ)pageScrollTop();
+  _cvQ=S.quizQ;
   bindAll();if(practiceAvailable)uBind();syncBackButton();cvCompactSync(true);
 }
 /* ── Листание под канвасом (Figma 168:154) ──
@@ -150,6 +153,12 @@ const CV_TOP=12;
 let _cvm=null,_cvRaf=0;
 // прокручивается body (html,body{height:100%}), в других движках — окно
 function pageScrollY(){return Math.max(window.scrollY||0,document.body?.scrollTop||0,document.documentElement?.scrollTop||0);}
+function pageScrollTop(){
+  if(typeof window==='undefined'||!document.body)return;
+  document.body.scrollTop=0;if(document.documentElement)document.documentElement.scrollTop=0;
+  if(typeof window.scrollTo==='function')window.scrollTo(0,0);
+}
+let _cvQ=null;
 function cvReset(wrap,cv){
   wrap.classList.remove('cv-mini');
   wrap.style.height=wrap.style.marginBottom=cv.style.height='';
@@ -167,7 +176,12 @@ function cvCompactSync(measure){
     const body=cv.querySelector('.qbody'),kids=body?[...body.children]:[];
     const content=kids.reduce((h,e)=>h+e.offsetHeight,0)+Math.max(0,kids.length-1)*20;
     const cvH=cv.offsetHeight;
-    _cvm={el:wrap,full:wrap.offsetHeight,cvH,top:wrap.getBoundingClientRect().top+pageScrollY(),
+    // место в потоке меряем без прилипания (прилипший канвас отдаёт позицию на экране)
+    // и по offsetTop — его не сдвигает анимация появления экрана
+    wrap.style.position='relative';
+    let top=0;for(let e=wrap;e;e=e.offsetParent)top+=e.offsetTop;
+    wrap.style.position='';
+    _cvm={el:wrap,full:wrap.offsetHeight,cvH,top,
       hc:Math.min(cvH,Math.round(Math.min(260,Math.max(200,content*.67+44))))};
   }
   const m=_cvm,D=m.full-m.hc;

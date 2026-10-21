@@ -606,3 +606,14 @@ test('scrolling under the canvas: the quiz canvas sticks and compacts, the actio
  assert.match(css,/\.cv-mini \.cv-pills\{[^}]*opacity:calc\(1 - 2\*var\(--k,0\)\)/,'hint pills hide');
  assert.match(css,/\.pg>\.quiz-actions\{position:sticky;bottom:/);
 });
+
+test('a new question starts from the top (canvas in its base state), answering within a question keeps the scroll',()=>{
+ const a=app();
+ a.run(`document.body={scrollTop:420};document.documentElement={scrollTop:0}`);
+ a.run(manyWords(20)+`S.quizCfg={...S.quizCfg,type:'words',mode:'choice4',question:['kanji'],answer:['reading','meaning'],filter:'all',count:'all',folders:[]};act('start-quiz')`);
+ assert.equal(a.run('document.body.scrollTop'),0,'scroll left over from the home screen is reset');
+ a.run(`document.body.scrollTop=300;act('multi-pick:0:0')`);
+ assert.equal(a.run('document.body.scrollTop'),300,'picking an answer does not jump to the top');
+ a.run(`act('next-q')`);
+ assert.equal(a.run('document.body.scrollTop'),0);
+});
