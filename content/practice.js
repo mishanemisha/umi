@@ -840,8 +840,9 @@ function uSessionView() {
       })
       .join(' + ')
   )}</div>${uBar(Math.round((s.position / n) * 100), s.position + ' завершено', U_LEVEL_LABELS[s.difficulty] || 'Тренировка')}
-    <section class="quiz-q up-question"><div class="quiz-ql">${esc(e.labelRu || 'Практика')}</div><h2 class="up-instruction">${esc(e.instructionRu)}</h2>${e.translationRu ? `<p class="up-translation">${esc(e.translationRu)}</p>` : ''}${uConditions(e.conditionsRu)}${prompt ? `<div class="${e.focus === 'vocabulary' && e.type !== 'gap' ? 'quiz-qm' : 'quiz-qm sm'} up-prompt" lang="${e.promptLanguage || 'ja'}">${prompt}</div>` : ''}</section>
-    ${e.type === 'order' ? `<div class="up-order up-inset" aria-label="Собранная фраза">${a.selection.length ? a.selection.map((id, i) => uBtn(esc(e.options.find(o => o.id === id).text), 'undo:' + i, '', complete)).join('') : '<span class="up-muted">Нажимай на блоки ниже. Нажатие на выбранный блок отменяет его.</span>'}<span class="up-muted up-order-count">${a.selection.length} / ${e.requiredCount || e.acceptedSequences[0].length} блоков</span></div>` : ''}
+    <div class="pg up-pg">
+    <section class="quiz-q up-question"><div class="quiz-ql">${esc(e.labelRu || 'Практика')}</div><h2 class="up-instruction">${esc(e.instructionRu)}</h2>${e.translationRu ? `<p class="up-translation">${esc(e.translationRu)}</p>` : ''}${uConditions(e.conditionsRu)}${prompt ? `<div class="${e.focus === 'vocabulary' && e.type !== 'gap' ? 'quiz-qm' : 'quiz-qm sm'} up-prompt" lang="${e.promptLanguage || 'ja'}">${prompt}</div>` : ''}${uPills(e, a, complete)}</section>
+    ${e.type === 'order' ? `<div class="up-order" aria-label="Собранная фраза">${a.selection.length ? a.selection.map((id, i) => uBtn(esc(e.options.find(o => o.id === id).text), 'undo:' + i, '', complete)).join('') : '<span class="up-muted">Нажимай на блоки ниже. Нажатие на выбранный блок отменяет его.</span>'}<span class="up-muted up-order-count">${a.selection.length} / ${e.requiredCount || e.acceptedSequences[0].length} блоков</span></div>` : ''}
     ${
       e.type === 'input'
         ? `<section class="quiz-panel"><label class="quiz-panel-lbl" for="up-text-answer">Твой ответ · кана</label><input id="up-text-answer" class="quiz-inp up-input ${a.checked ? (a.correct ? 'ok' : 'bad') : ''}" lang="ja" type="text" value="${esc(a.selection.text)}" placeholder="Введи ответ" autocomplete="off" autocorrect="off" spellcheck="false" ${complete ? 'disabled' : ''}></section>`
@@ -854,8 +855,23 @@ function uSessionView() {
             .join('')}</div></section>`
     }
     ${feedback}${a.hintUsed && !a.checked && !e.display.hideReadings ? `<div class="cfg-card up-help">${esc(e.explanationRu)}</div>` : ''}
-    <div class="start-row">${complete ? uBtn(s.position === n - 1 ? 'К итогу' : 'Далее', 'next', 'primary wide') : uBtn('Проверить', 'check', 'primary wide', !uReady(e, a))}</div>
-    ${!complete ? `<div class="up-actions up-inset">${!e.display.hideReadings ? uBtn('Подсказка', 'hint', '', a.hintUsed) : ''}${uBtn('Показать ответ', 'reveal')}</div>` : ''}<div class="up-actions up-inset">${uBtn('Сохранить и выйти', uScopeBack(s.lessonId))}${uBtn('Завершить тренировку', 'end')}</div>`;
+    ${uActions(complete ? uAct(s.position === n - 1 ? 'К итогу' : 'Дальше', 'next', true) : uAct('Проверить', 'check', true, !uReady(e, a)), s)}
+    </div>`;
+}
+// Контролы как в остальных тренировках: «Подсказка» и «Показать ответ» — пилюлями внизу канваса,
+// «Стоп / Завершить / Проверить» — одним рядом, прибитым над таббаром
+function uPills(e, a, complete) {
+  if (complete) return '';
+  const hint = !e.display.hideReadings
+    ? `<button class="cv-hint${a.hintUsed ? ' on' : ''}" data-a="up:hint" ${a.hintUsed ? 'aria-pressed="true" disabled' : ''}>Подсказка</button>`
+    : '';
+  return `<div class="cv-pills">${hint}<button class="cv-hint" data-a="up:reveal">Показать ответ</button></div>`;
+}
+function uAct(label, action, primary = false, disabled = false) {
+  return `<button class="qact-btn${primary ? ' primary' : ''}" data-a="up:${esc(action)}"${disabled ? ' aria-disabled="true" disabled' : ''}>${label}</button>`;
+}
+function uActions(main, s) {
+  return `<div class="quiz-actions">${uAct('Стоп', uScopeBack(s.lessonId))}${uAct('Завершить', 'end')}${main}</div>`;
 }
 function uRestoreSettings(s) {
   UP.mode = s.mode;

@@ -56,7 +56,12 @@
 .up-word .up-button{font-size:12px;padding:8px;min-height:40px;flex:0 0 auto;max-width:100px}
 .up-word rt{color:var(--al);font-size:10px}
 .up-muted{font-size:12px;color:var(--t2);line-height:1.5}
-.up-page .up-question{gap:12px;margin-top:8px;min-height:0;align-items:stretch;text-align:left;padding:20px}
+/* сессия: канвас задания по высоте содержимого (тексты А/Б видны целиком), ответы и ряд кнопок — как в тренировках */
+.up-pg{animation:none;padding-top:0}
+.up-page .up-question{height:auto;gap:12px;min-height:0;align-items:stretch;text-align:left;padding:20px 16px 12px}
+.up-question .cv-pills{margin-top:4px}
+.up-pg .up-order{margin-bottom:0}
+.up-pg .cfg-card{margin:0}
 .up-question .quiz-ql{font-size:11px;line-height:1.4;text-align:left}
 .up-instruction{font-size:14px;font-weight:400;line-height:1.5;white-space:pre-line;color:var(--t2)}
 .up-translation{font-size:22px;font-weight:500;color:var(--t);white-space:pre-line;line-height:1.5;overflow-wrap:anywhere}

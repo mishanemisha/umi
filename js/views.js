@@ -302,7 +302,9 @@ const TABS=[
 ];
 // Таббар схлопывается (без подписей, меньше и ниже) во время задания и при прокрутке вниз
 function inSession(){return!!(S.quizQ||(S.studyQueue.length&&!S.studyResults));}
-function navMini(){return inSession()||S.navMini;}
+// задание практики Genki — тоже тренировка: таббар свёрнут, кнопки над ним
+function practiceSession(){return S.tab==='practice'&&practiceAvailable&&typeof UP!=='undefined'&&UP.view==='session'&&!!UP.session&&!uSessionDone(UP.session);}
+function navMini(){return inSession()||practiceSession()||S.navMini;}
 function nav(){
   const cur=S.cfgScreen&&S.quizCfg.mode!=='verbs'?'home':S.tab; // формы глаголов открываются из практики
   return`<nav class="bnav${navMini()?' mini':''}"><div class="bnav-glass">${TABS.map(t=>{
@@ -750,43 +752,15 @@ function kanjiOverlay(){
     <div class="kb-scroll">${kanjiPageBody(w)}</div>
   </div>`;
 }
-// Раскрытие по образцу container transform (Material motion): карточка — контейнер, который
-// меняет форму от своей клетки в сетке до полной карточки. Лицевая сторона клетки гаснет
-// за первые ~90 мс, содержимое карточки проявляется следующие ~210 мс, форма растёт все 300+.
-// Экран словаря при этом не перерисовывается — карточка вставляется поверх.
-const KX_EASE='cubic-bezier(.2,0,0,1)',KX_MS=420;
+// Раскрытие в два шага, быстро: сначала из клетки сетки вырастает пустая тёмная карточка
+// (лицевая сторона клетки гаснет сразу), затем в неё проявляется содержимое. Сворачивание —
+// наоборот. Экран словаря при этом не перерисовывается — карточка вставляется поверх.
+const KX_GROW=240,KX_FADE=140,KX_EASE='cubic-bezier(.2,0,0,1)';
 function kxCard(){
   if(typeof document.querySelectorAll!=='function')return null;
   return[...document.querySelectorAll('.kcard[data-wid]')].find(e=>e.dataset.wid===S.kanjiOpen)||null;
 }
 function kxClip(c,e){return`inset(${c.top-e.top}px ${e.right-c.right}px ${e.bottom-c.bottom}px ${c.left-e.left}px round 8px)`;}
-// копия клетки внутри контейнера, на её месте: гаснет при раскрытии и проявляется при сворачивании.
-// Знак в копии скрыт — он летит отдельно (общий элемент клетки и карточки)
-function kxGhost(el,card,c,e){
-  const g=card.cloneNode(true);
-  g.classList.add('kx-ghost');g.removeAttribute('data-a');g.removeAttribute('data-wid');g.setAttribute('aria-hidden','true');
-  Object.assign(g.style,{left:(c.left-e.left)+'px',top:(c.top-e.top)+'px',width:c.width+'px',height:c.height+'px',visibility:'visible'});
-  g.querySelector('.kc-k')?.style.setProperty('visibility','hidden');
-  el.appendChild(g);
-  return g;
-}
-// всё содержимое карточки, кроме летящего знака
-function kxRest(el,g){
-  const scroll=el.querySelector('.kb-scroll');
-  return[...el.children].filter(x=>x!==g&&x!==scroll)
-    .concat(scroll?[...scroll.children].filter(x=>!x.classList.contains('kp-hero')):[])
-    .concat([...el.querySelectorAll('.kp-hero>:not(.kp-k)')]);
-}
-// перелёт знака: из клетки в карточку (или обратно — reverse)
-function kxGlyph(el,card,reverse){
-  const from=card.querySelector('.kc-k'),to=el.querySelector('.kp-k');
-  if(!from||!to)return null;
-  const a=from.getBoundingClientRect(),b=to.getBoundingClientRect();
-  const k=a.height/b.height,t=`translate(${a.left-b.left}px,${a.top-b.top}px) scale(${k})`;
-  to.style.transformOrigin='0 0';
-  const kf=[{transform:t},{transform:'none'}];
-  return to.animate(reverse?kf.reverse():kf,{duration:KX_MS,easing:KX_EASE,fill:reverse?'forwards':'none'});
-}
 function kxOpen(id){
   S.kanjiOpen=id;
   const app=typeof document.querySelector==='function'&&document.querySelector('#app');
@@ -796,14 +770,11 @@ function kxOpen(id){
   syncBackButton();
   const el=document.querySelector('.kx'),dim=document.querySelector('.kx-dim');
   if(!el||!card||!el.animate||reducedMotion())return;
-  const c=card.getBoundingClientRect(),e=el.getBoundingClientRect(),g=kxGhost(el,card,c,e);
+  const c=card.getBoundingClientRect(),e=el.getBoundingClientRect();
   card.style.visibility='hidden';
-  el.animate([{clipPath:kxClip(c,e)},{clipPath:'inset(0px 0px 0px 0px round 16px)'}],{duration:KX_MS,easing:KX_EASE});
-  kxGlyph(el,card,false);
-  g.animate([{opacity:1},{opacity:0,offset:.25},{opacity:0}],{duration:KX_MS,fill:'forwards'}).onfinish=()=>g.remove();
-  kxRest(el,g).forEach(x=>x.animate([{opacity:0,transform:'translateY(10px)'},{opacity:0,transform:'translateY(10px)',offset:.25},{opacity:1,transform:'none'}],
-    {duration:KX_MS,easing:KX_EASE}));
-  dim?.animate([{opacity:0},{opacity:1}],{duration:KX_MS*.7,easing:'linear'});
+  el.animate([{clipPath:kxClip(c,e)},{clipPath:'inset(0px 0px 0px 0px round 16px)'}],{duration:KX_GROW,easing:KX_EASE});
+  [...el.children].forEach(x=>x.animate([{opacity:0},{opacity:1}],{duration:KX_FADE,delay:KX_GROW-40,fill:'backwards'}));
+  dim?.animate([{opacity:0},{opacity:1}],{duration:KX_GROW});
 }
 function kxClose(){
   const el=typeof document.querySelector==='function'&&document.querySelector('.kx'),dim=el&&document.querySelector('.kx-dim');
@@ -816,14 +787,15 @@ function kxClose(){
   if(!el||!card||!el.animate||reducedMotion()){done();return;}
   if(el.dataset.closing)return;
   el.dataset.closing='1';
-  // сворачиваемся к началу карточки: знак летит из своего места в шапке
-  el.querySelector('.kb-scroll')?.scrollTo(0,0);
-  const c=card.getBoundingClientRect(),e=el.getBoundingClientRect(),g=kxGhost(el,card,c,e);
-  kxRest(el,g).forEach(x=>x.animate([{opacity:1},{opacity:0,offset:.3},{opacity:0}],{duration:KX_MS,fill:'forwards'}));
-  g.animate([{opacity:0},{opacity:0,offset:.35},{opacity:1}],{duration:KX_MS,fill:'forwards'});
-  kxGlyph(el,card,true);
-  dim?.animate([{opacity:1},{opacity:0}],{duration:KX_MS*.8,fill:'forwards'});
-  el.animate([{clipPath:'inset(0px 0px 0px 0px round 16px)'},{clipPath:kxClip(c,e)}],{duration:KX_MS,easing:KX_EASE,fill:'forwards'}).onfinish=done;
+  const c=card.getBoundingClientRect(),e=el.getBoundingClientRect();
+  [...el.children].forEach(x=>x.animate([{opacity:1},{opacity:0}],{duration:KX_FADE*.7,fill:'forwards'}));
+  dim?.animate([{opacity:1},{opacity:0}],{duration:KX_GROW+KX_FADE*.7,fill:'forwards'});
+  el.animate([{clipPath:'inset(0px 0px 0px 0px round 16px)'},{clipPath:kxClip(c,e)}],
+    {duration:KX_GROW,delay:KX_FADE*.7,easing:KX_EASE,fill:'forwards'}).onfinish=()=>{
+      // клетка возвращается на место, тёмная карточка растворяется поверх неё
+      card.style.visibility='';
+      el.animate([{opacity:1},{opacity:0}],{duration:90,fill:'forwards'}).onfinish=done;
+    };
 }
 
 /* ── Примеры: фуригана над словами; по тапу — шторка со всеми словами предложения ──

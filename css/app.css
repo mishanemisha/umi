@@ -489,8 +489,6 @@ button,input,select{font-family:inherit}
 .kx{position:fixed;z-index:260;top:calc(env(safe-area-inset-top) + 12px);left:16px;right:16px;bottom:0;max-width:448px;margin:0 auto;
   background:var(--cv);border-radius:16px 16px 0 0;overflow:hidden}
 .kx .kb-scroll{height:100%;padding-bottom:calc(env(safe-area-inset-bottom) + 32px)}
-/* копия клетки сетки на время раскрытия/сворачивания */
-.kx-ghost{position:absolute;margin:0;transform-origin:0 0;pointer-events:none;z-index:3}
 /* шторка примера: предложение крупно, перевод, авторы, все слова */
 #sx-root{position:relative;z-index:320}
 .sx-dim{position:fixed;inset:0;background:rgba(0,0,0,.6)}

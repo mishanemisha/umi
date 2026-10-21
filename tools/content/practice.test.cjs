@@ -168,3 +168,13 @@ test('swimming assembly translates one phrase and old active/parked blocks migra
  assert.equal(a.run(`uValidSession(migrated.session)&&uValidSession(migrated.sessions['umi-l13'])&&migrated.session.answers[e.id].selection.join(',')==='b0,b1,b2'&&migrated.attempts.length===1&&migrated.session.answers[e.id].first.id===UP.attempts[0].id&&e.requiredCount===3&&uSolution(e)==='わたし は およげます。'&&e.translationRu==='Я умею плавать.'`),true);
  const b=app();assert.equal(b.run(`const e=pickFixture('umi-l13.g01.variant.order');const old=JSON.parse(JSON.stringify(UP));uAnswer(e);old.session.answers[e.id]=JSON.parse(JSON.stringify(uAnswer(e)));old.session.optionOrders[e.id]=e.previousOrder.ids.slice();old.session.answers[e.id].selection=['b0','b2'];old.sessions={};const migrated=uValidateProgress(old);migrated.session.answers[e.id].selection.join(',')==='b0'&&migrated.attempts.length===0`),true);
 });
+test('session controls match the other trainings: hint pills on the canvas, Стоп / Завершить / Проверить in one pinned row, canvas grows with long texts',()=>{
+ const {run}=app();
+ const html=run(`(()=>{const e=Object.values(UEX).find(x=>x.prompt.map(t=>t.text).join('').includes('Текст B'));pickFixture(e.id);return uSessionView();})()`);
+ assert.match(html,/<div class="pg up-pg">/);
+ assert.match(html,/<div class="cv-pills"><button class="cv-hint" data-a="up:hint" >Подсказка<\/button><button class="cv-hint" data-a="up:reveal">Показать ответ<\/button><\/div><\/section>/);
+ assert.match(html,/<div class="quiz-actions"><button class="qact-btn" data-a="up:[^"]+">Стоп<\/button><button class="qact-btn" data-a="up:end">Завершить<\/button><button class="qact-btn primary" data-a="up:check" aria-disabled="true" disabled>Проверить<\/button><\/div>/);
+ assert.doesNotMatch(html,/Сохранить и выйти|up-actions/);
+ const css=require('node:fs').readFileSync(require('node:path').join(__dirname,'..','..','content','practice.css'),'utf8');
+ assert.match(css,/\.up-page \.up-question\{height:auto/,'reading texts are never cut by the fixed canvas height');
+});
