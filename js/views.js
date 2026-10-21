@@ -260,7 +260,9 @@ function morphNode(o,n,added){
 }
 // Куда ведёт «Назад» на текущем экране (null — корневой экран вкладки)
 function backAction(){
-  if(S.kanjiFlip&&(S.quizQ||S.tab==='words'))return'kanji-flip-back';
+  if(S.sentOpen)return'sent-close';
+  if(S.kanjiOpen&&S.tab==='words'&&!inSession())return'kanji-close';
+  if(S.kanjiFlip&&S.quizQ)return'kanji-flip-back';
   if(S.ai&&S.ai.open)return'ai-close';
   if(S.screen==='import')return'back-import';
   if(S.studyQueue.length||S.studyResults)return'stop-study';
@@ -294,8 +296,8 @@ function buildApp(){
 /* ── NAV (Figma «Обновление дизайна»: плавающий таб «liquid glass») ── */
 const TABS=[
   {id:'home',    lbl:'Главная'  },
-  {id:'words',   lbl:'Словарь'  },
   {id:'practice',lbl:'Практика' },
+  {id:'words',   lbl:'Словарь'  },
   {id:'settings',lbl:'Настройки'},
 ];
 // Таббар схлопывается (без подписей, меньше и ниже) во время задания и при прокрутке вниз
@@ -704,8 +706,11 @@ function kanjiPageBody(w){
         <span class="kp-wr jp">${x.html}</span>${kindTag(x.kind)}
         ${x.meaning?`<span class="kp-wm">${esc(x.meaning)}</span>`:''}
       </div>`).join('')}</div>`:'')}
-    ${sec('Примеры',sents.length?`<div class="kp-sents">${sents.map(s=>`<div class="kp-sent">
-        <p class="jp">${esc(s.jp).split(esc(ch)).join(`<b>${esc(ch)}</b>`)}</p>${s.ru?`<p class="kp-sru">${esc(s.ru)}</p>`:''}${sentBy(s.src)}
+    ${sec('Примеры',sents.length?`<div class="kp-sents">${sents.map((s,i)=>`<div class="kp-sent">
+        <button class="kp-stap" data-a="sent-open:${esc(ch)}:${i}" aria-label="Открыть пример со словами">
+          <span class="kp-stxt"><span class="kp-sjp jp">${sentRuby(s,ch)}</span>${s.ru?`<span class="kp-sru">${esc(s.ru)}</span>`:''}</span>
+          <svg class="kp-chev" width="8" height="14" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>${sentBy(s.src)}
       </div>`).join('')}</div>`:'')}
     ${svg.length||info.strokes?`<p class="kp-src">Данные: KANJIDIC2 (EDRDG, CC BY-SA 4.0), KanjiVG (CC BY-SA 3.0), Tatoeba (CC BY 2.0 FR)</p>`:''}`;
 }
@@ -725,17 +730,119 @@ function kanjiRefresh(){
     morphInto(sc,kanjiPageBody(w));
   });
 }
-// переворот без перерисовки всего экрана в словаре; высота канваса меняется плавно
+// переворот канваса: высота меняется плавно
 function flipRender(){
   const q=typeof document.querySelector==='function';
   const el=q&&S.quizQ?document.querySelector('[data-key="cv-flip"]'):null,h0=el?el.offsetHeight:0;
-  const list=!S.quizQ&&S.tab==='words'&&typeof document.createElement==='function'&&document.getElementById('words-results');
-  if(list){morphInto(list,buildWordsResults());syncBackButton();}
-  else render();
+  render();
   if(el&&el.animate&&!reducedMotion()){
     const h1=el.offsetHeight;
     if(Math.abs(h1-h0)>2)el.animate([{height:h0+'px'},{height:h1+'px'}],{duration:500,easing:'cubic-bezier(.4,0,.2,1)'});
   }
+}
+/* ── Словарь: тап по кандзи раскрывает карточку поверх экрана ──
+ * Карточка вырастает из своего места в сетке до ширины блока и дальше листается. */
+function kanjiOverlay(){
+  const w=S.kanjiOpen&&ds('kanji').find(x=>x.id===S.kanjiOpen);if(!w)return'';
+  return`<div class="kx-dim" data-a="kanji-close"></div>
+  <div class="kx" role="dialog" aria-modal="true" aria-label="Карточка иероглифа ${esc(w.kanji)}" data-kback="${esc(w.id)}">
+    <button class="kflip-badge back" data-a="kanji-close" aria-label="Закрыть карточку">${FLIP_SVG}Назад</button>
+    <div class="kb-scroll">${kanjiPageBody(w)}</div>
+  </div>`;
+}
+function kxCardRect(){
+  if(typeof document.querySelectorAll!=='function')return null;
+  const el=[...document.querySelectorAll('[data-wid]')].find(e=>e.dataset.wid===S.kanjiOpen);
+  return el?el.getBoundingClientRect():null;
+}
+function kxClip(c,e){return`inset(${c.top-e.top}px ${e.right-c.right}px ${e.bottom-c.bottom}px ${c.left-e.left}px round 8px)`;}
+function kxOpenFx(){
+  const el=typeof document.querySelector==='function'&&document.querySelector('.kx'),c=kxCardRect();
+  if(!el||!el.animate||reducedMotion()||!c)return;
+  const e=el.getBoundingClientRect();
+  el.animate([{clipPath:kxClip(c,e)},{clipPath:'inset(0px 0px 0px 0px round 16px)'}],{duration:440,easing:EASE_OUT});
+  el.querySelector('.kb-scroll')?.animate([{opacity:.3},{opacity:1}],{duration:300,easing:EASE_OUT});
+  document.querySelector('.kx-dim')?.animate([{opacity:0},{opacity:1}],{duration:300});
+}
+function kxClose(){
+  const el=typeof document.querySelector==='function'&&document.querySelector('.kx');
+  const done=()=>{S.kanjiOpen=null;render();};
+  if(!el||!el.animate||reducedMotion()){done();return;}
+  if(el.dataset.closing)return;
+  el.dataset.closing='1';
+  const c=kxCardRect(),e=el.getBoundingClientRect();
+  document.querySelector('.kx-dim')?.animate([{opacity:1},{opacity:0}],{duration:280,fill:'forwards'});
+  el.animate([{clipPath:'inset(0px 0px 0px 0px round 16px)'},{clipPath:c?kxClip(c,e):'inset(45% 30% 45% 30% round 8px)'}],
+    {duration:320,easing:'cubic-bezier(.4,0,.2,1)',fill:'forwards'}).onfinish=done;
+}
+
+/* ── Примеры: фуригана над словами; по тапу — шторка со всеми словами предложения ──
+ * Токен примера: [форма с фуриганой «{漢字|かんじ}», лемма, чтение леммы, значение] */
+function hiText(t,hl){return hl?esc(t).split(esc(hl)).join(`<b>${esc(hl)}</b>`):esc(t);}
+function rubyMarkup(m,hl){
+  return String(m).split(/(\{[^|}]*\|[^}]*\})/).map(p=>{
+    const r=/^\{([^|}]*)\|([^}]*)\}$/.exec(p);
+    return r?`<ruby>${hiText(r[1],hl)}<rt>${esc(r[2])}</rt></ruby>`:hiText(p,hl);
+  }).join('');
+}
+const plainMarkup=m=>String(m).replace(/\{([^|}]*)\|[^}]*\}/g,'$1');
+function sentRuby(s,hl){
+  const jp=String(s.jp||'');
+  if(!Array.isArray(s.t)||!s.t.length)return hiText(jp,hl);
+  let out='',pos=0;
+  for(const t of s.t){
+    const plain=plainMarkup(t[0]),at=jp.indexOf(plain,pos);
+    if(at<0)continue;
+    out+=hiText(jp.slice(pos,at),hl)+rubyMarkup(t[0],hl);pos=at+plain.length;
+  }
+  return out+hiText(jp.slice(pos),hl);
+}
+// слова предложения для шторки: без знаков препинания, без повторов
+function sentWords(s){
+  const seen=new Set(),out=[];
+  for(const t of arr(s.t)){
+    const lemma=t[1]||plainMarkup(t[0]);
+    if(!lemma||seen.has(lemma)||!/[\u3040-\u30ff\u3400-\u9fff々]/.test(lemma))continue;
+    seen.add(lemma);
+    out.push({w:lemma,r:t[2]&&/[\u3400-\u9fff々]/.test(lemma)?t[2]:'',m:t[3]||''});
+  }
+  return out;
+}
+function sentSheet(s){
+  const words=sentWords(s);
+  return`<div class="sx-dim" data-a="sent-close"></div>
+  <div class="sx" role="dialog" aria-modal="true" aria-label="Пример">
+    <div class="sx-grab" aria-hidden="true"></div>
+    <p class="sx-jp jp">${sentRuby(s,'')}</p>
+    ${s.ru?`<p class="sx-ru">${esc(s.ru)}</p>`:''}
+    ${sentBy(s.src)}
+    ${words.length?`<h3 class="kp-h sx-h">Слова</h3><div class="sx-words">${words.map(x=>`<div class="sx-w">
+        <div class="sx-wl"><span class="sx-ww jp">${esc(x.w)}</span>${x.r?`<span class="sx-wr jp">【${esc(x.r)}】</span>`:''}</div>
+        ${x.m?`<div class="sx-wm">${esc(x.m)}</div>`:''}
+      </div>`).join('')}</div>`:''}
+  </div>`;
+}
+// шторка живёт вне #app: перерисовка экрана её не трогает, а словарь под ней не сбрасывает прокрутку
+function sentOpen(val){
+  const i=val.lastIndexOf(':'),ch=val.slice(0,i),n=+val.slice(i+1);
+  const s=arr((kanjiInfo(ch)||{}).sents)[n];
+  if(!s||typeof document.createElement!=='function')return;
+  sentClose(true);
+  const el=document.createElement('div');el.id='sx-root';el.innerHTML=sentSheet(s);
+  document.body.appendChild(el);S.sentOpen=true;syncBackButton();
+  if(el.animate&&!reducedMotion()){
+    el.querySelector('.sx')?.animate([{transform:'translateY(100%)'},{transform:'none'}],{duration:380,easing:EASE_OUT});
+    el.querySelector('.sx-dim')?.animate([{opacity:0},{opacity:1}],{duration:260});
+  }
+}
+function sentClose(now){
+  const el=typeof document.getElementById==='function'&&document.getElementById('sx-root');
+  S.sentOpen=false;syncBackButton();
+  if(!el)return;
+  const sx=el.querySelector('.sx');
+  if(now||!sx||!sx.animate||reducedMotion()){el.remove();return;}
+  el.querySelector('.sx-dim')?.animate([{opacity:1},{opacity:0}],{duration:220,fill:'forwards'});
+  sx.animate([{transform:'none'},{transform:'translateY(100%)'}],{duration:240,easing:'cubic-bezier(.4,0,1,1)',fill:'forwards'}).onfinish=()=>el.remove();
 }
 
 function buildStudyDone(){
@@ -1143,7 +1250,8 @@ function buildWords(){
     ${folderTabs}
     ${tools}
     <div id="words-results">${buildWordsResults()}</div>
-    ${S.selecting?buildSelBar():''}`;
+    ${S.selecting?buildSelBar():''}
+    ${S.wordsTab==='kanji'?kanjiOverlay():''}`;
 }
 function wordsList(){
   const type=S.wordsTab,d=ds(type);
@@ -1178,9 +1286,8 @@ function kanjiCard(w,p,single,showFolder){
   const read=(lbl,v)=>v?`<div class="kc-r"><span class="kc-l">${lbl}</span><span class="kc-v">${v}</span></div>`:'';
   const exCol=(lbl,e)=>e?`<div class="kc-col"><span class="kc-l2">${lbl}</span>${e.meaning?`<span class="kc-t">${esc(e.meaning)}</span>`:''}<span class="kc-t">${esc(e.word)}</span><span class="kc-t kc-yomi">${e.html}</span></div>`:'';
   const exHtml=exCol('он-чтение:',ex.on)+exCol('кун-чтение:',ex.kun);
-  // тап по карточке переворачивает её на словарную карточку (в режиме выбора — отмечает)
-  const back=!S.selecting&&S.kanjiPage===w.id,on=back&&S.kanjiFlip;
-  return`<div class="kflip flip${on?' on':''}" data-key="kc-${esc(w.id)}"><div class="kcard f-front${single?' kpage':''}${sel?' sel':''}"${attrs}${S.selecting?'':` data-a="kanji-flip:${esc(w.id)}" role="button" tabindex="0"`}>
+  // тап по карточке раскрывает словарную карточку поверх экрана (в режиме выбора — отмечает)
+  return`<div class="kcard${single?' kpage':''}${sel?' sel':''}"${attrs}${S.selecting?'':` data-a="kanji-open:${esc(w.id)}" role="button" tabindex="0"`}>
       ${mark}${statusMark(statusOf(p,w.id))}
       <div class="kc-top">
         <div class="kc-k">${esc(w.kanji)}</div>
@@ -1191,7 +1298,7 @@ function kanjiCard(w,p,single,showFolder){
       </div>
       ${exHtml?`<i class="kc-div"></i><div class="kc-ex">${exHtml}</div>`:''}
       ${folderTag(w,showFolder)}
-    </div>${back?kanjiBack(w,'kc-back'):''}</div>`;
+    </div>`;
 }
 // Список отдельно от поля поиска: при вводе обновляется только он (фокус и IME не сбрасываются)
 function buildWordsResults(){

@@ -57,7 +57,7 @@ const S={
     verbStyle:'both',verbLevel:'medium',verbSource:'all',verbCats:VERB_CATS_DEFAULT.slice(),
     matchLeft:['meaning'],matchRight:['kanji','reading']},
   quizQ:null, quizLimit:null, quizSeen:{}, quizRound:0, quizAsked:0, quizResults:null, quizScore:{ok:0,bad:0}, quizDone:false, quizSel:-1, quizInputVal:'',
-  quizHint:false, cardHint:false, kanjiPage:null, kanjiFlip:false, quizRecent:[],
+  quizHint:false, cardHint:false, kanjiPage:null, kanjiFlip:false, kanjiOpen:null, sentOpen:false, quizRecent:[],
   wordDisplay:'full', // 'full' — слово целиком (кандзи), 'kana' — только кана
   verbReports:[],     // отметки «Ошибка в задании» из форм глаголов: задание + ответ для проверки
   hintsEnabled:true,  // подсказки в квизе/карточках кандзи (можно выключить в настройках)

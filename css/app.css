@@ -441,13 +441,9 @@ button,input,select{font-family:inherit}
 .kb-k{font-family:var(--fkj);font-weight:700;font-size:12px;letter-spacing:1px}
 .cv-mini .kflip-badge{opacity:calc(1 - 2*var(--k,0));pointer-events:none}
 .cv-back{background:var(--cv);border-radius:16px;height:min(640px,calc(100dvh - 190px))}
-.kc-back{background:var(--cv);border-radius:8px}
 .kb-scroll{height:100%;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
   padding:44px 10px 14px;display:flex;flex-direction:column;gap:10px;text-align:left;scrollbar-width:none}
 .kb-scroll::-webkit-scrollbar{display:none}
-.kc-back .kb-scroll{height:auto;overflow:visible}
-.kgrid>.kflip.on{grid-column:1/-1}
-.kflip>.kcard{height:100%}
 .kp-hero{display:flex;align-items:center;gap:20px;padding:0 6px 4px}
 .kp-k{font-family:var(--fkj);font-weight:700;font-size:112px;line-height:1;color:var(--t);flex:none}
 .kp-reads{display:flex;flex-direction:column;gap:10px;min-width:0}
@@ -476,11 +472,38 @@ button,input,select{font-family:inherit}
 .kp-wr b{color:var(--rd);font-weight:500}
 .kp-kind{font-size:10px;color:#8b8b8b;border:1px solid #333;border-radius:8px;padding:0 6px}
 .kp-wm{grid-column:1/-1;font-size:14px;color:#d9d8db}
-.kp-sents{display:flex;flex-direction:column;gap:12px}
-.kp-sent p{line-height:1.45}
-.kp-sent .jp{font-family:var(--fjp);font-size:16px}
-.kp-sent b{color:var(--rd);font-weight:500}
-.kp-sru{font-size:13px;color:#a9a9a9}
+.kp-sents{display:flex;flex-direction:column}
+.kp-sent{padding:10px 0;border-top:1px solid #2a2a2a}
+.kp-sent:first-child{border-top:none;padding-top:2px}
+.kp-stap{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;padding:0;color:var(--t);text-align:left;cursor:pointer;font:inherit}
+.kp-stxt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.kp-sjp{font-size:17px;line-height:2.05}
+.kp-sjp b{color:var(--rd);font-weight:500}
+.kp-chev{flex:none;color:#5a5a5a}
+.kp-sru{font-size:14px;line-height:1.35;color:#bdbdbd}
+/* фуригана над словами примеров */
+.f-back ruby,#sx-root ruby{ruby-position:over}
+.f-back rt,#sx-root rt{font-size:.5em;color:#9a9a9a;font-weight:400;letter-spacing:0}
+/* словарь: карточка кандзи поверх экрана — растёт из своего места до ширины блока */
+.kx-dim{position:fixed;inset:0;z-index:255;background:rgba(0,0,0,.65)}
+.kx{position:fixed;z-index:260;top:calc(env(safe-area-inset-top) + 12px);left:16px;right:16px;bottom:0;max-width:448px;margin:0 auto;
+  background:var(--cv);border-radius:16px 16px 0 0;overflow:hidden}
+.kx .kb-scroll{height:100%;padding-bottom:calc(env(safe-area-inset-bottom) + 32px)}
+/* шторка примера: предложение крупно, перевод, авторы, все слова */
+#sx-root{position:relative;z-index:320}
+.sx-dim{position:fixed;inset:0;background:rgba(0,0,0,.6)}
+.sx{position:fixed;left:0;right:0;bottom:0;max-width:480px;margin:0 auto;max-height:86dvh;overflow-y:auto;overscroll-behavior:contain;
+  background:#161616;border-radius:16px 16px 0 0;padding:8px 16px calc(env(safe-area-inset-bottom) + 24px);display:flex;flex-direction:column;gap:8px}
+.sx-grab{width:36px;height:4px;border-radius:2px;background:#3a3a3a;margin:0 auto 8px;flex:none}
+.sx-jp{font-family:var(--fjp);font-size:22px;line-height:2.1;color:var(--t)}
+.sx-ru{font-size:16px;line-height:1.4;color:#d0d0d0}
+.sx-h{margin-top:12px}
+.sx-words{display:flex;flex-direction:column}
+.sx-w{padding:9px 0;border-top:1px solid #262626}
+.sx-wl{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px}
+.sx-ww{font-family:var(--fkj);font-weight:700;font-size:19px}
+.sx-wr{font-size:15px;color:var(--rd)}
+.sx-wm{font-size:14px;color:#bdbdbd;margin-top:2px}
 .kp-src{font-size:10px;color:#5f5f5f;text-align:center;padding:4px 12px}
 /* авторы примера (Tatoeba, CC BY): мелкие чипы под переводом */
 .kp-by{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}

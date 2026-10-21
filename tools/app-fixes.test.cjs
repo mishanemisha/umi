@@ -545,7 +545,7 @@ test('answers show one meaning or reading everywhere; the rest is behind a long 
  assert.match(a.run('buildMatchActive(S.quizQ)'),/class="mtile done" aria-disabled="true"/);
 });
 
-test('kanji card: a «漢字» badge flips the canvas to a dictionary card, even before the answer; back flips it back; dictionary cards flip too',()=>{
+test('kanji card: a «漢字» badge flips the canvas to a dictionary card, even before the answer; back flips it back; dictionary cards open over the screen',()=>{
  const tg=fakeTelegram();const a=app({tg});
  a.run(`S.kanjiItems=['先','見','早','空','日','月'].map((c,i)=>({id:'k'+i,kanji:c,on_reading:'セン、ケン',kun_reading:'さき・ま.ず',meaning:i?'знак '+i:'перед; раньше; прежде',folder:'Общая'}));
   S.quizCfg={...S.quizCfg,type:'kanji',mode:'choice4',question:['kanji'],answer:['meaning'],filter:'all',count:'all',folders:[]};act('start-quiz');S.quizQ.word=S.kanjiItems[0]`);
@@ -566,13 +566,16 @@ test('kanji card: a «漢字» badge flips the canvas to a dictionary card, even
  assert.match(a.run('buildApp()'),/<div class="flip" data-key="cv-flip">/,'flipped back to the question');
  a.run(`act('kanji-flip:k0');act('skip-q')`);
  assert.equal(a.run('S.kanjiPage'),null,'next question starts on the front');
- // словарь: тап по карточке кандзи переворачивает её; в режиме выбора — нет
+ // словарь: тап по карточке кандзи раскрывает её поверх экрана; «Назад» закрывает; в режиме выбора — нет
  a.run(`act('stop-quiz');S.tab='words';S.wordsTab='kanji'`);
- assert.match(a.run('buildWordsResults()'),/<div class="kflip flip" data-key="kc-k0"><div class="kcard f-front"[^>]*data-a="kanji-flip:k0"/);
- a.run(`act('kanji-flip:k0')`);
- assert.match(a.run('buildWordsResults()'),/<div class="kflip flip on" data-key="kc-k0">[\s\S]*class="f-back kc-back" data-kback="k0"/);
- a.run(`act('kanji-flip-back');act('sel-start')`);
- assert.doesNotMatch(a.run('buildWordsResults()'),/data-a="kanji-flip:/);
+ assert.match(a.run('buildWordsResults()'),/<div class="kcard"[^>]*data-a="kanji-open:k0"/);
+ a.run(`act('kanji-open:k0')`);
+ assert.match(a.run('buildApp()'),/<div class="kx" role="dialog"[^>]*data-kback="k0">[\s\S]*<ol class="kp-mean">/);
+ assert.equal(tg.BackButton.visible,true);
+ tg.BackButton.cb();
+ assert.equal(a.run('S.kanjiOpen'),null);
+ a.run(`act('sel-start')`);
+ assert.doesNotMatch(a.run('buildWordsResults()'),/data-a="kanji-open:/);
 });
 
 test('kanji card back: stroke order, facts and sentences from data/kanji, each sentence credited to its Tatoeba authors',()=>{
@@ -616,4 +619,19 @@ test('a new question starts from the top (canvas in its base state), answering w
  assert.equal(a.run('document.body.scrollTop'),300,'picking an answer does not jump to the top');
  a.run(`act('next-q')`);
  assert.equal(a.run('document.body.scrollTop'),0);
+});
+
+test('examples: furigana over the words; tapping one opens a sheet with every word, its reading and Russian meaning',()=>{
+ const a=app();
+ const s=`({jp:'手紙を書きました。',ru:'Я написал письмо.',src:{ja:1,ru:2,by:['a','b']},
+   t:[['{手紙|てがみ}','','てがみ','письмо'],['を','','','частица прямого дополнения'],['{書|か}きました','書く','かく','писать']]})`;
+ assert.equal(a.run(`sentRuby(${s},'書')`),'<ruby>手紙<rt>てがみ</rt></ruby>を<ruby><b>書</b><rt>か</rt></ruby>きました。');
+ const sheet=a.run(`sentSheet(${s})`);
+ assert.match(sheet,/<p class="sx-jp jp"><ruby>手紙<rt>てがみ<\/rt><\/ruby>を/);
+ assert.match(sheet,/<span class="sx-ww jp">手紙<\/span><span class="sx-wr jp">【てがみ】<\/span><\/div>\s*<div class="sx-wm">письмо<\/div>/);
+ assert.match(sheet,/<span class="sx-ww jp">書く<\/span><span class="sx-wr jp">【かく】<\/span>/,'inflected word listed by its dictionary form');
+ assert.match(sheet,/<span class="sx-ww jp">を<\/span><\/div>\s*<div class="sx-wm">частица/,'particles too, without a reading');
+ assert.match(sheet,/ja #1 · a/,'authors credited in the sheet');
+ // без разбивки на слова — просто текст с выделенным знаком
+ assert.equal(a.run(`sentRuby({jp:'本を書く。'},'書')`),'本を<b>書</b>く。');
 });

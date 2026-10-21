@@ -9,7 +9,7 @@ function act(action){
   switch(type){
     case'up':if(practiceAvailable)uAction(val);return;
     case'tab':
-      S.navMini=false;S.tab=val;S.kanjiPage=null;S.kanjiFlip=false;if(val==='practice'&&practiceAvailable)UP.view='menu';S.confirmPending=null;S.cfgScreen=null;
+      S.navMini=false;S.tab=val;S.kanjiPage=null;S.kanjiFlip=false;S.kanjiOpen=null;sentClose(true);if(val==='practice'&&practiceAvailable)UP.view='menu';S.confirmPending=null;S.cfgScreen=null;
       S.studyQueue=[];S.studyResults=null;S.quizQ=null;S.quizDone=false;
       // формы глаголов в практике переключают режим квиза — раскрытая карточка возвращает свой
       if(val==='home'&&S.homeOpen)prepareMode(S.homeOpen,S.homeTab);
@@ -19,7 +19,7 @@ function act(action){
       // раскрытая карточка следует за типом; режимов только для кандзи у слов нет
       if(S.homeOpen){if(homeModes(val).includes(S.homeOpen))prepareMode(S.homeOpen,val);else S.homeOpen=null;}
       break;
-    case'words-tab':  S.wordsTab=val;S.wordsSearch='';S.wordsFolder='all';S.wordsLimit=300;S.selecting=false;S.selIds=[];S.selSheet=false;break;
+    case'words-tab':S.kanjiOpen=null;  S.wordsTab=val;S.wordsSearch='';S.wordsFolder='all';S.wordsLimit=300;S.selecting=false;S.selIds=[];S.selSheet=false;break;
     case'words-folder':S.wordsFolder=val;S.wordsLimit=300;break;
     case'words-more':S.wordsLimit+=300;break;
     case'kanji-view':S.kanjiView=val==='single'?'single':'grid';break;
@@ -250,6 +250,12 @@ function act(action){
       S.quizHint=!S.quizHint;break;
     // оборот канваса / карточки словаря: словарная карточка иероглифа
     case'kanji-flip':S.kanjiPage=val;S.kanjiFlip=true;haptic('light');flipRender();return;
+    // словарь: карточка кандзи раскрывается поверх экрана
+    case'kanji-open':S.kanjiOpen=val;render();kxOpenFx();haptic('light');return;
+    case'kanji-close':kxClose();return;
+    // пример: шторка со всеми словами предложения
+    case'sent-open':sentOpen(val);haptic('light');return;
+    case'sent-close':sentClose();return;
     case'kanji-flip-back':S.kanjiFlip=false;flipRender();return;
     // источники примеров (Tatoeba) — во внешнем браузере
     case'open-link':
@@ -409,7 +415,7 @@ function act(action){
     case'next-q':
     case'skip-q':  // пропуск — без оценки, но вопрос засчитывается в «Количество»
       if(S.quizQ&&S.quizQ.flagged){vbFlagSync(S.quizQ);save();}
-      aiClose();S.kanjiPage=null;S.kanjiFlip=false;
+      aiClose();S.kanjiPage=null;S.kanjiFlip=false;sentClose(true);
       S.quizQ=nextInSession();S.quizDone=false;S.quizSel=-1;S.quizInputVal='';
       if(!S.quizQ&&!S.quizResults)toast(startQuizError());break;
     case'stop-quiz':
