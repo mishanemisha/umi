@@ -251,7 +251,7 @@ function act(action){
     // оборот канваса / карточки словаря: словарная карточка иероглифа
     case'kanji-flip':S.kanjiPage=val;S.kanjiFlip=true;haptic('light');flipRender();return;
     // словарь: карточка кандзи раскрывается поверх экрана
-    case'kanji-open':S.kanjiOpen=val;render();kxOpenFx();haptic('light');return;
+    case'kanji-open':kxOpen(val);haptic('light');return;
     case'kanji-close':kxClose();return;
     // пример: шторка со всеми словами предложения
     case'sent-open':sentOpen(val);haptic('light');return;

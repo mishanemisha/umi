@@ -750,30 +750,80 @@ function kanjiOverlay(){
     <div class="kb-scroll">${kanjiPageBody(w)}</div>
   </div>`;
 }
-function kxCardRect(){
+// Раскрытие по образцу container transform (Material motion): карточка — контейнер, который
+// меняет форму от своей клетки в сетке до полной карточки. Лицевая сторона клетки гаснет
+// за первые ~90 мс, содержимое карточки проявляется следующие ~210 мс, форма растёт все 300+.
+// Экран словаря при этом не перерисовывается — карточка вставляется поверх.
+const KX_EASE='cubic-bezier(.2,0,0,1)',KX_MS=420;
+function kxCard(){
   if(typeof document.querySelectorAll!=='function')return null;
-  const el=[...document.querySelectorAll('[data-wid]')].find(e=>e.dataset.wid===S.kanjiOpen);
-  return el?el.getBoundingClientRect():null;
+  return[...document.querySelectorAll('.kcard[data-wid]')].find(e=>e.dataset.wid===S.kanjiOpen)||null;
 }
 function kxClip(c,e){return`inset(${c.top-e.top}px ${e.right-c.right}px ${e.bottom-c.bottom}px ${c.left-e.left}px round 8px)`;}
-function kxOpenFx(){
-  const el=typeof document.querySelector==='function'&&document.querySelector('.kx'),c=kxCardRect();
-  if(!el||!el.animate||reducedMotion()||!c)return;
-  const e=el.getBoundingClientRect();
-  el.animate([{clipPath:kxClip(c,e)},{clipPath:'inset(0px 0px 0px 0px round 16px)'}],{duration:440,easing:EASE_OUT});
-  el.querySelector('.kb-scroll')?.animate([{opacity:.3},{opacity:1}],{duration:300,easing:EASE_OUT});
-  document.querySelector('.kx-dim')?.animate([{opacity:0},{opacity:1}],{duration:300});
+// копия клетки внутри контейнера, на её месте: гаснет при раскрытии и проявляется при сворачивании.
+// Знак в копии скрыт — он летит отдельно (общий элемент клетки и карточки)
+function kxGhost(el,card,c,e){
+  const g=card.cloneNode(true);
+  g.classList.add('kx-ghost');g.removeAttribute('data-a');g.removeAttribute('data-wid');g.setAttribute('aria-hidden','true');
+  Object.assign(g.style,{left:(c.left-e.left)+'px',top:(c.top-e.top)+'px',width:c.width+'px',height:c.height+'px',visibility:'visible'});
+  g.querySelector('.kc-k')?.style.setProperty('visibility','hidden');
+  el.appendChild(g);
+  return g;
+}
+// всё содержимое карточки, кроме летящего знака
+function kxRest(el,g){
+  const scroll=el.querySelector('.kb-scroll');
+  return[...el.children].filter(x=>x!==g&&x!==scroll)
+    .concat(scroll?[...scroll.children].filter(x=>!x.classList.contains('kp-hero')):[])
+    .concat([...el.querySelectorAll('.kp-hero>:not(.kp-k)')]);
+}
+// перелёт знака: из клетки в карточку (или обратно — reverse)
+function kxGlyph(el,card,reverse){
+  const from=card.querySelector('.kc-k'),to=el.querySelector('.kp-k');
+  if(!from||!to)return null;
+  const a=from.getBoundingClientRect(),b=to.getBoundingClientRect();
+  const k=a.height/b.height,t=`translate(${a.left-b.left}px,${a.top-b.top}px) scale(${k})`;
+  to.style.transformOrigin='0 0';
+  const kf=[{transform:t},{transform:'none'}];
+  return to.animate(reverse?kf.reverse():kf,{duration:KX_MS,easing:KX_EASE,fill:reverse?'forwards':'none'});
+}
+function kxOpen(id){
+  S.kanjiOpen=id;
+  const app=typeof document.querySelector==='function'&&document.querySelector('#app');
+  if(!app||!app.insertAdjacentHTML){render();return;}
+  const card=kxCard();
+  app.insertAdjacentHTML('beforeend',kanjiOverlay());
+  syncBackButton();
+  const el=document.querySelector('.kx'),dim=document.querySelector('.kx-dim');
+  if(!el||!card||!el.animate||reducedMotion())return;
+  const c=card.getBoundingClientRect(),e=el.getBoundingClientRect(),g=kxGhost(el,card,c,e);
+  card.style.visibility='hidden';
+  el.animate([{clipPath:kxClip(c,e)},{clipPath:'inset(0px 0px 0px 0px round 16px)'}],{duration:KX_MS,easing:KX_EASE});
+  kxGlyph(el,card,false);
+  g.animate([{opacity:1},{opacity:0,offset:.25},{opacity:0}],{duration:KX_MS,fill:'forwards'}).onfinish=()=>g.remove();
+  kxRest(el,g).forEach(x=>x.animate([{opacity:0,transform:'translateY(10px)'},{opacity:0,transform:'translateY(10px)',offset:.25},{opacity:1,transform:'none'}],
+    {duration:KX_MS,easing:KX_EASE}));
+  dim?.animate([{opacity:0},{opacity:1}],{duration:KX_MS*.7,easing:'linear'});
 }
 function kxClose(){
-  const el=typeof document.querySelector==='function'&&document.querySelector('.kx');
-  const done=()=>{S.kanjiOpen=null;render();};
-  if(!el||!el.animate||reducedMotion()){done();return;}
+  const el=typeof document.querySelector==='function'&&document.querySelector('.kx'),dim=el&&document.querySelector('.kx-dim');
+  const card=kxCard();
+  const done=()=>{
+    S.kanjiOpen=null;
+    if(el){el.remove();dim?.remove();if(card)card.style.visibility='';syncBackButton();}
+    else render();
+  };
+  if(!el||!card||!el.animate||reducedMotion()){done();return;}
   if(el.dataset.closing)return;
   el.dataset.closing='1';
-  const c=kxCardRect(),e=el.getBoundingClientRect();
-  document.querySelector('.kx-dim')?.animate([{opacity:1},{opacity:0}],{duration:280,fill:'forwards'});
-  el.animate([{clipPath:'inset(0px 0px 0px 0px round 16px)'},{clipPath:c?kxClip(c,e):'inset(45% 30% 45% 30% round 8px)'}],
-    {duration:320,easing:'cubic-bezier(.4,0,.2,1)',fill:'forwards'}).onfinish=done;
+  // сворачиваемся к началу карточки: знак летит из своего места в шапке
+  el.querySelector('.kb-scroll')?.scrollTo(0,0);
+  const c=card.getBoundingClientRect(),e=el.getBoundingClientRect(),g=kxGhost(el,card,c,e);
+  kxRest(el,g).forEach(x=>x.animate([{opacity:1},{opacity:0,offset:.3},{opacity:0}],{duration:KX_MS,fill:'forwards'}));
+  g.animate([{opacity:0},{opacity:0,offset:.35},{opacity:1}],{duration:KX_MS,fill:'forwards'});
+  kxGlyph(el,card,true);
+  dim?.animate([{opacity:1},{opacity:0}],{duration:KX_MS*.8,fill:'forwards'});
+  el.animate([{clipPath:'inset(0px 0px 0px 0px round 16px)'},{clipPath:kxClip(c,e)}],{duration:KX_MS,easing:KX_EASE,fill:'forwards'}).onfinish=done;
 }
 
 /* ── Примеры: фуригана над словами; по тапу — шторка со всеми словами предложения ──
