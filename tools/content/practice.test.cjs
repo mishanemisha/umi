@@ -23,7 +23,7 @@ test('all lessons provide 20 mixed questions by default with choice and order',(
  const {run}=app();assert.equal(run(`UMI.lessons.every(l=>{UP.session=null;UP.mode='mixed';uStart(l.id);const es=UP.session.exerciseIds.map(id=>UEX[id]);return es.length===20&&new Set(es.map(e=>e.id)).size===20&&es.some(e=>e.type==='choice')&&es.some(e=>e.type==='gap')&&es.some(e=>e.type==='order')&&uValidSession(UP.session)&&es.every((e,i)=>!i||!e.skillIds.some(id=>es[i-1].skillIds.includes(id)));})`),true);
 });
 test('10, 40 and all sizes use real available counts without duplicates',()=>{
- const {run}=app();assert.equal(run(`['10','40','all'].every(size=>{UP.sessions={};UP.session=null;UP.count=size;uStart('umi-l17');return UP.session.exerciseIds.length===(size==='all'?ULESSONS['umi-l17'].exerciseIds.length:Number(size))&&new Set(UP.session.exerciseIds).size===UP.session.exerciseIds.length;})`),true);
+ const {run}=app();assert.equal(run(`['10','40','all'].every(size=>{UP.sessions={};UP.session=null;UP.count=size;uStart('umi-l17');return UP.session.exerciseIds.length===(size==='all'?uLessonIds(ULESSONS['umi-l17']).length:Number(size))&&new Set(UP.session.exerciseIds).size===UP.session.exerciseIds.length;})`),true);
 });
 test('all challenge pools have 20 harder questions and no basic exercise',()=>{
  const {run}=app();assert.equal(run(`UMI.lessons.every(l=>{UP.session=null;UP.sessions={};UP.mode='mixed';UP.difficulty='challenge';uStart(l.id);return UP.session.exerciseIds.length===20&&UP.session.exerciseIds.every(id=>UEX[id].difficulty==='challenge')&&UP.session.exerciseIds.some(id=>UEX[id].legacyInput);})`),true);
@@ -82,7 +82,7 @@ test('import validates all IDs and malformed input before replacing state',()=>{
  const {run}=app();assert.equal(run(`pickFixture('umi-l06.g01.gap');uAction('reveal');uValidateProgress(JSON.parse(JSON.stringify(UP))).attempts.length===1`),true);assert.throws(()=>run(`uValidateProgress({version:1,attempts:[{}],skills:{},mistakes:{},wordLinks:{}})`));assert.throws(()=>run(`uValidateProgress({...UP,session:{exerciseIds:['missing']}})`));
 });
 test('all lesson and exercise screens build, using existing UI components',()=>{
- const {run}=app();assert.equal(run(`TABS.length===4&&TABS.some(t=>t.id==='practice')`),true);assert.equal(run(`UMI.lessons.every(l=>{UP.lessonId=l.id;UP.view='lesson';const html=buildPractice();return html.includes(l.titleRu)&&html.includes('cfg-card')&&html.includes('nstats')&&html.includes('chip');})`),true);assert.equal(run(`UMI.exercises.every(e=>{pickFixture(e.id);const html=buildPractice();return html.includes('Проверить')&&html.includes('quiz-q')&&html.includes(e.type==='input'?'quiz-inp':'quiz-opts');})`),true);
+ const {run}=app();assert.equal(run(`TABS.length===4&&TABS.some(t=>t.id==='practice')`),true);assert.equal(run(`UMI.lessons.every(l=>{UP.lessonId=l.id;UP.view='lesson';const html=buildPractice();return html.includes(l.titleRu)&&html.includes('cfg-card')&&html.includes('nstats')&&html.includes('chip');})`),true);assert.equal(run(`UMI.exercises.every(e=>{pickFixture(e.id);const html=buildPractice();return html.includes('Пропустить')&&html.includes('ug-cv')&&html.includes('ug-prog')&&html.includes(e.type==='input'?'ug-inp':'ug-opts');})`),true);
 });
 
 test('imports also validate parked session answers, not just the active session',()=>{
@@ -106,16 +106,16 @@ test('combined lessons restrict every source, include mixed texts and restore se
  const a=app();assert.equal(a.run(`UP.selectedLessons=['umi-l01','umi-l17'];const key=uMixKey();uStart(key);UP.session.exerciseIds.some(id=>UEX[id].mixedText)&&UP.session.exerciseIds.every(id=>(UEX[id].lessonIds||[UEX[id].lessonId]).every(l=>UP.selectedLessons.includes(l)))&&UP.session.exerciseIds.some(id=>UEX[id].lessonId==='umi-l01')&&UP.session.exerciseIds.some(id=>UEX[id].lessonId==='umi-l17')`),true);a.run('answerCurrent();uAction("next");uSave()');const b=app(a.storage);assert.equal(b.run(`UP.selectedLessons.length===2&&UP.session.position===1&&uValidSession(UP.session)&&uMixView().includes('up:resume:'+uMixKey())`),true);assert.equal(b.run(`finishRun();UP.history.length===1&&uValidateProgress(JSON.parse(JSON.stringify(UP))).history.length===1`),true);
 });
 test('single lesson excludes mixed texts; all topics have small Genki attribution',()=>{
- const {run}=app();assert.equal(run(`!uPool('umi-l01').some(e=>e.mixedText)&&uCatalogView().includes('≈ Genki I · урок 1')&&uCatalogView().includes('покрытие грамматики, лексики и чтения частичное')`),true);
+ const {run}=app();assert.equal(run(`!uPool('umi-l01').some(e=>e.mixedText)&&uCatalogView().includes(ULESSONS['umi-l01'].titleRu)&&uCatalogView().includes('покрытие грамматики, лексики и чтения частичное')`),true);
 });
 
 test('partial errors repeat only failed skill and imports reject fabricated unit results',()=>{
  const {run}=app();run(`const e=pickFixture('umi-l17.combine1'),a=uAnswer(e);a.selection={left:e.slots[0].acceptedOptionIds[0],right:e.options.find(o=>!e.slots[1].acceptedOptionIds.includes(o.id)&&o.id!==e.slots[0].acceptedOptionIds[0]).id};uCheck();UP.mode='mistakes';const errors=uPool('umi-l17');`);assert.equal(run(`uCounts().independent===1&&errors.every(x=>x.skillIds.some(id=>e.slots[1].skillIds.includes(id)))`),true);assert.throws(()=>run(`const broken=JSON.parse(JSON.stringify(UP));broken.attempts[0].slotResults[0].skillIds=['invented'];uValidateProgress(broken)`));
 });
 
-test('selected blocks disappear from bank and return when removed from canvas',()=>{
- const {run}=app();assert.equal(run(`const e=pickFixture('umi-l17.g03.variant.order'),a=uAnswer(e),id=e.acceptedSequences[0][0];uAction('pick:'+id);const hidden=!uSessionView().includes('data-a="up:pick:'+id+'"');uAction('undo:0');hidden&&a.selection.length===0&&uSessionView().includes('data-a="up:pick:'+id+'"')`),true);
- const b=app();assert.equal(b.run(`const e=pickFixture('umi-l17.combine1'),a=uAnswer(e),id=e.slots[0].acceptedOptionIds[0];uAction('pick:'+id);const hidden=!uSessionView().includes('data-a="up:pick:'+id+'"')&&!uSessionView().includes('up-gap ok');uAction('slot:left');hidden&&!a.selection.left&&uSessionView().includes('data-a="up:pick:'+id+'"')`),true);
+test('selected blocks stay highlighted in the bank and return when removed from the answer field',()=>{
+ const {run}=app();assert.equal(run(`const e=pickFixture('umi-l17.g03.variant.order'),a=uAnswer(e),id=e.acceptedSequences[0][0];uAction('pick:'+id);const on=uSessionView().includes('class="ug-opt sel" lang="ja" data-a="up:pick:'+id+'"')&&uSessionView().includes('data-a="up:undo:0"');uAction('undo:0');on&&a.selection.length===0&&uSessionView().includes('class="ug-opt" lang="ja" data-a="up:pick:'+id+'"')`),true);
+ const b=app();assert.equal(b.run(`const e=pickFixture('umi-l17.combine1'),a=uAnswer(e),id=e.slots[0].acceptedOptionIds[0];uAction('pick:'+id);const on=uSessionView().includes('class="ug-opt sel" lang="ja" data-a="up:pick:'+id+'"')&&!uSessionView().includes('ug-slot ok');uAction('slot:left');on&&!a.selection.left&&uSessionView().includes('class="ug-opt" lang="ja" data-a="up:pick:'+id+'"')`),true);
 });
 test('feedback contains one explanation and has no duplicate hint or option commentary',()=>{
  const {run}=app();assert.equal(run(`const e=pickFixture('umi-l17.reading1');uAction('hint');answerCurrent();const html=uSessionView();html.split(esc(e.explanationRu)).length===2&&!html.includes('up-help')&&!html.includes('Ответ следует из текста')`),true);
@@ -168,13 +168,32 @@ test('swimming assembly translates one phrase and old active/parked blocks migra
  assert.equal(a.run(`uValidSession(migrated.session)&&uValidSession(migrated.sessions['umi-l13'])&&migrated.session.answers[e.id].selection.join(',')==='b0,b1,b2'&&migrated.attempts.length===1&&migrated.session.answers[e.id].first.id===UP.attempts[0].id&&e.requiredCount===3&&uSolution(e)==='わたし は およげます。'&&e.translationRu==='Я умею плавать.'`),true);
  const b=app();assert.equal(b.run(`const e=pickFixture('umi-l13.g01.variant.order');const old=JSON.parse(JSON.stringify(UP));uAnswer(e);old.session.answers[e.id]=JSON.parse(JSON.stringify(uAnswer(e)));old.session.optionOrders[e.id]=e.previousOrder.ids.slice();old.session.answers[e.id].selection=['b0','b2'];old.sessions={};const migrated=uValidateProgress(old);migrated.session.answers[e.id].selection.join(',')==='b0'&&migrated.attempts.length===0`),true);
 });
-test('session controls match the other trainings: hint pills on the canvas, Стоп / Завершить / Проверить in one pinned row, canvas grows with long texts',()=>{
+test('session follows the Figma update: stories progress, hint/answer pills on the canvas, Стоп / Пропустить / Дальше pinned, canvas grows with long texts',()=>{
  const {run}=app();
  const html=run(`(()=>{const e=Object.values(UEX).find(x=>x.prompt.map(t=>t.text).join('').includes('Текст B'));pickFixture(e.id);return uSessionView();})()`);
- assert.match(html,/<div class="pg up-pg">/);
- assert.match(html,/<div class="cv-pills"><button class="cv-hint" data-a="up:hint" >Подсказка<\/button><button class="cv-hint" data-a="up:reveal">Показать ответ<\/button><\/div><\/section>/);
- assert.match(html,/<div class="quiz-actions"><button class="qact-btn" data-a="up:[^"]+">Стоп<\/button><button class="qact-btn" data-a="up:end">Завершить<\/button><button class="qact-btn primary" data-a="up:check" aria-disabled="true" disabled>Проверить<\/button><\/div>/);
+ assert.match(html,/<div class="pg up-pg ug-pg"><div class="ug-prog"/);
+ assert.match(html,/<div class="cv-pills"><button class="cv-hint" data-a="up:hint" >Подсказка<\/button><button class="cv-hint" data-a="up:reveal">Ответ<\/button><\/div><\/section>/);
+ assert.match(html,/<div class="quiz-actions"><button class="qact-btn" data-a="up:catalog">Стоп<\/button><button class="qact-btn" data-a="up:skip">Пропустить<\/button><button class="qact-btn primary" data-a="up:check" aria-disabled="true" disabled>Дальше<\/button><\/div>/);
  assert.doesNotMatch(html,/Сохранить и выйти|up-actions/);
  const css=require('node:fs').readFileSync(require('node:path').join(__dirname,'..','..','content','practice.css'),'utf8');
- assert.match(css,/\.up-page \.up-question\{height:auto/,'reading texts are never cut by the fixed canvas height');
+ assert.match(css,/\.ug-cv\{[^}]*min-height:221px/,'reading texts are never cut by a fixed canvas height');
+});
+test('no direct word or kanji tasks in training; generated word gaps in kana and kanji; no explanation after word tasks',()=>{
+ const {run}=app();
+ assert.equal(run(`UMI.lessons.every(l=>!uPool(l.id).some(uDirect))`),true);
+ assert.equal(run(`UMI.exercises.some(e=>e.generated&&e.labelRu==='Кандзи в контексте')&&UMI.exercises.some(e=>e.generated&&e.labelRu==='Слово в контексте')`),true);
+ const gen=run(`UMI.exercises.filter(e=>e.generated).map(e=>[e.id,e.prompt[0].text,e.options.map(o=>o.text)])`);
+ for(const [id,prompt,opts] of gen){assert.equal((prompt.match(/\{\{answer\}\}/g)||[]).length,1,id);assert.equal(new Set(opts).size,4,id);}
+ const word=run(`(()=>{const e=UMI.exercises.find(x=>x.generated);pickFixture(e.id);answerCurrent();return uSessionView();})()`);
+ assert.match(word,/class="ug-res ok"/);assert.doesNotMatch(word,/Разбор/);
+ const grammar=run(`(()=>{pickFixture('umi-l01.g01.gap');uAction('reveal');return uSessionView();})()`);
+ assert.match(grammar,/Разбор/);
+ assert.equal(run(`(()=>{const e=UMI.exercises.find(x=>x.generated&&x.labelRu==='Слово в контексте');return uHintText(e)!==e.explanationRu&&!uHintText(e).includes(e.options[0].text);})()`),true);
+});
+test('skip reveals and moves on; Genki home shows lessons by volume and active trainings',()=>{
+ const {run}=app();
+ assert.equal(run(`(()=>{UP.sessions={};UP.mode='mixed';uAction('go:umi-l02');const s=UP.session;uAction('skip');return s.position===1&&s.answers[s.exerciseIds[0]].revealedAnswer&&UP.view==='session'})()`),true);
+ assert.equal(run(`(()=>{uAction('catalog');uAction('volume:active');const h=buildPractice();return h.includes('Активные тренировки')&&h.includes('Пройдено: 1/')&&h.includes('data-a="up:resume:umi-l02"')})()`),true);
+ assert.equal(run(`(()=>{uAction('volume:2');const h=buildPractice();return h.includes(ULESSONS['umi-l13'].titleRu)&&!h.includes('data-a="up:lesson:umi-l01"')})()`),true);
+ assert.equal(run(`(()=>{uAction('volume:1');return buildPractice().includes('data-a="up:go:umi-l02">Продолжить')})()`),true);
 });

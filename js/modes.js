@@ -327,16 +327,16 @@ function mSide(w,fields){
   const parts=[];
   fields.forEach(f=>{
     const all=optParts(f,w[f]);
-    if(all.length)parts.push({f,v:all[0],all});
+    if(all.length)parts.push({f,v:shownPart(f,all),all});
   });
   if(!parts.length)return null;
   // кун: окончание после точки — серым, как в квизе
-  const txt=p=>(p.f==='kun_reading'?renderKun(p.v):esc(p.v))+(p.all.length>1?'<i class="more-i" aria-label="ещё варианты">!</i>':'');
+  const txt=p=>(p.f==='kun_reading'?renderKun(p.v):esc(p.v))+(p.all.length>1||p.v!==p.all[0]?'<i class="more-i" aria-label="ещё варианты">!</i>':'');
   const html=parts.map((p,i)=>i
     ?`<span class="mt-sub">${txt(p)}</span>`
     :`<span class="mt-main${p.f==='kanji'?' jp':''}">${txt(p)}</span>`).join('');
   // в бабле — все варианты; если «ещё» есть у нескольких полей, каждое поле одной строкой
-  const extra=parts.filter(p=>p.all.length>1);
+  const extra=parts.filter(p=>p.all.length>1||p.v!==p.all[0]);
   const more=extra.length===1?moreData(extra[0].f,extra[0].all)
     :extra.length?` data-more="${esc(extra.map(p=>p.all.join(', ')).join('\n'))}"`:'';
   // ключ — по видимому тексту: две плитки с одинаковой надписью не различить

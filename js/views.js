@@ -21,13 +21,26 @@ function cvReadRow(label,value,raw){
 /* Значения в вариантах: только первое (самое частотное), остальные — по лонгтапу в бабле.
  * Значок «!» после первого значения показывает, что есть ещё. */
 function senses(v){const s=String(v||'');return s.includes(';')?s.split(';').map(x=>x.trim()).filter(Boolean):mSplit(s);}
-function moreAttr(v){const all=senses(v);return all.length>1?` data-more="${esc(all.join('\n'))}"`:'';}
-function firstSense(v){
-  const all=senses(v);if(all.length<2)return esc(String(v||'').trim());
-  return`${esc(all[0])}<i class="more-i" aria-label="ещё значения">!</i>`;
+/* Видимая часть значения: одно–три слова через запятую, не длиннее SHORT_MAX символов.
+ * У слишком длинного слова убираем пояснения в скобках: «(professional) driver (of a taxi…)» → «driver». */
+const SHORT_MAX=24;
+function shortSense(s){
+  const unparen=t=>{let r=t,p;do{p=r;r=r.replace(/\s*[(（][^()（）]*[)）]\s*/g,' ').trim();}while(r!==p);return r||t;};
+  const items=mSplit(s).map(t=>t.length>SHORT_MAX?unparen(t):t);
+  let out=items[0]||'';
+  for(const t of items.slice(1,3)){if(out.length+2+t.length>SHORT_MAX)break;out+=', '+t;}
+  return out;
 }
-/* Ответы во всех квизах: видно одно — первое значение или чтение, остальные — по лонгтапу.
- * Если первое совпало у двух вариантов, их не различить — такие показываем целиком. */
+// подпись поля: у значений — короткая, у остальных — первое значение / чтение целиком
+function shownPart(field,all){return field==='meaning'||field==='translation'?shortSense(all[0]):all[0];}
+function moreAttr(v){const all=senses(v);return all.length>1||shortSense(all[0]||'')!==all[0]?` data-more="${esc(all.join('\n'))}"`:'';}
+function firstSense(v){
+  const all=senses(v),short=shortSense(all[0]||'');
+  if(all.length<2&&short===all[0])return esc(String(v||'').trim());
+  return`${esc(short)}<i class="more-i" aria-label="ещё значения">!</i>`;
+}
+/* Ответы во всех квизах: видно одно — первое значение (коротко) или чтение, остальные — по лонгтапу.
+ * Если видимое совпало у двух вариантов, их не различить — такие показываем целиком. */
 function optParts(field,v){
   if(field==='meaning'||field==='translation')return senses(v);
   if(/reading$/.test(field))return String(v||'').split(/[、・,;；]/).map(t=>t.trim()).filter(Boolean);
@@ -38,9 +51,10 @@ function moreData(field,all){
 }
 function optLabels(field,opts){
   const parts=opts.map(o=>optParts(field,o)),fmt=t=>field==='kun_reading'?renderKun(t):esc(t);
-  const n=new Map();parts.forEach(p=>n.set(p[0],(n.get(p[0])||0)+1));
-  return parts.map((p,i)=>p.length>1&&n.get(p[0])===1
-    ?{html:`${fmt(p[0])}<i class="more-i" aria-label="ещё варианты">!</i>`,more:moreData(field,p)}
+  const shown=parts.map(p=>p.length?shownPart(field,p):'');
+  const n=new Map();shown.forEach(t=>n.set(t,(n.get(t)||0)+1));
+  return parts.map((p,i)=>(p.length>1||shown[i]!==p[0])&&n.get(shown[i])===1
+    ?{html:`${fmt(shown[i])}<i class="more-i" aria-label="ещё варианты">!</i>`,more:moreData(field,p)}
     :{html:fmt(String(opts[i]||'').trim()),more:''});
 }
 function cvMeaningsBlock(word,showFields,compact){
@@ -1152,10 +1166,8 @@ function buildMatchActive(q){
     return`<button class="mtile ${cls}"${done||S.quizDone?' aria-disabled="true"':''}${t.more||''} data-a="match-pick:${side}:${pid}">${t.html}</button>`;
   };
   const hint=`<div class="mt-hint">${S.quizDone?'Все пары собраны':'Выберите по плитке из каждой колонки'}</div>`;
-  const cols=`<div class="mt-grid">
-    <div class="mt-col">${q.colL.map(i=>tile('L',i)).join('')}</div>
-    <div class="mt-col">${q.colR.map(i=>tile('R',i)).join('')}</div>
-  </div>`;
+  // одна сетка по строкам (слева, справа, слева…): все плитки одной высоты, колонки не съезжают
+  const cols=`<div class="mt-grid">${q.colL.map((l,k)=>tile('L',l)+tile('R',q.colR[k])).join('')}</div>`;
   return`<div class="pg">${qScoreBar()}${counter}${hint}${cols}${qActions()}</div>`;
 }
 

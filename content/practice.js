@@ -1,6 +1,128 @@
 /* Local original practice; no model calls. The full static bank is loaded at boot. */
 'use strict';
 const UMI = window.UMI_BANK;
+/* Слова и кандзи учим только во фразах: прямые задания «выбери значение / чтение» в тренировки
+ * не попадают (остаются в банке ради старой истории). Вместо них — «подставь слово»: из готовых
+ * фраз урока делаем пропуск на месте слова темы, отдельно кана и кандзи. */
+function uDirect(e) {
+  return e.focus === 'vocabulary' && e.type === 'choice';
+}
+(function uWordGaps() {
+  const words = Object.fromEntries(UMI.words.map(w => [w.id, w])),
+    lessonNo = Object.fromEntries(UMI.lessons.map(l => [l.id, l.number])),
+    wordLesson = Object.fromEntries(UMI.lessons.flatMap(l => l.wordIds.map(id => [id, l.number]))),
+    byId = Object.fromEntries(UMI.exercises.map(e => [e.id, e]));
+  // стабильный порядок дистракторов: id заданий и вариантов не меняются между загрузками
+  const hash = s => {
+    let h = 2166136261;
+    for (const c of s) h = Math.imul(h ^ c.codePointAt(0), 16777619);
+    return h >>> 0;
+  };
+  const text = (e, id) => e.options.find(o => o.id === id).text;
+  const sentence = e =>
+    e.type === 'order'
+      ? e.acceptedSequences[0].map(id => text(e, id)).join('')
+      : e.prompt
+          .map(t => t.text)
+          .join('')
+          .replace(/\{\{([^}]+)\}\}/g, (_, s) => text(e, e.slots.find(x => x.id === s).acceptedOptionIds[0]));
+  // слово целиком: до него начало, пробел, знак или частица; после — конец, знак, частица или связка
+  const find = (s, reading) =>
+    new RegExp(
+      '(^|[\\s　、。「]|[はがのをにでともへやか])' + reading + '(?=$|[\\s　、。？！?!」]|[はがのをにでともへやかよね]|です|でし|じゃ|だ|こと)'
+    ).exec(s);
+  const distractors = (w, lesson, key, kanji) =>
+    UMI.words
+      .filter(x => x.id !== w.id && x.reading !== w.reading && (!kanji || (x.surface !== x.reading && x.surface !== w.surface)))
+      .map(x => [
+        x,
+        (x.partOfSpeech === w.partOfSpeech ? 0 : 4) +
+          (wordLesson[x.id] === lessonNo[lesson] ? 0 : wordLesson[x.id] < lessonNo[lesson] ? 1 : 2),
+        hash(key + x.id)
+      ])
+      .sort((a, b) => a[1] - b[1] || a[2] - b[2])
+      .slice(0, 3)
+      .map(([x]) => x);
+  const made = [];
+  for (const l of UMI.lessons) {
+    const used = new Set(),
+      count = {};
+    // готовые «Слово в контексте» не повторяем
+    for (const id of l.exerciseIds) {
+      const e = byId[id];
+      if (e?.focus === 'vocabulary' && e.type === 'gap') used.add(sentence(e).replace(/\s/g, '') + e.targetWordIds[0]);
+    }
+    const sources = l.exerciseIds
+      .map(id => byId[id])
+      .filter(
+        e =>
+          e &&
+          e.focus !== 'vocabulary' &&
+          !e.mixedText &&
+          (e.type === 'gap' || e.type === 'order') &&
+          e.translationRu &&
+          !e.translationRu.includes('\n')
+      )
+      .sort((a, b) => (a.type === 'gap' ? 0 : 1) - (b.type === 'gap' ? 0 : 1));
+    for (const src of sources) {
+      const s = sentence(src);
+      for (const wid of l.wordIds) {
+        const w = words[wid],
+          key = s.replace(/\s/g, '') + wid,
+          m = w && find(s, w.reading);
+        if (!m || used.has(key)) continue;
+        used.add(key);
+        const prompt = s.slice(0, m.index) + m[1] + '{{answer}}' + s.slice(m.index + m[0].length);
+        for (const kanji of [false, true]) {
+          const kind = kanji ? 'kanji' : 'kana';
+          if ((kanji && w.surface === w.reading) || (count[wid + kind] = (count[wid + kind] || 0) + 1) > (kanji ? 2 : 4))
+            continue;
+          const id = `${src.id}.${wid}.${kind}`,
+            answer = kanji ? w.surface : w.reading,
+            others = distractors(w, l.id, id, kanji);
+          if (others.length < 3) continue;
+          const gloss = `${w.surface === w.reading ? w.reading : w.surface + '（' + w.reading + '）'} — ${w.meaningsRu.join(', ')}.`;
+          made.push({
+            id,
+            version: 1,
+            status: 'draft',
+            type: 'gap',
+            focus: 'vocabulary',
+            lessonId: l.id,
+            skillIds: [`${wid}.${kanji ? 'kanji' : 'usage'}`],
+            targetWordIds: [wid],
+            prerequisiteSkillIds: [],
+            instructionRu: kanji ? 'Подставь слово кандзи' : 'Подставь недостающее слово',
+            prompt: [{ text: prompt, reading: null }],
+            translationRu: src.translationRu,
+            options: [answer, ...others.map(x => (kanji ? x.surface : x.reading))].map((t, i) => ({
+              id: 'o' + i,
+              text: t,
+              feedbackRu: i ? `«${t}» — другое слово.` : 'Верно. ' + gloss,
+              misconceptionId: i ? 'context.form' : null
+            })),
+            slots: [{ id: 'answer', acceptedOptionIds: ['o0'] }],
+            acceptedChoiceIds: [],
+            acceptedSequences: [],
+            allowOptionReuse: false,
+            explanationRu: gloss,
+            display: { hideReadings: false },
+            difficulty: kanji ? 'challenge' : 'basic',
+            familyId: `${wid}.${kind}.${key}`,
+            labelRu: kanji ? 'Кандзи в контексте' : 'Слово в контексте',
+            optionAliases: {},
+            removedOptionIds: [],
+            conditionsRu: [],
+            provenance: src.provenance,
+            generated: true
+          });
+          l.exerciseIds.push(id);
+        }
+      }
+    }
+  }
+  UMI.exercises.push(...made);
+})();
 const UEX = Object.assign(Object.create(null), Object.fromEntries(UMI.exercises.map(e => [e.id, e])));
 const UWORDS = Object.assign(Object.create(null), Object.fromEntries(UMI.words.map(w => [w.id, w])));
 const ULESSONS = Object.assign(Object.create(null), Object.fromEntries(UMI.lessons.map(l => [l.id, l])));
@@ -13,7 +135,7 @@ const uDefault = () => ({
   sessions: {},
   history: [],
   mode: 'mixed',
-  volume: 'all',
+  volume: '1',
   display: 'kana',
   lessonId: null,
   view: 'menu',
@@ -35,7 +157,8 @@ function uScopeValid(id) {
   const ids = uScope(id);
   return ids.length > 0 && new Set(ids).size === ids.length && ids.every(x => ULESSONS[x]);
 }
-function uScopeTitle(id) {
+function uScopeTitle(id, mode) {
+  if (mode === 'mistakes') return 'Ошибки';
   return id.startsWith('mix,') ? 'Смешанная тренировка' : ULESSONS[id]?.titleRu || 'Все темы';
 }
 function uScopeBack(id) {
@@ -331,7 +454,7 @@ function uValidateProgress(d) {
     count: ['10', '20', '40', 'all'].includes(d.count) ? d.count : '20',
     difficulty: ['all', 'basic', 'challenge'].includes(d.difficulty) ? d.difficulty : 'all',
     mode: ['mixed', 'grammar', 'vocabulary', 'mistakes'].includes(d.mode) ? d.mode : 'mixed',
-    volume: ['all', '1', '2'].includes(d.volume) ? d.volume : 'all',
+    volume: ['1', '2', 'active'].includes(d.volume) ? d.volume : '1',
     display: d.display === 'kanji' ? 'kanji' : 'kana',
     lessonId: ULESSONS[d.lessonId] ? d.lessonId : null,
     view: 'menu',
@@ -447,8 +570,12 @@ function uSettings() {
     )
   );
 }
+// задания темы, которые попадают в тренировки (без прямых заданий на слова)
+function uLessonIds(l) {
+  return l.exerciseIds.filter(id => UEX[id] && !uDirect(UEX[id]));
+}
 function uProgress(l) {
-  const ids = [...new Set(l.exerciseIds.flatMap(id => UEX[id].skillIds))];
+  const ids = [...new Set(uLessonIds(l).flatMap(id => UEX[id].skillIds))];
   return Math.round((ids.filter(id => UP.skills[id]?.independentCorrect > 0).length / ids.length) * 100);
 }
 function uCounts() {
@@ -507,53 +634,70 @@ function buildPractice() {
 function uMenuView() {
   return `${uHeader('Практика', null)}<div class="up-list up-inset"><button class="up-lesson" data-a="open-cfg:quiz-verbs"><span class="up-lesson-main"><span class="up-lesson-title">Формы глаголов</span><span class="up-lesson-meta">Сборка и тренировка форм</span></span><span class="up-arrow">›</span></button><button class="up-lesson" data-a="up:catalog"><span class="up-lesson-main"><span class="up-lesson-title">Уроки Genki</span><span class="up-lesson-meta">Грамматика, слова и чтение · уроки 1–23</span></span><span class="up-arrow">›</span></button></div>`;
 }
+/* Главная Genki (Figma «Главная Генки», «Главная Генки - Активные»): логотип, сегменты
+ * Genki 1 / Genki 2 / Активные и карточки тем. Карточка открывает тему, кнопка — сразу тренировку. */
 function uCatalogView() {
-  const c = uCounts(),
-    mistakes = Object.keys(UP.mistakes).filter(id => UEX[id]),
-    active = uActiveSessions();
-  const lessons = UMI.lessons.filter(l => UP.volume === 'all' || String(l.volume) === UP.volume);
-  const seen = new Set(UP.attempts.map(a => a.exerciseId)).size;
-  return `<div class="nlogo"><img src="${ASSETS.logo}" alt="日本語"></div>${uHeader('Уроки Genki', 'menu')}<div class="up-context">Темы Genki 1–23 · частичное покрытие учебника</div>
-    <div class="nseg">${[
-      ['all', 'Все'],
-      ['1', 'Genki I'],
-      ['2', 'Genki II']
-    ]
-      .map(
-        ([id, label]) =>
-          `<button class="nseg-btn ${UP.volume === id ? 'on' : ''}" aria-pressed="${UP.volume === id}" data-a="up:volume:${id}">${label}</button>`
-      )
-      .join('')}</div>
-    ${uStats([
-      [UMI.lessons.length, 'Темы'],
-      [UMI.exercises.length, 'Задания'],
-      [c.independent, 'Верных ответов', 'g']
-    ])}
-    ${uBar(Math.round((seen / UMI.exercises.length) * 100), 'Пройдено ' + seen, 'из ' + UMI.exercises.length + ' заданий')}
-    ${active.length ? `<div class="up-section-label">Продолжить тренировку</div><div class="up-list up-inset">${active.map(s => `<button class="up-lesson" data-a="up:resume:${s.lessonId}"><span class="up-lesson-main"><span class="up-lesson-title">${esc(uScopeTitle(s.lessonId))}</span><span class="up-lesson-meta">${uSessionLabel(s)}</span></span><span class="up-arrow">›</span></button>`).join('')}</div>` : ''}
-    <div class="ncards up-mode-cards">${[
-      ['mixed', ASSETS.cQuiz, 'Вместе'],
-      ['vocabulary', ASSETS.cCards, 'Слова'],
-      ['grammar', VERB_ICON, 'Грамматика'],
-      ['mistakes', MATCH_ICON, 'Ошибки · ' + mistakes.length]
-    ]
-      .map(
-        ([id, img, label]) =>
-          `<button class="ncard ${UP.mode === id ? 'on' : ''}" data-a="up:mode:${id}" aria-pressed="${UP.mode === id}"><img src="${img}" alt=""><b>${label}</b></button>`
-      )
-      .join('')}</div>
-    ${UP.mode === 'mistakes' ? `<div class="cfg-card up-help">${mistakes.length ? 'В первую очередь — другие примеры тех навыков, где были ошибки.' : 'Ошибок пока нет. Они появятся здесь после тренировок.'}${mistakes.length ? uBtn('Повторить ошибки', 'start:all', 'primary wide', !uPool('all').length) : ''}${mistakes.length && !uPool('all').length ? '<p>Исходные вопросы будут доступны через 10 минут.</p>' : ''}</div>` : ''}
-    <section class="cfg-card"><div class="cfg-lbl">Несколько уроков вместе</div><p class="up-sub">Выбери темы для общей тренировки и смешанного чтения.</p>${uBtn('Комбинировать уроки', 'mix', 'primary wide')}</section>
-    <div class="up-section-label">Темы · тренируйся сколько нужно</div>
-    <div class="up-list up-inset">${lessons
-      .map(l => {
-        const pending = UP.sessions[l.id],
-          runs = uLessonRuns(l.id),
-          pct = uProgress(l);
-        return `<button class="up-lesson" data-a="up:lesson:${l.id}"><span class="up-number">${String(l.number).padStart(2, '0')}</span><span class="up-lesson-main"><span class="up-lesson-title">${esc(l.titleRu)}</span><span class="up-lesson-meta">≈ Genki ${l.volume === 1 ? 'I' : 'II'} · урок ${l.number}<br>${uTaskCount(l.exerciseIds.length)} · ${l.rules.length} ${uPlural(l.rules.length, ['правило', 'правила', 'правил'])}${runs.length ? ' · тренировок: ' + runs.length : ''}${pending && !uSessionDone(pending) ? ' · есть сохранённая' : ''}</span><span class="nprog-bar up-mini-progress"><i style="width:${pct}%"></i></span></span><span class="up-arrow">›</span></button>`;
-      })
-      .join('')}</div>
-    <details class="cfg-card up-about"><summary>О практике и сохранении</summary><p class="up-sub">${UMI.words.length} слов, ${UMI.lessons.reduce((n, l) => n + l.rules.length, 0)} правил. Собственные примеры по темам Genki 3rd Edition; Представлены темы всех 23 уроков, но покрытие грамматики, лексики и чтения частичное; это не полный курс учебника. Локальный пилот, редакторская проверка ещё не выполнена.</p><div class="chips">${uBtn('Экспорт прогресса', 'export')}${uBtn('Импорт прогресса', 'import')}</div><p class="up-sub"><a href="${esc(UMI.sources[0].url)}" target="_blank" rel="noopener noreferrer">Программа тем Genki ↗</a></p></details>`;
+  const tab = UP.volume;
+  const seg = `<div class="hseg ug-seg">${[
+    ['1', 'Genki 1'],
+    ['2', 'Genki 2'],
+    ['active', 'Активные']
+  ]
+    .map(
+      ([id, label]) =>
+        `<button class="hseg-btn${tab === id ? ' on' : ''}" aria-pressed="${tab === id}" data-a="up:volume:${id}">${label}</button>`
+    )
+    .join('')}</div>`;
+  return `<div class="ug-home"><div class="ug-head"><img class="hlogo" src="${ASSETS.logo}" alt="umi">${seg}</div><div class="ug-list">${tab === 'active' ? uActiveList() : uLessonList(tab)}</div></div>`;
+}
+function uCard(main, action, label) {
+  return `<div class="ug-card">${main}<button class="ug-go" data-a="up:${esc(action)}">${label}</button></div>`;
+}
+function uLessonList(volume) {
+  const tried = new Set(UP.attempts.map(a => a.exerciseId)),
+    mistakes = Object.keys(UP.mistakes).filter(id => UEX[id]).length;
+  const cards = UMI.lessons
+    .filter(l => String(l.volume) === volume)
+    .map(l => {
+      const ids = uLessonIds(l),
+        pending = UP.sessions[l.id] && !uSessionDone(UP.sessions[l.id]);
+      return uCard(
+        `<button class="ug-card-main" data-a="up:lesson:${l.id}"><span class="ug-num">${l.number}</span><span class="ug-txt"><span class="ug-t">${esc(l.titleRu)}</span><span class="ug-d">Пройдено: ${ids.filter(id => tried.has(id)).length}/${ids.length}</span><span class="ug-meta"><span>${l.rules.length} ${uPlural(l.rules.length, ['правило', 'правила', 'правил'])}</span><span>${uTaskCount(ids.length)}</span><span>${l.wordIds.length} ${uPlural(l.wordIds.length, ['слово', 'слова', 'слов'])}</span></span></span></button>`,
+        'go:' + l.id,
+        pending ? 'Продолжить' : 'Начать'
+      );
+    });
+  const extra = [
+    uCard(
+      `<span class="ug-txt"><span class="ug-t">Несколько тем</span><span class="ug-d">Общая тренировка и смешанное чтение</span></span>`,
+      'mix',
+      'Выбрать'
+    ),
+    mistakes
+      ? uCard(
+          `<span class="ug-txt"><span class="ug-t">Ошибки</span><span class="ug-d">На повторение: ${mistakes}</span></span>`,
+          'mistakes',
+          'Повторить'
+        )
+      : ''
+  ];
+  return `${cards.join('')}${extra.join('')}<details class="cfg-card up-about"><summary>О практике и сохранении</summary><p class="up-sub">${UMI.words.length} слов, ${UMI.lessons.reduce((n, l) => n + l.rules.length, 0)} правил. Собственные примеры по темам Genki 3rd Edition; Представлены темы всех 23 уроков, но покрытие грамматики, лексики и чтения частичное; это не полный курс учебника. Локальный пилот, редакторская проверка ещё не выполнена.</p><div class="chips">${uBtn('Экспорт прогресса', 'export')}${uBtn('Импорт прогресса', 'import')}</div><p class="up-sub"><a href="${esc(UMI.sources[0].url)}" target="_blank" rel="noopener noreferrer">Программа тем Genki ↗</a></p></details>`;
+}
+function uActiveList() {
+  const active = uActiveSessions().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return `<div class="ug-bar">Активные тренировки</div>${
+    active.length
+      ? active
+          .map(s =>
+            uCard(
+              `<span class="ug-txt ug-txt-wide"><span class="ug-t">${esc(uScopeTitle(s.lessonId, s.mode))}</span><span class="ug-d">Пройдено: ${s.position}/${s.exerciseIds.length}</span></span>`,
+              'resume:' + s.lessonId,
+              'Продолжить'
+            )
+          )
+          .join('')
+      : '<p class="mempty">Начатых тренировок нет. Выбери тему во вкладке Genki 1 или Genki 2.</p>'
+  }`;
 }
 function uLessonView() {
   const l = ULESSONS[UP.lessonId],
@@ -566,13 +710,13 @@ function uLessonView() {
   const fresh = pool.filter(e => !UP.attempts.some(a => a.exerciseId === e.id)).length;
   return `${uHeader(l.titleRu)}<div class="up-context">≈ Genki ${l.volume === 1 ? 'I' : 'II'} · урок ${l.number}</div>
     ${uStats([
-      [l.exerciseIds.length, 'В теме'],
+      [uLessonIds(l).length, 'В теме'],
       [seen, 'Попробовал', 'y'],
       [runs.length, 'Тренировки', 'g']
     ])}
     ${uBar(uProgress(l), uProgress(l) + '% навыков', 'Правила, чтение и слова')}
     ${uPendingView(l.id)}
-    ${uSettings()}<div class="up-inset up-sub">${UP.difficulty === 'challenge' ? 'Выбор из расширенного набора вариантов, несколько пропусков, чтение текста и сборка с лишними блоками.' : UP.difficulty === 'basic' ? 'Узнавание слов, чтения и базовых форм.' : 'Слова, новые ситуации, формы, сборка и чтение.'}<br>Новых заданий в выбранном режиме: ${fresh}.${hasPending ? ' Новая тренировка завершит сохранённую; отвеченные вопросы останутся в истории.' : ''}</div>
+    ${uSettings()}<div class="up-inset up-sub">${UP.difficulty === 'challenge' ? 'Кандзи во фразах, несколько пропусков, чтение текста и сборка с лишними блоками.' : UP.difficulty === 'basic' ? 'Пропуски в коротких фразах: слова и базовые формы.' : 'Слова во фразах, формы, сборка и чтение.'}<br>Новых заданий в выбранном режиме: ${fresh}.${hasPending ? ' Новая тренировка завершит сохранённую; отвеченные вопросы останутся в истории.' : ''}</div>
     <div class="start-row">${uBtn(`${hasPending ? 'Начать новую' : 'Начать'} · ${uTaskCount(available)}`, 'start:' + l.id, 'primary wide', !pool.length)}</div>
     <div class="up-section-label">Правила</div>
     ${l.rules.map(uRuleView).join('')}
@@ -618,8 +762,8 @@ function uFamily(e) {
 function uPool(lessonId) {
   const scope = uScope(lessonId),
     mixed = lessonId.startsWith('mix,');
-  let pool = UMI.exercises.filter(e =>
-    e.mixedText ? mixed && e.lessonIds.every(id => scope.includes(id)) : scope.includes(e.lessonId)
+  let pool = UMI.exercises.filter(
+    e => !uDirect(e) && (e.mixedText ? mixed && e.lessonIds.every(id => scope.includes(id)) : scope.includes(e.lessonId))
   );
   if (UP.mode === 'mistakes') {
     const errors = Object.keys(UP.mistakes).filter(id => UEX[id] && scope.includes(UEX[id].lessonId));
@@ -695,7 +839,9 @@ function uStart(lessonId, replace = false) {
     }
   }
   const categories =
-    UP.mode === 'mixed' ? ['vocabulary', 'gap', 'choice', 'order', 'reading'] : ['gap', 'choice', 'order', 'reading'];
+    UP.mode === 'mixed'
+      ? ['vocabulary', 'gap', 'order', 'vocabulary', 'choice', 'reading']
+      : ['gap', 'choice', 'order', 'reading'];
   let turn = 0;
   while (selected.length < target && remaining.length) {
     const last = selected.at(-1),
@@ -808,70 +954,108 @@ function uSolution(e) {
             })
         : e.options.find(o => e.acceptedChoiceIds.includes(o.id)).text;
 }
+/* Задание (Figma «Перевод фразы - апдейт», «подставить недостающее - апдейт»): сверху прогресс
+ * полосками, канвас — название блока, задание, фраза для перевода синим, поле ответа и пилюли
+ * «Подсказка / Ответ»; ниже — плитки на выбор и ряд «Стоп / Пропустить / Дальше». */
+function uStories(s) {
+  const n = s.exerciseIds.length,
+    k = Math.min(n, 40);
+  // при длинной тренировке одна полоска — несколько заданий
+  return `<div class="ug-prog" role="progressbar" aria-valuenow="${s.position}" aria-valuemin="0" aria-valuemax="${n}" aria-label="Задание ${s.position + 1} из ${n}">${Array.from({ length: k }, (_, i) => `<i${Math.floor((i * n) / k) <= s.position ? ' class="on"' : ''}></i>`).join('')}</div>`;
+}
+// подсказка к слову не выдаёт ответ: первая кана, у кандзи — чтение
+function uHintText(e) {
+  if (e.focus !== 'vocabulary') return e.explanationRu;
+  const w = UWORDS[e.targetWordIds[0]];
+  if (!w) return e.explanationRu;
+  return e.labelRu === 'Кандзи в контексте' ? 'Читается: ' + w.reading : 'Начинается на «' + [...w.reading][0] + '»';
+}
 function uSessionView() {
   const s = UP.session;
   if (uSessionDone(s)) return uResultView();
   const e = uCurrent(),
     a = uAnswer(e),
     n = s.exerciseIds.length,
-    complete = a.checked;
+    complete = a.checked,
+    reading = e.labelRu === 'Чтение текста';
   const opts = s.optionOrders[e.id].map(id => e.options.find(o => o.id === id));
+  const text = id => e.options.find(o => o.id === id)?.text || '';
   const selected = id =>
-    e.type === 'order'
-      ? a.selection.includes(id)
-      : e.type === 'input'
-        ? false
-        : Object.values(a.selection).includes(id);
-  let prompt = e.prompt.map(t => esc(t.text)).join('');
-  if (e.type === 'gap')
-    prompt = prompt.replace(
-      /\{\{([^}]+)\}\}/g,
-      (_, id) =>
-        `<button class="up-gap ${a.lockedSlots?.includes(id) ? 'ok' : a.checked && a.selection[id] ? 'bad' : ''} ${(a.activeSlot || e.slots[0].id) === id ? 'active' : ''}" aria-label="Пропуск ${id === 'right' ? '2' : '1'}" data-a="up:slot:${id}" ${complete || a.lockedSlots?.includes(id) ? 'disabled' : ''}>${esc(e.options.find(o => o.id === a.selection[id])?.text || '···')}</button>`
-    );
-  const feedback = a.checked
-    ? `<section class="cfg-card up-feedback" aria-live="polite"><div class="quiz-result ${a.correct && !a.revealedAnswer ? 'ok' : 'bad'}">${a.revealedAnswer ? 'Ответ открыт' : a.correct ? (a.hintUsed ? 'Верно · с подсказкой' : 'Верно') : 'Неверно'}</div>${!a.correct ? `<div class="up-example" lang="ja">${esc(uSolution(e))}</div>` : ''}<details class="up-about"><summary>Разбор</summary><p>${esc(e.explanationRu)}</p></details></section>`
-    : '';
-  return `${uHeader(uScopeTitle(s.lessonId), uScopeBack(s.lessonId), s.position + 1 + ' / ' + n)}<div class="up-context">≈ ${esc(
-    (e.lessonIds || [e.lessonId])
-      .map(id => {
-        const l = ULESSONS[id];
-        return 'Genki ' + (l.volume === 1 ? 'I' : 'II') + ' · урок ' + l.number;
-      })
-      .join(' + ')
-  )}</div>${uBar(Math.round((s.position / n) * 100), s.position + ' завершено', U_LEVEL_LABELS[s.difficulty] || 'Тренировка')}
-    <div class="pg up-pg">
-    <section class="quiz-q up-question"><div class="quiz-ql">${esc(e.labelRu || 'Практика')}</div><h2 class="up-instruction">${esc(e.instructionRu)}</h2>${e.translationRu ? `<p class="up-translation">${esc(e.translationRu)}</p>` : ''}${uConditions(e.conditionsRu)}${prompt ? `<div class="${e.focus === 'vocabulary' && e.type !== 'gap' ? 'quiz-qm' : 'quiz-qm sm'} up-prompt" lang="${e.promptLanguage || 'ja'}">${prompt}</div>` : ''}${uPills(e, a, complete)}</section>
-    ${e.type === 'order' ? `<div class="up-order" aria-label="Собранная фраза">${a.selection.length ? a.selection.map((id, i) => uBtn(esc(e.options.find(o => o.id === id).text), 'undo:' + i, '', complete)).join('') : '<span class="up-muted">Нажимай на блоки ниже. Нажатие на выбранный блок отменяет его.</span>'}<span class="up-muted up-order-count">${a.selection.length} / ${e.requiredCount || e.acceptedSequences[0].length} блоков</span></div>` : ''}
-    ${
-      e.type === 'input'
-        ? `<section class="quiz-panel"><label class="quiz-panel-lbl" for="up-text-answer">Твой ответ · кана</label><input id="up-text-answer" class="quiz-inp up-input ${a.checked ? (a.correct ? 'ok' : 'bad') : ''}" lang="ja" type="text" value="${esc(a.selection.text)}" placeholder="Введи ответ" autocomplete="off" autocorrect="off" spellcheck="false" ${complete ? 'disabled' : ''}></section>`
-        : `<section class="quiz-panel"><div class="quiz-panel-lbl">${e.type === 'order' ? 'Банк блоков' : 'Варианты ответа'}</div><div class="quiz-opts">${opts
-            .filter(o => !((e.type === 'order' || (e.type === 'gap' && !e.allowOptionReuse)) && selected(o.id)))
-            .map(
-              o =>
-                `<button class="qopt ${selected(o.id) ? (a.checked ? (e.type === 'gap' ? (e.slots.some(slot => a.selection[slot.id] === o.id && slot.acceptedOptionIds.includes(o.id)) ? 'ok' : 'bad') : a.correct ? 'ok' : 'bad') : 'sel') : ''}" data-a="up:pick:${o.id}" aria-pressed="${selected(o.id)}" ${complete || (e.type === 'order' && selected(o.id)) ? 'disabled' : ''}>${esc(o.text)}</button>`
-            )
-            .join('')}</div></section>`
-    }
-    ${feedback}${a.hintUsed && !a.checked && !e.display.hideReadings ? `<div class="cfg-card up-help">${esc(e.explanationRu)}</div>` : ''}
-    ${uActions(complete ? uAct(s.position === n - 1 ? 'К итогу' : 'Дальше', 'next', true) : uAct('Проверить', 'check', true, !uReady(e, a)), s)}
-    </div>`;
-}
-// Контролы как в остальных тренировках: «Подсказка» и «Показать ответ» — пилюлями внизу канваса,
-// «Стоп / Завершить / Проверить» — одним рядом, прибитым над таббаром
-function uPills(e, a, complete) {
-  if (complete) return '';
-  const hint = !e.display.hideReadings
-    ? `<button class="cv-hint${a.hintUsed ? ' on' : ''}" data-a="up:hint" ${a.hintUsed ? 'aria-pressed="true" disabled' : ''}>Подсказка</button>`
-    : '';
-  return `<div class="cv-pills">${hint}<button class="cv-hint" data-a="up:reveal">Показать ответ</button></div>`;
+    e.type === 'order' ? a.selection.includes(id) : e.type === 'input' ? false : Object.values(a.selection).includes(id);
+  const mark = ok => (a.checked ? (ok ? ' ok' : ' bad') : '');
+  let box;
+  if (e.type === 'order')
+    box = `<div class="ug-box" aria-label="Собранная фраза">${
+      a.selection.length
+        ? a.selection
+            .map((id, i) => {
+              // знаки препинания — текстом за блоком, как в макете
+              const [, lead, body, punct] = /^([、。？！?!]*)(.*?)([、。？！?!]*)$/.exec(text(id));
+              const punc = t => (body && t ? `<span class="ug-punc">${esc(t)}</span>` : '');
+              return `${punc(lead)}<button class="ug-blk${mark(a.correct)}" data-a="up:undo:${i}" ${complete ? 'disabled' : ''}>${esc(body || lead + punct)}</button>${punc(punct)}`;
+            })
+            .join('')
+        : '<span class="ug-ph">Нажимай на блоки ниже. Нажатие на блок в поле убирает его.</span>'
+    }</div>`;
+  else if (e.type === 'input')
+    box = `<div class="ug-box"><input id="up-text-answer" class="ug-inp${mark(a.correct)}" lang="ja" type="text" value="${esc(a.selection.text)}" placeholder="Введи ответ каной" autocomplete="off" autocorrect="off" spellcheck="false" ${complete ? 'disabled' : ''}></div>`;
+  else {
+    let flow = e.prompt.map(t => esc(t.text)).join('');
+    if (e.type === 'gap')
+      flow = flow.replace(/\{\{([^}]+)\}\}/g, (_, id) => {
+        const locked = a.lockedSlots?.includes(id),
+          state = locked ? ' ok' : a.checked && a.selection[id] ? ' bad' : '',
+          active = !complete && !locked && (a.activeSlot || e.slots[0].id) === id && e.slots.length > 1 ? ' active' : '';
+        return `<button class="ug-slot${state}${active}" aria-label="Пропуск ${id === 'right' ? '2' : '1'}" data-a="up:slot:${id}" ${complete || locked ? 'disabled' : ''}>${esc(text(a.selection[id]))}</button>`;
+      });
+    else
+      flow = flow.replace(
+        /［\s*…\s*］/g,
+        () =>
+          `<span class="ug-slot${a.selection.choice ? mark(a.correct) : ''}">${esc(text(a.selection.choice))}</span>`
+      );
+    box = `<div class="ug-box flow" lang="${e.promptLanguage || 'ja'}">${flow}</div>`;
+  }
+  const verdict = a.revealedAnswer ? 'Ответ открыт' : a.correct ? (a.hintUsed ? 'Верно · с подсказкой' : 'Верно') : 'Неверно';
+  // разбор — только у грамматики и чтения; у заданий на слова достаточно верного ответа
+  const result = complete
+    ? `<div class="ug-res${a.correct && !a.revealedAnswer ? ' ok' : ' bad'}" aria-live="polite">${verdict}</div>${!a.correct ? `<div class="ug-sol" lang="ja">${esc(uSolution(e))}</div>` : ''}${e.focus !== 'vocabulary' && e.explanationRu ? `<details class="ug-why"><summary class="cv-hint">Разбор</summary><p>${esc(e.explanationRu)}</p></details>` : ''}`
+    : `${a.hintUsed && !e.display.hideReadings ? `<div class="ug-hint">${esc(uHintText(e))}</div>` : ''}<div class="cv-pills">${!e.display.hideReadings ? `<button class="cv-hint${a.hintUsed ? ' on' : ''}" data-a="up:hint" ${a.hintUsed ? 'disabled' : ''}>Подсказка</button>` : ''}<button class="cv-hint" data-a="up:reveal">Ответ</button></div>`;
+  const task = (reading ? 'Ответь на вопрос по тексту' : String(e.instructionRu || '').replace(/[.。]\s*$/, '')) + ':';
+  const sentence = reading ? e.instructionRu : e.translationRu;
+  const canvas = `<section class="ug-cv"><div class="ug-chip">${esc(e.labelRu || 'Практика')}</div><div class="ug-q"><div class="ug-task">${esc(task)}</div>${sentence ? `<div class="ug-sent">${esc(sentence)}</div>` : ''}${e.conditionsRu?.length ? `<div class="ug-cond">${e.conditionsRu.map(esc).join(' · ')}</div>` : ''}</div>${box}${result}</section>`;
+  const tile = o => {
+    const on = selected(o.id);
+    const state = !on
+      ? ''
+      : !a.checked
+        ? ' sel'
+        : e.type === 'gap'
+          ? e.slots.some(slot => a.selection[slot.id] === o.id && slot.acceptedOptionIds.includes(o.id))
+            ? ' ok'
+            : ' bad'
+          : a.correct
+            ? ' ok'
+            : ' bad';
+    return `<button class="ug-opt${state}" lang="ja" data-a="up:pick:${o.id}" aria-pressed="${on}" ${complete ? 'disabled' : ''}>${esc(o.text)}</button>`;
+  };
+  const panel =
+    e.type === 'input'
+      ? ''
+      : `<section class="quiz-panel"><div class="quiz-panel-lbl">${e.type === 'order' ? 'Соберите из предложенного:' : 'Выберите нужное:'}</div><div class="ug-opts">${opts.map(tile).join('')}</div></section>`;
+  const main = complete
+    ? uAct(s.position === n - 1 ? 'К итогу' : 'Дальше', 'next', true)
+    : uReady(e, a)
+      ? uAct('Проверить', 'check', true)
+      : uAct('Дальше', 'check', true, true);
+  return `<div class="pg up-pg ug-pg">${uStories(s)}${canvas}${panel}${uActions(main, complete)}</div>`;
 }
 function uAct(label, action, primary = false, disabled = false) {
   return `<button class="qact-btn${primary ? ' primary' : ''}" data-a="up:${esc(action)}"${disabled ? ' aria-disabled="true" disabled' : ''}>${label}</button>`;
 }
-function uActions(main, s) {
-  return `<div class="quiz-actions">${uAct('Стоп', uScopeBack(s.lessonId))}${uAct('Завершить', 'end')}${main}</div>`;
+// как в остальных тренировках: «Стоп» — на главную Genki (тренировка остаётся в «Активных»)
+function uActions(main, complete) {
+  return `<div class="quiz-actions">${uAct('Стоп', 'catalog')}${uAct('Пропустить', 'skip', false, complete)}${main}</div>`;
 }
 function uRestoreSettings(s) {
   UP.mode = s.mode;
@@ -1052,8 +1236,18 @@ function uExport() {
 }
 // «Назад» для Telegram BackButton: то же, что стрелка в заголовке экрана
 function uBackAction() {
-  if (UP.view === 'session' && UP.session) return uScopeBack(UP.session.lessonId);
+  if (UP.view === 'session' && UP.session) return uSessionDone(UP.session) ? uScopeBack(UP.session.lessonId) : 'catalog';
   return { catalog: 'menu', lesson: 'catalog', mix: 'catalog' }[UP.view] || null;
+}
+function uReveal(e, a) {
+  a.revealedAnswer = true;
+  a.checked = true;
+  a.correct = false;
+  if (!a.first) uRecord(e, a, false);
+  else {
+    const record = UP.attempts.find(x => x.id === a.first.id);
+    if (record) record.revealedAnswer = true;
+  }
 }
 function uAction(value) {
   const [type, ...rest] = value.split(':');
@@ -1100,7 +1294,7 @@ function uAction(value) {
       if (['all', 'basic', 'challenge'].includes(v)) UP.difficulty = v;
       break;
     case 'volume':
-      if (['all', '1', '2'].includes(v)) UP.volume = v;
+      if (['1', '2', 'active'].includes(v)) UP.volume = v;
       break;
     case 'display':
       UP.display = UP.display === 'kana' ? 'kanji' : 'kana';
@@ -1182,15 +1376,28 @@ function uAction(value) {
       }
       break;
     case 'reveal':
+      if (a && !complete) uReveal(e, a);
+      break;
+    // «Пропустить» = открыть ответ и сразу дальше: задание уходит в ошибки на повторение
+    case 'skip':
       if (a && !complete) {
-        a.revealedAnswer = true;
-        a.checked = true;
-        a.correct = false;
-        if (!a.first) uRecord(e, a, false);
-        else {
-          const record = UP.attempts.find(x => x.id === a.first.id);
-          if (record) record.revealedAnswer = true;
-        }
+        uReveal(e, a);
+        UP.session.position++;
+        uFinish();
+      }
+      break;
+    case 'go':
+      if (ULESSONS[v]) {
+        if (UP.mode === 'mistakes') UP.mode = 'mixed';
+        uStart(v);
+      }
+      break;
+    case 'mistakes':
+      {
+        const mode = UP.mode;
+        UP.mode = 'mistakes';
+        uStart('all');
+        UP.mode = mode;
       }
       break;
     case 'check':

@@ -294,7 +294,8 @@ button,input,select{font-family:inherit}
 /* «Стоп / Пропустить / Дальше» прибиты над таббаром; контент уходит под них в фон */
 /* отступ таббара (как у .bnav) + его свёрнутое стекло (~38px) + зазор 12px */
 .pg>.quiz-actions{position:sticky;bottom:calc(max(24px,calc(env(safe-area-inset-bottom) + 12px)) + 50px);z-index:6}
-.pg>.quiz-actions::before{content:'';position:absolute;inset:-18px -16px -64px;z-index:-1;pointer-events:none;
+/* фон тянется до низа экрана (отступ кнопок + 10px запаса), иначе под таббаром видно контент */
+.pg>.quiz-actions::before{content:'';position:absolute;inset:-18px -16px calc(-1*(max(24px,calc(env(safe-area-inset-bottom) + 12px)) + 60px));z-index:-1;pointer-events:none;
   background:linear-gradient(rgba(0,0,0,0),var(--bg) 18px)}
 
 /* ─── Варианты ответа (Figma 155:3578) ─── */
@@ -405,8 +406,7 @@ button,input,select{font-family:inherit}
 
 /* ─── Сопоставь пары (6 пар) ─── */
 .mt-hint{font-size:12px;font-weight:500;color:#d6d6d6;text-align:center}
-.mt-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px;background:var(--cv);border-radius:16px;padding:8px}
-.mt-col{display:flex;flex-direction:column;gap:4px;min-width:0}
+.mt-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-auto-rows:1fr;gap:4px;background:var(--cv);border-radius:16px;padding:8px}
 .mtile{background:var(--cv2);border:1px solid var(--ln);color:var(--t);border-radius:4px;padding:8px;min-height:52px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;text-align:center;
   line-height:1.25;overflow-wrap:anywhere;min-width:0;transition:background .15s,border-color .15s,opacity .15s}
