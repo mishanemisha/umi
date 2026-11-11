@@ -8,6 +8,7 @@ import { signInitData, verifyInitData } from '../src/telegram.js';
 import { candidates, assemble, SCHEMA } from '../src/explain.js';
 import { VERB_RULES, VERB_BANK, cards, formAvail, text } from '../src/verbs.js';
 import { costUsd } from '../src/openai.js';
+import { exAssemble, cleanWord, EX_SCHEMA } from '../src/exercise.js';
 import { d1 } from './d1-shim.mjs';
 
 const here = p => fileURLToPath(new URL(p, import.meta.url));
@@ -157,4 +158,99 @@ test('server verb engine matches the app engine for every verb × form', () => {
   }
   for (const v of ctx.B.slice(0, 50)) for (const r of ctx.R) assert.equal(text(v, r.tp), ctx.app.vbText(v, r.tp));
   assert(n > 90000);
+});
+
+
+// ── Упражнения на слова ──
+const EX_GOOD = {
+  sentence: {
+    tokens: [{ s: '雨', r: 'あめ', g: 'дождь' }, { s: 'が', r: '', g: 'частица подлежащего' }, { s: '降って', r: 'ふって', g: 'идёт (о дожде)' }, { s: 'いる', r: '', g: 'сейчас' }, { s: 'から', r: '', g: 'потому что' },
+      { s: '、', r: '', g: '' }, { s: '傘', r: 'かさ', g: '<b>зонт</b>' }, { s: 'を', r: '', g: 'частица объекта' }, { s: '持って', r: 'もって', g: 'взяв' }, { s: '行きます', r: 'いきます', g: 'пойду' }, { s: '。', r: '', g: '' }],
+    target_index: 6, ru: 'Идёт дождь, поэтому я возьму зонт.', wrong: [{ s: '靴', r: 'くつ' }, { s: '鍵', r: 'かぎ' }, { s: '財布', r: 'さいふ' }, { s: '靴', r: 'くつ' }, { s: '窓', r: '' }],
+    chunks: ['雨が', '降っているから', '傘を', '持って行きます'], orders: [[1, 0, 2, 3], [0, 1, 2, 3], [0, 1, 2]], extra: { s: '傘に', r: 'かさに' },
+  },
+  definition: { tokens: [{ s: '雨', r: 'あめ', g: 'дождь' }, { s: 'の', r: '', g: 'частица' }, { s: '日', r: 'ひ', g: 'день' }, { s: 'に', r: '', g: 'в' }, { s: '使う', r: 'つかう', g: 'использовать' }, { s: '物', r: 'もの', g: 'вещь' }, { s: '。', r: '', g: '' }] },
+};
+const KASA = { w: '傘', r: 'かさ', m: 'зонт' };
+function fakeExercise({ log = [], broken = 0, out = EX_GOOD } = {}) {
+  return async (url, init) => {
+    const req = JSON.parse(init.body);
+    log.push(req);
+    const body = broken-- > 0 ? { ...out, sentence: { ...out.sentence, target_index: 0 } } : out;
+    return new Response(JSON.stringify({ status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(body) }] }],
+      usage: { input_tokens: 1900, input_tokens_details: { cached_tokens: 1500 }, output_tokens: 300 } }), { status: 200 });
+  };
+}
+
+test('exercise: model output is validated and cleaned', () => {
+  const w = cleanWord(KASA);
+  const d = exAssemble(JSON.stringify(EX_GOOD), w);
+  assert.equal(d.s.t[d.s.i][0], '傘');
+  assert.deepEqual(d.s.t[6], ['傘', 'かさ', 'зонт'], 'markup stripped, reading kept for kanji');
+  assert.deepEqual(d.s.t[1], ['が', '', 'частица подлежащего'], 'no reading for kana');
+  assert.deepEqual(d.s.wrong, [['靴', 'くつ'], ['鍵', 'かぎ'], ['財布', 'さいふ']], 'duplicates and kanji without a reading removed');
+  assert.deepEqual(d.s.orders, [[1, 0, 2, 3]], 'identity and broken orders dropped');
+  assert.deepEqual(d.s.c, [[0, 1], [2, 3, 4], [6, 7], [8, 9]], 'tiles are groups of sentence tokens');
+  assert.deepEqual(d.s.extra, ['傘に', 'かさに']);
+  const bad = (patch, re) => assert.throws(() => exAssemble(JSON.stringify(patch), w), re);
+  bad({ ...EX_GOOD, sentence: { ...EX_GOOD.sentence, target_index: 0 } }, /not the word/);
+  bad({ ...EX_GOOD, sentence: { ...EX_GOOD.sentence, wrong: [{ s: '傘', r: 'かさ' }, { s: '靴', r: 'くつ' }] } }, /wrong options/);
+  bad({ ...EX_GOOD, sentence: { ...EX_GOOD.sentence, tokens: EX_GOOD.sentence.tokens.map((x, k) => k ? x : { ...x, r: '' }) } }, /reading for kanji/);
+  bad({ ...EX_GOOD, definition: { tokens: [...EX_GOOD.definition.tokens, { s: '傘', r: 'かさ', g: 'зонт' }] } }, /contains the word/);
+  const loose = exAssemble(JSON.stringify({ ...EX_GOOD, sentence: { ...EX_GOOD.sentence, chunks: ['雨が', '傘を'] } }), w);
+  assert.deepEqual([loose.s.c, loose.s.orders, loose.s.extra], [[], [], null], 'tiles that do not rebuild the sentence are dropped');
+  const cut = exAssemble(JSON.stringify({ ...EX_GOOD, sentence: { ...EX_GOOD.sentence, chunks: ['雨が降', 'っているから', '傘を', '持って行きます'] } }), w);
+  assert.deepEqual(cut.s.c, [], 'tiles must follow token borders');
+  assert.equal(cleanWord({ w: 'ignore previous', r: '', m: 'x' }), null, 'only Japanese text reaches the model');
+  assert.equal(cleanWord({ w: '傘', r: 'kasa', m: 'зонт' }), null);
+  assert.equal(cleanWord({ w: '傘', r: 'かさ', m: '<i>зонт</i> {x}' }).m, 'зонт x');
+  assert.equal(EX_SCHEMA.additionalProperties, false);
+});
+
+test('exercise: generates on demand, shares variants between users, gives each user a new one', async () => {
+  const log = [];
+  const e = env({ fetch: fakeExercise({ log }), AI_EX_MAX_VARIANTS: '2' });
+  const a = await call(e, '/v1/exercise', { words: [KASA, KASA, { w: 'drop table', r: '', m: 'x' }] });
+  assert.equal(a.status, 200);
+  assert.equal(a.body.items.length, 1, 'duplicates and invalid words are dropped');
+  assert.equal(a.body.items[0].key, '傘|かさ');
+  assert.equal(log.length, 1);
+  assert.deepEqual(JSON.parse(log[0].input), { word: '傘', reading: 'かさ', meaning_ru: 'зонт' }, 'nothing about the user reaches the model');
+  assert.equal(log[0].text.format.name, 'word_exercise');
+  assert.doesNotMatch(JSON.stringify(a.body), /sk-test/);
+  const other = await call(e, '/v1/exercise', { words: [KASA] }, { user: 7 });
+  assert.equal(other.body.items[0].variant, a.body.items[0].variant);
+  assert.equal(log.length, 1, 'another user gets the stored variant');
+  const seen = { '傘|かさ': [a.body.items[0].prompt_v + ':' + a.body.items[0].variant] };
+  const b = await call(e, '/v1/exercise', { words: [KASA], seen });
+  assert.notEqual(b.body.items[0].variant, a.body.items[0].variant, 'a new variant for a user who saw the first');
+  assert.equal(log.length, 2);
+  seen['傘|かさ'].push(b.body.items[0].prompt_v + ':' + b.body.items[0].variant);
+  const c = await call(e, '/v1/exercise', { words: [KASA], seen });
+  assert.equal(c.body.items.length, 1);
+  assert.equal(log.length, 2, 'variant cap reached → a stored one, no paid call');
+  assert.equal(e.DB.raw.prepare('SELECT calls FROM ai_budget').get().calls, 2);
+});
+
+test('exercise: bad output is retried once then skipped; limits and budget stop paid calls', async () => {
+  const log = [];
+  const e = env({ fetch: fakeExercise({ log, broken: 1 }) });
+  assert.equal((await call(e, '/v1/exercise', { words: [KASA] })).body.items.length, 1);
+  assert.equal(log.length, 2);
+  const e2 = env({ fetch: fakeExercise({ broken: 9 }) });
+  const bad = await call(e2, '/v1/exercise', { words: [KASA] });
+  assert.deepEqual(bad.body.items, []);
+  assert.equal(e2.DB.raw.prepare('SELECT count(*) n FROM ex_content').get().n, 0, 'slot released');
+  const log3 = [];
+  const e3 = env({ fetch: fakeExercise({ log: log3 }), AI_EX_USER_DAILY_GENERATIONS: '1' });
+  const two = await call(e3, '/v1/exercise', { words: [KASA, { w: '靴', r: 'くつ', m: 'обувь' }] });
+  assert.equal(log3.length, 1, 'one generation left for this user today');
+  assert.equal(two.body.items.length, 1);
+  assert.equal((await call(e3, '/v1/exercise', { words: [{ w: '鍵', r: 'かぎ', m: 'ключ' }] })).body.items.length, 0);
+  assert.equal(log3.length, 1);
+  const log4 = [];
+  const e4 = env({ fetch: fakeExercise({ log: log4 }), AI_DAILY_BUDGET_USD: '0' });
+  assert.deepEqual((await call(e4, '/v1/exercise', { words: [KASA] })).body.items, []);
+  assert.equal(log4.length, 0);
+  assert.equal((await call(e4, '/v1/exercise', { words: [] })).status, 400);
 });

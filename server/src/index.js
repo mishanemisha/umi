@@ -1,10 +1,12 @@
 // umi AI — Cloudflare Worker: «Объясни почему» в формах глаголов.
 // POST /v1/explain {form, seen:[variant]} → объяснение формы + 3 задания (из кэша D1 или новая генерация)
+// POST /v1/exercise {words:[{w,r,m}], seen:{key:[«версия:вариант»]}} → предложение и толкование на каждое слово
 // POST /v1/report  {form, variant, prompt_v, note} → жалоба на объяснение
 // Доступ — только с подписанным Telegram initData (заголовок X-Telegram-Init-Data).
 import { PROMPT_VERSION, INSTRUCTIONS, SCHEMA, buildInput, candidates, assemble, ruleById } from './explain.js';
 import { verifyInitData } from './telegram.js';
 import { respond } from './openai.js';
+import { EX_PROMPT_VERSION, EX_INSTRUCTIONS, EX_SCHEMA, cleanWord, exInput, exAssemble } from './exercise.js';
 
 const PENDING_TTL = 120000; // зависшая генерация освобождает слот через 2 минуты
 const num = (v, d) => (v == null || v === '' ? d : Number(v));
@@ -121,6 +123,73 @@ async function explain(env, req, user) {
   return fail(env, req, 503, 'unavailable', 'Объяснения сейчас недоступны, попробуйте позже');
 }
 
+// ── Упражнения на слова: до 6 слов за запрос; на слово — готовый вариант, которого ученик не видел, или новая генерация
+async function exerciseWord(env, user, word, seenList, state) {
+  const db = env.DB, pv = EX_PROMPT_VERSION, maxV = num(env.AI_EX_MAX_VARIANTS, 10);
+  const seen = (Array.isArray(seenList) ? seenList : []).slice(0, 60)
+    .map(x => String(x).match(/^(\d+):(\d+)$/)).filter(m => m && Number(m[1]) === pv).map(m => Number(m[2]));
+  const rows = (await db.prepare('SELECT * FROM ex_content WHERE word_key = ?1 AND prompt_v = ?2').bind(word.key, pv).all()).results || [];
+  const ok = rows.filter(r => r.status === 'ok').sort((a, b) => a.served - b.served);
+  const give = async row => {
+    await db.prepare('UPDATE ex_content SET served = served + 1 WHERE word_key = ?1 AND prompt_v = ?2 AND variant = ?3').bind(word.key, pv, row.variant).run();
+    return { key: word.key, variant: row.variant, prompt_v: pv, data: JSON.parse(row.body) };
+  };
+  const unseen = ok.filter(r => !seen.includes(r.variant));
+  if (unseen.length) return give(unseen[0]);
+
+  const now = Date.now();
+  const taken = new Set(rows.filter(r => r.status !== 'pending' || now - r.created_at < PENDING_TTL).map(r => r.variant));
+  const slot = [...Array(maxV).keys()].find(v => !taken.has(v));
+  if (slot != null && env.OPENAI_API_KEY && !state.overBudget && state.left > 0) {
+    state.left--;   // место в дневном лимите занимаем сразу: слова одного запроса обрабатываются параллельно
+    const lock = await db.prepare(`INSERT INTO ex_content (word_key, variant, prompt_v, status, created_at) VALUES (?1, ?2, ?3, 'pending', ?4)
+      ON CONFLICT(word_key, prompt_v, variant) DO UPDATE SET status = 'pending', created_at = ?4
+      WHERE ex_content.status = 'pending' AND ?4 - ex_content.created_at >= ${PENDING_TTL}`).bind(word.key, slot, pv, now).run();
+    if (lock.meta.changes !== 1) state.left++;
+    else {
+      await db.prepare(`INSERT INTO ex_usage (day, user_id, generations) VALUES (?1, ?2, 1)
+        ON CONFLICT(day, user_id) DO UPDATE SET generations = generations + 1`).bind(day(), user.id).run();
+      try {
+        let data, out, lastErr;
+        for (let attempt = 0; attempt < 2 && !data; attempt++) {
+          out = await respond(env, { instructions: EX_INSTRUCTIONS, input: exInput(word), schema: EX_SCHEMA, name: 'word_exercise', model: env.AI_EX_MODEL }, env.fetch || fetch);
+          await db.prepare(`INSERT INTO ai_budget (day, cost_usd, calls) VALUES (?1, ?2, 1)
+            ON CONFLICT(day) DO UPDATE SET cost_usd = cost_usd + ?2, calls = calls + 1`).bind(day(), out.cost).run();
+          try { data = exAssemble(out.text, word); } catch (e) { lastErr = e; }
+        }
+        if (!data) throw lastErr;
+        await db.prepare(`UPDATE ex_content SET status = 'ok', body = ?4, model = ?5, tokens_in = ?6, tokens_out = ?7, cost_usd = ?8, served = 1
+          WHERE word_key = ?1 AND prompt_v = ?2 AND variant = ?3`)
+          .bind(word.key, pv, slot, JSON.stringify(data), out.model, out.usage?.input_tokens || 0, out.usage?.output_tokens || 0, out.cost).run();
+        return { key: word.key, variant: slot, prompt_v: pv, data };
+      } catch (e) {
+        await db.prepare(`DELETE FROM ex_content WHERE word_key = ?1 AND prompt_v = ?2 AND variant = ?3 AND status = 'pending'`).bind(word.key, pv, slot).run();
+        console.error('exercise failed', word.key, String(e && e.message || e));
+      }
+    }
+  }
+  // новое сделать нельзя (потолок вариантов, лимит, бюджет, сбой) — отдаём давно не показанный готовый
+  return ok.length ? give(ok[0]) : null;
+}
+
+async function exercise(env, req, user) {
+  const body = await req.json().catch(() => null);
+  const words = (Array.isArray(body && body.words) ? body.words : []).slice(0, 6).map(cleanWord).filter(Boolean);
+  if (!words.length) return fail(env, req, 400, 'bad_words', 'Нет слов для упражнений');
+  const usage = await touchUsage(env.DB, user.id, 'requests');
+  if (usage.requests > num(env.AI_USER_DAILY_REQUESTS, 300)) return fail(env, req, 429, 'too_many', 'Слишком много запросов сегодня, попробуйте завтра');
+  const budget = await env.DB.prepare('SELECT cost_usd FROM ai_budget WHERE day = ?1').bind(day()).first();
+  const made = await env.DB.prepare('SELECT generations FROM ex_usage WHERE day = ?1 AND user_id = ?2').bind(day(), user.id).first();
+  const state = {
+    overBudget: (budget?.cost_usd || 0) >= num(env.AI_DAILY_BUDGET_USD, 2),
+    left: num(env.AI_EX_USER_DAILY_GENERATIONS, 60) - (made?.generations || 0),
+  };
+  const seen = body.seen && typeof body.seen === 'object' ? body.seen : {};
+  const uniq = [...new Map(words.map(w => [w.key, w])).values()];
+  const items = (await Promise.all(uniq.map(w => exerciseWord(env, user, w, seen[w.key], state)))).filter(Boolean);
+  return json(env, req, 200, { items });
+}
+
 async function report(env, req, user) {
   const b = await req.json().catch(() => null);
   if (!b || !ruleById(String(b.form || '')) || !Number.isInteger(b.variant)) return fail(env, req, 400, 'bad_report', 'Неверная жалоба');
@@ -143,6 +212,7 @@ export default {
     if (!user) return fail(env, req, 401, 'auth', 'Откройте umi в Telegram');
     try {
       if (url.pathname === '/v1/explain') return await explain(env, req, user);
+      if (url.pathname === '/v1/exercise') return await exercise(env, req, user);
       if (url.pathname === '/v1/report') return await report(env, req, user);
       return fail(env, req, 404, 'not_found', 'Нет такого адреса');
     } catch (e) {

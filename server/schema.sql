@@ -45,3 +45,29 @@ CREATE TABLE IF NOT EXISTS ai_reports (
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ai_reports_form ON ai_reports (form_id, prompt_v, variant);
+
+-- Упражнения на слова: на слово («слово|чтение») хранится до AI_EX_MAX_VARIANTS вариантов
+-- «предложение + толкование» (см. server/src/exercise.js → exAssemble)
+CREATE TABLE IF NOT EXISTS ex_content (
+  word_key    TEXT    NOT NULL,              -- «слово|чтение хираганой»
+  variant     INTEGER NOT NULL,
+  prompt_v    INTEGER NOT NULL,
+  status      TEXT    NOT NULL,              -- pending | ok | hidden
+  body        TEXT,
+  model       TEXT,
+  tokens_in   INTEGER DEFAULT 0,
+  tokens_out  INTEGER DEFAULT 0,
+  cost_usd    REAL    DEFAULT 0,
+  served      INTEGER DEFAULT 0,
+  reports     INTEGER DEFAULT 0,
+  created_at  INTEGER NOT NULL,
+  PRIMARY KEY (word_key, prompt_v, variant)
+);
+
+-- новые генерации упражнений на пользователя в сутки (отдельно от объяснений форм)
+CREATE TABLE IF NOT EXISTS ex_usage (
+  day         TEXT    NOT NULL,
+  user_id     TEXT    NOT NULL,
+  generations INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, user_id)
+);

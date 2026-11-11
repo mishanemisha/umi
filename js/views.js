@@ -280,6 +280,7 @@ function backAction(){
   if(S.ai&&S.ai.open)return'ai-close';
   if(S.screen==='import')return'back-import';
   if(S.studyQueue.length||S.studyResults)return'stop-study';
+  if(S.ex)return'ex:stop';
   if(S.quizQ||S.quizResults)return'stop-quiz';
   if(S.cfgScreen)return'close-cfg';
   if(S.tab==='words'&&S.selecting)return S.selSheet?'sel-sheet-close':'sel-cancel';
@@ -295,6 +296,7 @@ function buildApp(){
   if(S.screen==='import')return buildImport();
   if(S.studyQueue.length&&!S.studyResults)return buildStudyActive()+nav();
   if(S.studyResults&&!S.cfgScreen)return buildStudyDone()+nav();
+  if(S.ex)return buildEx()+nav();
   if(S.quizQ)return buildQuizActive()+nav();
   if(S.quizResults)return buildQuizDone()+nav();
   if(S.cfgScreen)return buildCfgScreen()+nav();
@@ -315,7 +317,7 @@ const TABS=[
   {id:'settings',lbl:'Настройки'},
 ];
 // Таббар схлопывается (без подписей, меньше и ниже) во время задания и при прокрутке вниз
-function inSession(){return!!(S.quizQ||(S.studyQueue.length&&!S.studyResults));}
+function inSession(){return!!(S.quizQ||(S.ex&&!S.ex.results)||(S.studyQueue.length&&!S.studyResults));}
 // задание практики Genki — тоже тренировка: таббар свёрнут, кнопки над ним
 function practiceSession(){return S.tab==='practice'&&practiceAvailable&&typeof UP!=='undefined'&&UP.view==='session'&&!!UP.session&&!uSessionDone(UP.session);}
 function navMini(){return inSession()||practiceSession()||S.navMini;}
@@ -334,18 +336,20 @@ function nav(){
 const HOME_MODES={
   'cards':       {title:'Карточки',      desc:'Базовый квизлет на повторение при повороте карточки'},
   'quiz':        {title:'Квиз',          desc:'Ответы на вопросы и выбор правильного варианта'},
+  'exercises':   {title:'Упражнения',    desc:'Перевод, кандзи и предложения: слова и задания вперемешку'},
   'quiz-compose':{title:'Собрать слово', desc:'Соберите слово из иероглифов по чтению и значению'},
   'quiz-pairs':  {title:'Найти пару',    desc:'Найдите два иероглифа с одинаковым он-чтением'},
   'quiz-match':  {title:'Сопоставь пары',desc:'Соедините плитки из двух колонок'},
 };
 // Векторная иконка режима из плашек MODE_ICONS (чёткая на любом экране)
 function modeIcon(key){
+  if(key==='exercises')return EX_ICON;
   const ic=MODE_ICONS[key];if(!ic)return'';
   return`<span class="micon" style="width:${ic.w}px;height:${ic.h}px" aria-hidden="true">${ic.r.map(([x,y,cw,ch,rw,rh,c,rot,sk,sx,sy])=>
     `<i style="left:${x}px;top:${y}px;width:${cw}px;height:${ch}px"><b style="width:${rw}px;height:${rh}px;background:${c};transform:rotate(${rot}deg)${sx!=null?` scale(${sx},${sy})`:''} skewX(${sk}deg)"></b></i>`).join('')}</span>`;
 }
 function homeModes(type){
-  return type==='kanji'?['cards','quiz','quiz-compose','quiz-pairs','quiz-match']:['cards','quiz','quiz-match'];
+  return type==='kanji'?['cards','quiz','quiz-compose','quiz-pairs','quiz-match']:['cards','quiz','exercises','quiz-match'];
 }
 function buildHome(){
   const type=S.homeTab,d=ds(type),p=pr(type);
@@ -378,7 +382,7 @@ function buildHome(){
 function modeCard(key,anim){
   const m=HOME_MODES[key],open=S.homeOpen===key;
   const hd=`<button class="mcard-hd" data-a="home-open:${key}" aria-expanded="${open}">
-      <span class="mcard-txt"><span class="mcard-t">${m.title}</span><span class="mcard-d">${m.desc}</span></span>
+      <span class="mcard-txt"><span class="mcard-t">${m.title}</span><span class="mcard-d">${m.desc}</span>${key==='exercises'&&!open?exPlanLine():''}</span>
       <span class="mcard-ic">${modeIcon(key)}</span>
     </button>`;
   return`<section class="mcard${open?' open':''}${anim?' anim':''}">${hd}${open?`<div class="mcard-bd">${modeBody(key)}</div>`:''}</section>`;
@@ -410,6 +414,7 @@ function modeBody(key){
   // порядок и подписи полей — как в макете карточек «Карточки» / «Квиз»
   const flds=type==='kanji'?['kanji','meaning','on_reading','kun_reading']:['reading','meaning','kanji'];
   const fo=k=>({v:k,l:type==='kanji'&&k!=='kanji'?fldLabel(k,type):fldShort(k,type)});
+  if(key==='exercises')return exHomeBody();
   let rows,start;
   if(key==='cards'){
     const c=S.studyCfg;

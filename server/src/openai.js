@@ -15,8 +15,8 @@ export function costUsd(model, usage) {
   return (fresh * p[0] + cached * p[1] + (usage.output_tokens || 0) * p[2]) / 1e6;
 }
 
-export async function respond(env, { instructions, input, schema, name }, fetchImpl = fetch) {
-  const model = env.AI_MODEL || 'gpt-6.1-sol';
+export async function respond(env, { instructions, input, schema, name, model: wanted }, fetchImpl = fetch) {
+  const model = wanted || env.AI_MODEL || 'gpt-6.1-sol';
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), Number(env.AI_TIMEOUT_MS || 45000));
   try {

@@ -8,9 +8,10 @@ function act(action){
 
   switch(type){
     case'up':if(practiceAvailable)uAction(val);return;
+    case'ex':exAct(val);return;
     case'tab':
       S.navMini=false;S.tab=val;S.kanjiPage=null;S.kanjiFlip=false;S.kanjiOpen=null;sentClose(true);if(val==='practice'&&practiceAvailable)UP.view='menu';S.confirmPending=null;S.cfgScreen=null;
-      S.studyQueue=[];S.studyResults=null;S.quizQ=null;S.quizDone=false;
+      S.studyQueue=[];S.studyResults=null;S.quizQ=null;S.quizDone=false;if(S.ex){EX.req++;S.ex=null;}
       // формы глаголов в практике переключают режим квиза — раскрытая карточка возвращает свой
       if(val==='home'&&S.homeOpen)prepareMode(S.homeOpen,S.homeTab);
       break;
@@ -466,6 +467,7 @@ function prepareMode(val,type){
     S.studyQueue=[];S.studyResults=null;
     return;
   }
+  if(val==='exercises')return;   // свои настройки (S.exCfg), режим квиза не трогает
   if(S.quizCfg.type!==type){
     S.quizCfg.type=type;S.quizCfg.folders=[];S.quizCfg.question=['kanji'];
     S.quizCfg.answer=[type==='kanji'?'on_reading':'reading'];
@@ -487,7 +489,12 @@ function bubbleShow(el){
   bubbleHide();
   const b=document.createElement('div');b.id='more-bubble';b.setAttribute('role','tooltip');
   const fmt=el.dataset.moreKind==='kun'?renderKun:esc;
-  b.innerHTML=el.dataset.more.split('\n').map((t,i)=>`<div class="mb-row"><span class="mb-i">${i+1}.</span><span>${fmt(t)}</span></div>`).join('');
+  if(el.dataset.moreKind==='tok'){
+    // слово в японском тексте упражнения: чтение и перевод; зажатие считается подсказкой
+    const[head,gloss]=el.dataset.more.split('\n');
+    b.innerHTML=`<div class="mb-tok">${esc(head)}</div>${gloss?`<div class="mb-gl">${esc(gloss)}</div>`:''}`;
+    if(S.ex&&!S.ex.done)S.ex.hinted=true;
+  }else b.innerHTML=el.dataset.more.split('\n').map((t,i)=>`<div class="mb-row"><span class="mb-i">${i+1}.</span><span>${fmt(t)}</span></div>`).join('');
   document.body.appendChild(b);
   const r=el.getBoundingClientRect(),bw=b.offsetWidth,bh=b.offsetHeight;
   const left=Math.max(8,Math.min(window.innerWidth-bw-8,r.left+r.width/2-bw/2));

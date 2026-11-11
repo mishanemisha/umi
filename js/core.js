@@ -62,6 +62,8 @@ const S={
   verbReports:[],     // отметки «Ошибка в задании» из форм глаголов: задание + ответ для проверки
   hintsEnabled:true,  // подсказки в квизе/карточках кандзи (можно выключить в настройках)
   cfgScreen:null,     // 'cards' | 'quiz' — экран настроек режима (формы глаголов из практики)
+  ex:null,            // идущая тренировка «Упражнения» (js/exercises.js)
+  exCfg:{count:'30',folders:[]},
   homeOpen:null,      // раскрытая карточка режима на главной: 'cards' | 'quiz' | 'quiz-compose' | 'quiz-pairs' | 'quiz-match'
   homeAnim:null,      // карточка, раскрытая только что (анимация и прокрутка один раз)
   navMini:false,      // таббар схлопнут прокруткой вниз
@@ -107,6 +109,9 @@ function load(){
     if(!Array.isArray(S.quizCfg.verbCats))S.quizCfg.verbCats=[];
     S.quizCfg.verbCats=S.quizCfg.verbCats.filter(v=>VERB_CAT_BY_ID[v]);   // старые v2-категории отбрасываем
     if(!S.quizCfg.verbCats.some(v=>VERB_CAT_BY_ID[v].k==='form'))S.quizCfg.verbCats=VERB_CATS_DEFAULT.slice();
+    S.exCfg={...S.exCfg,...(d.exCfg||{})};
+    if(!['30','40','50'].includes(S.exCfg.count))S.exCfg.count='30';
+    if(!Array.isArray(S.exCfg.folders))S.exCfg.folders=[];
     if(d.wordDisplay==='kana'||d.wordDisplay==='full')S.wordDisplay=d.wordDisplay;
     if(typeof d.hintsEnabled==='boolean')S.hintsEnabled=d.hintsEnabled;
     if(Array.isArray(d.verbReports))S.verbReports=d.verbReports;
@@ -142,7 +147,7 @@ function save(){
       words:S.words,progress:S.progress,
       kanjiItems:S.kanjiItems,kanjiProgress:S.kanjiProgress,
       wordsCsv:S.wordsCsv,kanjiCsv:S.kanjiCsv,
-      studyCfg:S.studyCfg,quizCfg:S.quizCfg,wordDisplay:S.wordDisplay,hintsEnabled:S.hintsEnabled,
+      studyCfg:S.studyCfg,quizCfg:S.quizCfg,exCfg:S.exCfg,wordDisplay:S.wordDisplay,hintsEnabled:S.hintsEnabled,
       verbReports:S.verbReports,
     }));
     return true;

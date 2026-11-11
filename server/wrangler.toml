@@ -12,7 +12,10 @@ AI_REASONING = "low"
 AI_MAX_VARIANTS = "4"             # вариантов «объяснение + 3 задания» на форму; дальше — только из базы
 AI_USER_DAILY_GENERATIONS = "40"  # новых генераций на пользователя в сутки (готовые из базы — без лимита)
 AI_USER_DAILY_REQUESTS = "300"
-AI_DAILY_BUDGET_USD = "2"         # потолок расхода на модель в сутки
+AI_DAILY_BUDGET_USD = "2"         # потолок расхода на модель в сутки (объяснения и упражнения вместе)
+AI_EX_MAX_VARIANTS = "10"             # вариантов «предложение + толкование» на слово
+AI_EX_USER_DAILY_GENERATIONS = "60"   # новых генераций упражнений на пользователя в сутки
+# AI_EX_MODEL = "gpt-6-luna"          # модель для упражнений; без строки — та же, что AI_MODEL
 
 # секреты (не в этом файле!): wrangler secret put OPENAI_API_KEY / TELEGRAM_BOT_TOKEN
 
