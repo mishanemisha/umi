@@ -7,25 +7,31 @@ const EX_STORE='umi.ex.v1';          // какие варианты предло
 const EX_COUNTS=['30','40','50'];
 const EX_TYPES=['jr','rj','desc','kanji','tail','gap','build'];
 const EX_REMOTE=['desc','gap','build'];
-const EX_LABEL={jr:'Перевод',rj:'Перевод',desc:'По описанию',kanji:'Кандзи слова',tail:'Хвост слова',gap:'Пропуск в предложении',build:'Собери предложение'};
 const EX_TAILS=['る','う','い','く','す','む','つ','える','べる','ける','れる','める','しい','かい','った','って'];
 const EX_ICON=`<svg width="104" height="84" viewBox="0 0 104 84" fill="none" aria-hidden="true"><polygon points="8,35 36,33 37,47 9,49" fill="#383737" fill-opacity=".9"/><polygon points="74,33 98,35 97,49 73,47" fill="#383737" fill-opacity=".9"/><polygon points="8,59 58,57 59,71 9,73" fill="#383737" fill-opacity=".9"/><polygon points="64,58 91,59 90,73 63,72" fill="#383737" fill-opacity=".9"/><rect x="41.5" y="33.5" width="28" height="14" stroke="#3f6fcf" stroke-opacity=".55"/><polygon points="40,18 70,9 73,22 43,31" fill="#3f6fcf" fill-opacity=".9"/></svg>`;
 // словарь data/dict (разбивка чтений, примеры), ответы сервера по ключу «слово|чтение»
-const EX={dictState:'',byKey:new Map(),sents:null,content:new Map(),req:0,bank:null};
+// kana: писать каной слова с кандзи, которых нет в «кандзи» ученика (выключено: кандзи показываются всегда)
+// wait: слова, по которым ответ сервера ещё в пути
+const EX={dictState:'',byKey:new Map(),sents:null,content:new Map(),req:0,bank:null,kana:false,wait:new Set()};
 
 /* ── Данные ── */
 const exHasKanji=s=>[...String(s||'')].some(isKanjiChar);
-function exM(w){return String(shownMeaning(w)||'').split(/[;\n]/)[0].trim();}
-function exWordOk(w){return!!(w&&w.kanji&&exM(w));}
-function exKey(w){return String(w.kanji||'')+'|'+toHira(w.reading||'');}
-// Кандзи показываем, только если ученик загрузил их в «кандзи»; иначе слово пишется каной.
+// У слова бывает несколько написаний и чтений через запятую — в заданиях берём первое
+const exFirst=v=>String(v||'').split(/[、,;；\/\n]/)[0].trim();
+const exW=w=>exFirst(w&&w.kanji);
+const exR=w=>exFirst(w&&w.reading);
+// короткое значение: первое, как в квизе
+function exM(w){return shortSense(String(shownMeaning(w)||'').split(/[;\n]/)[0].trim());}
+function exWordOk(w){return!!(exW(w)&&exM(w));}
+function exKey(w){return exW(w)+'|'+toHira(exR(w));}
+// В режиме EX.kana кандзи показываются, только если ученик загрузил их в «кандзи»; иначе слово пишется каной.
 function exKs(){
   if(EX.ksSrc!==S.kanjiItems||EX.ksN!==S.kanjiItems.length){EX.ks=userKanjiSet();EX.ksSrc=S.kanjiItems;EX.ksN=S.kanjiItems.length;}
   return EX.ks;
 }
-function exKnown(s){const ks=exKs();return kanjiChars(s).every(c=>ks.has(c));}
+function exKnown(s){if(!EX.kana)return true;const ks=exKs();return kanjiChars(s).every(c=>ks.has(c));}
 const exForm=(s,r)=>exKnown(s)||!r?String(s||''):String(r);   // вид слова на экране: кандзи или кана
-const exShow=w=>exForm(w.kanji,w.reading);
+const exShow=w=>exForm(exW(w),exR(w));
 function exRuby(t,r){return r&&exHasKanji(t)?`<ruby>${esc(t)}<rt>${esc(r)}</rt></ruby>`:esc(t);}
 function exLoadDict(){
   if(EX.dictState||typeof fetch!=='function')return;
@@ -38,7 +44,7 @@ function exLoadDict(){
 function exParts(w){
   if(!EX.bank){EX.bank=new Map();[...BUILTIN_WORDS,...ADDITIONAL_WORDS].forEach(b=>{if(b.k)EX.bank.set(b.w,b.k);});}
   const d=EX.byKey.get(exKey(w));
-  return segmentWord(String(w.kanji||''),w.reading||'',(d&&d.k)||EX.bank.get(w.kanji)||null);
+  return segmentWord(String(exW(w)||''),exR(w)||'',(d&&d.k)||EX.bank.get(exW(w))||null);
 }
 function exSeen(){try{return JSON.parse(localStorage.getItem(EX_STORE)||'{}').seen||{};}catch{return{};}}
 function exMarkSeen(key,item){
@@ -48,22 +54,28 @@ function exMarkSeen(key,item){
     localStorage.setItem(EX_STORE,JSON.stringify(d));}catch{}
 }
 // Просим сервер только о словах, которым выпало задание с предложением или описанием.
+// Генерация занимает до полуминуты, поэтому все пачки уходят сразу, а exAdvance придерживает
+// такие слова до ответа (EX.wait).
 async function exPrefetch(words){
-  const init=tg?.initData;
+  const init=tg?.initData,req=++EX.req;
+  EX.wait=new Set();
+  words=words.filter(w=>!EX.content.has(exKey(w)));
   if(!init||typeof fetch!=='function'||!words.length)return;
-  const req=++EX.req,seen=exSeen();
-  for(let i=0;i<words.length;i+=6){
-    if(req!==EX.req||!S.ex)return;
-    const part=words.slice(i,i+6).map(w=>({w:String(w.kanji),r:toHira(w.reading||''),m:exM(w)}));
+  const seen=exSeen();
+  words.forEach(w=>EX.wait.add(exKey(w)));
+  const send=async list=>{
+    const part=list.map(w=>({w:exW(w),r:toHira(exR(w)),m:exM(w)}));
     const sn={};part.forEach(p=>{const k=p.w+'|'+p.r;if(seen[k])sn[k]=seen[k];});
     try{
       const res=await fetch(AI_API+'/v1/exercise',{method:'POST',
         headers:{'content-type':'application/json','x-telegram-init-data':init},body:JSON.stringify({words:part,seen:sn})});
-      if(!res.ok)return;
-      const b=await res.json();
-      arr(b.items).forEach(it=>{if(it&&it.key&&it.data)EX.content.set(it.key,it);});
-    }catch{return;}
-  }
+      if(res.ok)arr((await res.json()).items).forEach(it=>{if(it&&it.key&&it.data)EX.content.set(it.key,it);});
+    }catch{}
+    if(req===EX.req)list.forEach(w=>EX.wait.delete(exKey(w)));
+  };
+  const parts=[];
+  for(let i=0;i<words.length;i+=6)parts.push(words.slice(i,i+6));
+  await Promise.all(parts.map(send));
 }
 // ответ сервера по слову: используется один раз, чтобы в следующей тренировке пришёл новый
 function exTake(w,part){
@@ -104,7 +116,7 @@ function exBankSent(w){
   for(const si of shuffle(arr(d.s))){
     const s=EX.sents[si];
     if(!s||!Array.isArray(s.t))continue;
-    const segs=exBankSegs(s),ti=segs.findIndex(x=>x.tok&&x.s===w.kanji);
+    const segs=exBankSegs(s),ti=segs.findIndex(x=>x.tok&&x.s===exW(w));
     if(ti>=0)return{segs,ti,ru:s.ru||'',src:s.src||null};
   }
   return null;
@@ -126,22 +138,23 @@ function exTrQ(w,dir,pool){
   const wrong=exDistinct(w,pool,dir==='jr'?exM:exShow,3,x=>exM(x)===exM(w)||exShow(x)===exShow(w));
   if(!wrong)return null;
   const opts=shuffle([w,...wrong]);
-  return{type:dir,word:w,options:opts.map(x=>dir==='jr'?{t:exM(x)}:{t:exShow(x),r:x.reading||''}),correct:opts.indexOf(w)};
+  return{type:dir,word:w,options:opts.map(x=>dir==='jr'?{t:exM(x),full:shownMeaning(x)}:{t:exShow(x),r:exR(x)||''}),correct:opts.indexOf(w)};
 }
 function exKanjiQ(w,pool){
-  const chars=[...String(w.kanji)],target=chars.filter(isKanjiChar);
-  if(!target.length||target.length>4||!exKnown(w.kanji))return null;
-  // лишние плитки — тоже из знакомых кандзи
+  const chars=[...String(exW(w))],target=chars.filter(isKanjiChar);
+  if(!target.length||target.length>4||!exKnown(exW(w)))return null;
+  // лишние плитки — кандзи из слов ученика и из его списка кандзи (в режиме каны — только из списка)
   const have=new Set(target),need=Math.max(2,6-target.length);
-  const extra=shuffle([...exKs()].filter(c=>!have.has(c))).slice(0,need);
+  const src=new Set([...exKs(),...(EX.kana?[]:pool.flatMap(x=>kanjiChars(exW(x))))]);
+  const extra=shuffle([...src].filter(c=>!have.has(c))).slice(0,need);
   if(extra.length<2)return null;
   return{type:'kanji',word:w,chars,target,parts:exParts(w),options:shuffle([...target,...extra.slice(0,need)]),picks:[]};
 }
 function exTail(s){const m=/^(.*[㐀-鿿々])([ぁ-ゖー]+)$/.exec(String(s||''));return m?{head:m[1],tail:m[2]}:null;}
 function exTailQ(w,pool){
-  const ht=exTail(w.kanji);
-  if(!ht||!exKnown(w.kanji))return null;
-  const cand=shuffle(pool.map(x=>exTail(x.kanji)).filter(Boolean).map(x=>x.tail)).concat(shuffle(EX_TAILS))
+  const ht=exTail(exW(w));
+  if(!ht||!exKnown(exW(w)))return null;
+  const cand=shuffle(pool.map(x=>exTail(exW(x))).filter(Boolean).map(x=>x.tail)).concat(shuffle(EX_TAILS))
     .sort((a,b)=>Math.abs(a.length-ht.tail.length)-Math.abs(b.length-ht.tail.length));
   const seen=new Set([ht.tail]),wrong=[];
   for(const t of cand){if(seen.has(t))continue;seen.add(t);wrong.push(t);if(wrong.length===3)break;}
@@ -182,7 +195,7 @@ function exDescQ(w,pool){
   const d=exTake(w,'d');
   if(!d)return null;
   const opts=shuffle([w,...wrong]);
-  return{type:'desc',word:w,segs:exServerSegs(d.t),options:opts.map(x=>({t:exShow(x),r:x.reading||''})),correct:opts.indexOf(w)};
+  return{type:'desc',word:w,segs:exServerSegs(d.t),options:opts.map(x=>({t:exShow(x),r:exR(x)||''})),correct:opts.indexOf(w)};
 }
 function exMake(type,w,pool){
   switch(type){
@@ -195,11 +208,12 @@ function exMake(type,w,pool){
   }
   return null;
 }
-// Тип случайный. Незнакомое слово первый раз приходит переводом; один тип — не больше двух раз подряд.
+// Тип случайный; один тип — не больше двух раз подряд. Если для слова уже пришло предложение
+// с сервера, оно идёт в дело первым: за него заплачено, и в следующий раз придёт новое.
 function exQuestion(w){
   const x=S.ex,pool=S.words.filter(exWordOk),wish=x.wish[w.id];
   let order=[wish,...shuffle(EX_TYPES.filter(t=>t!==wish))];
-  if(statusOf(S.progress,w.id)==='unknown')order=[...shuffle(['jr','rj']),...order.filter(t=>t!=='jr'&&t!=='rj')];
+  if(EX.content.has(exKey(w)))order=[...order.filter(t=>EX_REMOTE.includes(t)),...order.filter(t=>!EX_REMOTE.includes(t))];
   const repeat=t=>x.last.length===2&&x.last[0]===t&&x.last[1]===t;
   for(const pass of[0,1])for(const t of order){
     if(!pass&&repeat(t))continue;
@@ -240,8 +254,14 @@ function exStart(only){
 function exAdvance(){
   const x=S.ex;
   x.done=false;x.ok=false;x.sel=-1;x.hint=false;x.hinted=false;x.q=null;
+  const word=id=>S.words.find(v=>v.id===id);
+  const waits=id=>{const w=word(id),k=w?exKey(w):'';return EX_REMOTE.includes(x.wish[id])&&EX.wait.has(k)&&!EX.content.has(k);};
   while(++x.i<x.ids.length){
-    const w=S.words.find(v=>v.id===x.ids[x.i]);
+    // слово ждёт предложение с сервера — пока берём следующее готовое, а это останется на потом
+    let j=x.i;
+    while(j<x.ids.length&&waits(x.ids[j]))j++;
+    if(j>x.i&&j<x.ids.length)x.ids.splice(x.i,0,x.ids.splice(j,1)[0]);
+    const w=word(x.ids[x.i]);
     const q=w&&exQuestion(w);
     if(q){x.q=q;return;}
   }
@@ -270,7 +290,7 @@ function exAct(val){
       save();break;}
     case'start':exStart();break;
     case'retry':if(x)exStart([...new Set(x.errors)]);break;
-    case'stop':EX.req++;S.ex=null;break;
+    case'stop':EX.req++;EX.wait=new Set();S.ex=null;break;
     case'hint':if(q&&!x.done){x.hint=!x.hint;x.hinted=true;haptic('light');}break;
     case'giveup':if(q&&!x.done){x.sel=-1;exGrade(false);}break;
     case'ans':
@@ -310,26 +330,7 @@ function exTokHtml(s){
 }
 function exWordRow(w){
   const shown=exShow(w);
-  return`<div class="ex-row"><span class="ex-row-w jp">${esc(shown)}</span><span class="ex-row-m">${w.reading&&w.reading!==shown?`<i class="jp">${esc(w.reading)}</i>`:''}${esc(exM(w))}</span></div>`;
-}
-// После ответа из-под канваса выезжает блок: при ошибке — правильный ответ, затем слово и перевод предложения
-function exAnswerText(q){
-  switch(q.type){
-    case'jr':return exM(q.word);
-    case'gap':return q.options[q.correct];
-    case'tail':return q.head+q.tail;
-    case'build':return q.chunks.join('');
-    default:return exShow(q.word);
-  }
-}
-function exDrop(){
-  const x=S.ex,q=x.q;
-  return`<div class="cv-drop ex-drop" data-key="ex-drop"><div class="ex-drop-in">
-    ${x.ok?'':`<div class="cmp-correct">Правильно: <span>${esc(exAnswerText(q))}</span></div>`}
-    ${exWordRow(q.word)}
-    ${q.ru&&q.type!=='build'?`<p class="ex-rv-ru">${esc(q.ru)}</p>`:''}
-    ${q.src?sentBy(q.src):''}
-  </div></div>`;
+  return`<div class="ex-row"><span class="ex-row-w jp">${esc(shown)}</span><span class="ex-row-m">${exR(w)&&exR(w)!==shown?`<i class="jp">${esc(exR(w))}</i>`:''}${esc(exM(w))}</span></div>`;
 }
 function exDone(){
   const x=S.ex,word=id=>S.words.find(w=>w.id===id),err=new Set(x.errors);
@@ -350,60 +351,68 @@ function buildEx(){
   if(!x)return'';
   if(x.results)return exDone();
   if(!x.q)return'';
-  const q=x.q,w=q.word,done=x.done,show=x.hint||done;
+  const q=x.q,w=q.word,done=x.done,show=x.hint||done,miss=done&&!x.ok;
   const pill=t=>done?'':`<button class="cv-hint${x.hint?' on':''}" data-a="ex:hint" aria-pressed="${!!x.hint}">${t}</button>`;
-  const opts=(html,jp)=>`<div class="quiz-opts">${html.map((h,i)=>{
+  const opts=(html,jp,more)=>`<div class="quiz-opts">${html.map((h,i)=>{
     const cls=done?(i===q.correct?'ok':i===x.sel?'bad':''):'';
-    return`<button class="qopt ${jp?'jp ':''}${cls}"${done?' aria-disabled="true"':''} data-a="ex:ans:${i}">${h}</button>`;}).join('')}</div>`;
+    return`<button class="qopt ${jp?'jp ':''}${cls}"${done?' aria-disabled="true"':''}${more?more[i]:''} data-a="ex:ans:${i}">${h}</button>`;}).join('')}</div>`;
   const tiles=(items)=>`<div class="ex-tiles">${items.map((t,i)=>`<button class="qopt jp${q.picks.includes(i)?' used':''}"${done?' aria-disabled="true"':''} data-a="ex:pick:${i}">${esc(t)}</button>`).join('')}</div>`;
-  const meaning=`<div class="ex-prompt">${esc(exM(w))}</div>`;
-  let task='',inner='',hint='',lbl='',panel='';
+  // значение — как в квизе: видно первое, остальные по зажатию
+  const full=shownMeaning(w);
+  const meaning=`<div class="ex-prompt"${moreAttr(full)}>${firstSense(full)}</div>`;
+  const wordJp=`<b class="jp">${esc(exShow(w))}</b>${exR(w)&&exR(w)!==exShow(w)?` <span class="jp">${esc(exR(w))}</span>`:''}`;
+  // при ошибке правильный ответ встаёт на место в канвасе; fix — пометка внизу канваса
+  let task='',inner='',hint='',lbl='',panel='',fix='Показан правильный ответ';
   switch(q.type){
-    case'jr':
+    case'jr':{
       task='Что значит это слово?';lbl='Выберите значение:';
-      inner=`<div class="ex-word jp">${show?exRuby(exShow(w),w.reading):esc(exShow(w))}</div>`;
-      hint=exHasKanji(exShow(w))&&w.reading?pill('Фуригана'):'';
-      panel=opts(q.options.map(o=>esc(o.t)));break;
+      inner=`<div class="ex-word jp">${show?exRuby(exShow(w),exR(w)):esc(exShow(w))}</div>`;
+      hint=exHasKanji(exShow(w))&&exR(w)?pill('Фуригана'):'';
+      const l=optLabels('meaning',q.options.map(o=>o.full||o.t));
+      fix=`Правильно: <b>${esc(exM(w))}</b>`;
+      panel=opts(l.map(o=>o.html),false,l.map(o=>o.more));break;}
     case'rj':
       task='Как это по-японски?';lbl='Выберите слово:';inner=meaning;hint=q.options.some(o=>exHasKanji(o.t))?pill('Фуригана'):'';
+      fix=`Правильно: ${wordJp}`;
       panel=opts(q.options.map(o=>show?exRuby(o.t,o.r):esc(o.t)),true);break;
     case'desc':
-      task='Какое слово здесь описано?';lbl='Выберите слово:';hint=w.reading?pill('Подсказка'):'';
-      inner=`<div class="ex-sent jp">${q.segs.map(exTokHtml).join('')}</div>${x.hint&&!done?`<div class="ex-note">Чтение начинается на «${esc([...w.reading][0])}»</div>`:''}`;
+      task='Какое слово здесь описано?';lbl='Выберите слово:';hint=exR(w)?pill('Подсказка'):'';
+      inner=`<div class="ex-sent jp">${q.segs.map(exTokHtml).join('')}</div>${x.hint&&!done?`<div class="ex-note">Чтение начинается на «${esc([...exR(w)][0])}»</div>`:''}`;
+      fix=`Правильно: ${wordJp}`;
       panel=opts(q.options.map(o=>done?exRuby(o.t,o.r):esc(o.t)),true);break;
     case'kanji':{
-      task='Собери слово из кандзи';lbl='Выберите кандзи:';hint=w.reading?pill('Фуригана'):'';
+      task='Собери слово из кандзи';lbl='Выберите кандзи:';hint=exR(w)?pill('Фуригана'):'';
       let k=0;
       const cells=q.chars.map((c,ci)=>{
         if(!isKanjiChar(c))return`<span class="ex-kana">${esc(c)}</span>`;
         const at=k++,pick=q.picks[at],val=done?c:pick!=null?q.options[pick]:'';
         const rt=show&&q.parts?esc(q.parts[ci].r):'';
-        return`<span class="ex-cell"><i class="ex-furi">${rt}</i><span class="ex-slot${val?' on':''}${done?(x.ok?' ok':' bad'):''}"${val&&!done?` data-a="ex:unpick:${at}"`:''}>${esc(val)}</span></span>`;
+        return`<span class="ex-cell"><i class="ex-furi">${rt}</i><span class="ex-slot${val?' on':''}${done?' ok':''}"${val&&!done?` data-a="ex:unpick:${at}"`:''}>${esc(val)}</span></span>`;
       }).join('');
-      inner=`${meaning}<div class="ex-build jp">${cells}</div>${show&&!q.parts?`<div class="ex-note jp">${esc(w.reading)}</div>`:''}`;
+      inner=`${meaning}<div class="ex-build jp">${cells}</div>${show&&!q.parts?`<div class="ex-note jp">${esc(exR(w))}</div>`:''}`;
       panel=tiles(q.options);break;}
     case'tail':{
-      task='Допиши слово каной';lbl='Выберите окончание:';hint=w.reading?pill('Фуригана'):'';
+      task='Допиши слово каной';lbl='Выберите окончание:';hint=exR(w)?pill('Фуригана'):'';
       const head=show&&q.parts?[...q.head].map((c,i)=>isKanjiChar(c)?exRuby(c,q.parts[i].r):esc(c)).join(''):esc(q.head);
-      inner=`${meaning}<div class="ex-build jp">${head}<span class="ex-blank${done?(x.ok?' ok':' bad'):''}">${done?esc(q.tail):''}</span></div>`;
+      inner=`${meaning}<div class="ex-build jp">${head}<span class="ex-blank${done?' ok':''}">${done?esc(q.tail):''}</span></div>`;
       panel=opts(q.options.map(esc),true);break;}
     case'gap':
       task='Подставь подходящее слово';lbl='Выберите слово:';hint=q.ru?pill('Перевод'):'';
-      inner=`<div class="ex-sent jp">${q.segs.map((s,i)=>i===q.ti?`<span class="ex-blank${done?' ok':''}">${done?esc(s.d||s.s):''}</span>`:exTokHtml(s)).join('')}</div>${x.hint&&!done?`<div class="ex-note">${esc(q.ru)}</div>`:''}`;
+      inner=`<div class="ex-sent jp">${q.segs.map((s,i)=>i===q.ti?`<span class="ex-blank${done?' ok':''}">${done?esc(s.d||s.s):''}</span>`:exTokHtml(s)).join('')}</div>${q.ru&&(x.hint||done)?`<div class="ex-note">${esc(q.ru)}</div>`:''}${done&&q.src?sentBy(q.src):''}`;
       panel=opts(q.options.map(esc),true);break;
-    case'build':
+    case'build':{
       task='Собери предложение';lbl='Соберите из предложенного:';
-      inner=`<div class="ex-prompt sm">${esc(q.ru)}</div><div class="ex-sent ex-line jp${done?(x.ok?' ok':' bad'):''}">${q.picks.map((ti,at)=>`<button class="ex-chunk"${done?'':` data-a="ex:unpick:${at}"`}>${esc(q.tiles[ti].c)}</button>`).join('')}</div>`;
-      panel=tiles(q.tiles.map(t=>t.c));break;
+      const line=miss?q.chunks.map(c=>`<span class="ex-chunk">${esc(c)}</span>`):q.picks.map((ti,at)=>`<button class="ex-chunk"${done?'':` data-a="ex:unpick:${at}"`}>${esc(q.tiles[ti].c)}</button>`);
+      inner=`<div class="ex-prompt sm">${esc(q.ru)}</div><div class="ex-sent ex-line jp${done?' ok':''}">${line.join('')}</div>`;
+      panel=tiles(q.tiles.map(t=>t.c));break;}
   }
-  const pills=hint+(done?'':`<button class="cv-hint" data-a="ex:giveup">Ответ</button>`);
+  const foot=done?(miss?`<div class="ex-fix">${fix}</div>`:''):`<div class="cv-pills">${hint}<button class="cv-hint" data-a="ex:giveup">Ответ</button></div>`;
   return`<div class="pg">
-    <div class="cv-wrap"><div class="quiz-q ex-q${done?(x.ok?' ok':' bad'):''}">
+    <div class="cv-wrap"><div class="quiz-q${done?(x.ok?' ok':' bad'):''}">
       <div class="qscore"><div class="qbadge qok" aria-label="Верно">${x.score.ok}</div><div class="qbadge qbad" aria-label="Неверно">${x.score.bad}</div><div class="qbadge">${x.i+1} / ${x.ids.length}</div></div>
-      <div class="ex-type">${EX_LABEL[q.type]}</div>
-      <div class="qbody"><div class="ex-task">${task}</div>${inner}</div>
-      ${pills?`<div class="cv-pills">${pills}</div>`:''}
-    </div>${done?exDrop():''}</div>
+      <div class="qbody ex-body"><div class="ex-task">${task}</div>${inner}</div>
+      ${foot}
+    </div></div>
     <div class="quiz-panel"><div class="quiz-panel-lbl">${lbl}</div>${panel}</div>
     <div class="quiz-actions">
       <button class="qact-btn" data-a="ex:stop">Стоп</button>

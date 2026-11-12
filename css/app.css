@@ -795,9 +795,13 @@ td{padding:7px 10px;border-top:1px solid rgba(255,255,255,.05);white-space:nowra
 .ex-plan-i b{font-family:var(--fjp);font-weight:500;font-size:20px;line-height:1.2}
 .ex-plan-i span{font-size:12px;font-weight:300;color:#d1d1d1}
 .ex-plan-i.y b{color:var(--y)}.ex-plan-i.b b{color:var(--al)}
-.ex-q{height:auto;min-height:300px}
-.ex-q .qbody{gap:14px;padding:4px 0}
-.ex-type{font-size:10px;color:#8b8b8b;border:.5px solid #8b8b8b;border-radius:16px;padding:2px 14px}
+.ex-body{gap:14px;padding:4px 0}
+/* пометка внизу канваса после ошибки: правильный ответ обычным шрифтом */
+.ex-fix{flex:none;max-width:100%;font-size:13px;line-height:20px;color:#d1d1d1;overflow-wrap:anywhere}
+.ex-fix b{font-weight:500;color:var(--g)}
+.ex-fix .jp{font-family:var(--fjp);font-size:15px}
+.ex-fix span.jp{font-size:12px;color:#8b8b8b}
+.ex-body .kp-by{margin-top:0;justify-content:center}
 .ex-task{font-size:12px;font-weight:300}
 .ex-word{font-family:var(--fkj);font-weight:700;font-size:64px;line-height:1.5}
 .ex-word rt,.ex-build rt{font-family:var(--fjp);font-weight:400;font-size:13px;color:#8b8b8b}
@@ -806,17 +810,16 @@ td{padding:7px 10px;border-top:1px solid rgba(255,255,255,.05);white-space:nowra
 .ex-note{font-size:13px;font-weight:300;color:#d1d1d1;padding:0 8px}
 .ex-sent{width:100%;box-sizing:border-box;background:#212121;border:.5px solid #3a3a3a;border-radius:4px;padding:12px 10px;font-family:var(--fjp);font-weight:500;font-size:19px;line-height:2.1;text-align:left;overflow-wrap:anywhere}
 .ex-sent rt{font-weight:400;font-size:10px;color:#8b8b8b}
-.ex-sent.ok{border-color:var(--g)}.ex-sent.bad{border-color:var(--r)}
+.ex-sent.ok{border-color:var(--g)}
 .ex-tok{border-radius:3px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:default}
 .ex-tok:active{background:rgba(63,111,207,.35)}
 .ex-blank{display:inline-block;min-width:3em;height:1.5em;line-height:1.5em;vertical-align:middle;margin:0 3px;padding:0 6px;border:1px solid rgba(63,111,207,.6);border-radius:3px;text-align:center;box-sizing:border-box}
 .ex-blank.ok{border-color:var(--g);background:rgba(122,255,120,.15);color:var(--g)}
-.ex-blank.bad{border-color:var(--r);background:rgba(255,60,60,.15);color:var(--r)}
 .ex-build{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:center;gap:6px;font-family:var(--fkj);font-weight:500;font-size:34px;line-height:1.5}
 .ex-build .ex-blank{min-width:2.4em;height:1.6em;line-height:1.6em;margin:0}
 .ex-slot{display:inline-flex;align-items:center;justify-content:center;width:1.6em;height:1.6em;border:1px solid rgba(63,111,207,.5);border-radius:4px;box-sizing:border-box}
 .ex-slot.on{background:var(--cv2);border-color:#383737;cursor:pointer}
-.ex-slot.ok{border-color:var(--g);color:var(--g)}.ex-slot.bad{border-color:var(--r);color:var(--r)}
+.ex-slot.ok{border-color:var(--g);color:var(--g)}
 .ex-kana{line-height:1.6em}
 .ex-cell{display:inline-flex;flex-direction:column;align-items:center;gap:2px}
 .ex-furi{font-family:var(--fjp);font-style:normal;font-weight:400;font-size:13px;line-height:16px;min-height:16px;color:#8b8b8b}
@@ -827,7 +830,6 @@ td{padding:7px 10px;border-top:1px solid rgba(255,255,255,.05);white-space:nowra
 .ex-tiles .qopt.used{visibility:hidden}
 .quiz-opts .qopt.jp{font-family:var(--fjp);font-size:20px}
 .quiz-opts .qopt.jp rt{font-size:10px;font-weight:400;color:#8b8b8b}
-.ex-rv-ru{font-size:14px;font-weight:300;color:#d1d1d1;margin:0}
 .ex-row{display:flex;align-items:center;gap:10px}
 .ex-list .ex-row{background:var(--cv2);border-radius:8px;padding:8px 12px}
 .ex-row-w{font-family:var(--fjp);font-weight:500;font-size:20px;flex:none;max-width:45%;overflow-wrap:anywhere}
@@ -840,6 +842,3 @@ td{padding:7px 10px;border-top:1px solid rgba(255,255,255,.05);white-space:nowra
 .ex-wide{width:100%;margin-top:2px}
 .mb-tok{font-family:var(--fjp);font-size:16px;font-weight:500}
 .mb-gl{font-size:12px;font-weight:300;color:#d1d1d1}
-.ex-drop-in{width:100%;display:flex;flex-direction:column;gap:8px;padding:0 4px}
-.ex-drop .cmp-correct{text-align:left}
-.ex-drop .kp-by,.ex-drop .sx-by{justify-content:flex-start}

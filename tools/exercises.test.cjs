@@ -26,7 +26,7 @@ function app(){
 // отвечает на текущее задание: верно (right=true) или неверно
 function answer(a,right){
  return a.run(`(()=>{const x=S.ex,q=x.q;
-  if(q.type==='kanji'){const want=${right}?q.target:[...q.target].reverse().concat('?');const used=[];
+  if(q.type==='kanji'){const want=${right}?q.target:q.target.map(()=>'?');const used=[];
     for(const c of q.target.map((_,i)=>want[i])){let i=q.options.findIndex((o,k)=>o===c&&!used.includes(k));if(i<0)i=q.options.findIndex((o,k)=>!q.target.includes(o)&&!used.includes(k));used.push(i);exAct('pick:'+i);}
     if(!x.done){exAct('giveup');}}
   else if(q.type==='build'){const order=${right}?q.chunks:[...q.chunks].reverse();
@@ -59,7 +59,7 @@ test('a session asks every word once with a random task and ends with a summary'
   const seen=[],types=new Set();
   for(let i=0;i<8;i++){
    assert.equal(a.run(`!!S.ex.q`),true);
-   assert.match(a.html(),/ex-type/);
+   assert.match(a.html(),/ex-task/);
    assert.match(a.html(),new RegExp(`${i+1} / 8`));
    const r=JSON.parse(answer(a,i%3!==0));
    assert.equal(r.done,true,`task ${r.type} was graded`);
@@ -68,7 +68,6 @@ test('a session asks every word once with a random task and ends with a summary'
    a.run(`act('ex:next')`);
   }
   assert.equal(new Set(seen).size,8,'no word repeats');
-  assert(['jr','rj'].some(t=>types.has(t)),'new words start with translation');
   assert.match(a.html(),/Итог тренировки/);
   assert.equal(a.run(`S.ex.results.ok+':'+S.ex.results.bad`),'5:3');
   assert.match(a.html(),/Повторить ошибки/);
@@ -144,9 +143,9 @@ test('dictionary examples are used when the server has nothing',()=>{
  assert.match(a.html(),/Я купил зонт/);
 });
 
-test('kanji the learner has not loaded are never shown: words and sentences fall back to kana',()=>{
+test('kana mode (off by default): kanji the learner has not loaded fall back to kana',()=>{
  const a=app();
- a.run(`S.kanjiItems=S.kanjiItems.filter(k=>'雨日'.includes(k.kanji));S.words.forEach(w=>smUpdate(S.progress,w.id,4));
+ a.run(`EX.kana=true;S.kanjiItems=S.kanjiItems.filter(k=>'雨日'.includes(k.kanji));S.words.forEach(w=>smUpdate(S.progress,w.id,4));
   S.ex={ids:[],wish:{},i:0,q:null,done:false,sel:-1,last:[],score:{ok:0,bad:0},fixed:[],errors:[],results:null}`);
  const make=type=>a.run(`(()=>{const x=S.ex;x.done=false;x.hint=false;x.hinted=false;x.sel=-1;EX.content.set('傘|かさ',${JSON.stringify(SERVER)});x.q=exMake('${type}',S.words[0],S.words);render();return !!x.q;})()`);
  assert.equal(make('kanji'),false,'no kanji task for an unknown kanji');
@@ -164,6 +163,55 @@ test('kanji the learner has not loaded are never shown: words and sentences fall
  assert(make('build'));
  assert.equal(a.run(`S.ex.q.chunks.join('|')`),'雨が|ふるから|かさを|もつ');
  answer(a,false);
- assert.match(a.html(),/Правильно: <span>雨がふるからかさをもつ<\/span>/,'the right answer slides out under the canvas');
- assert.match(a.html(),/cv-drop ex-drop/);
+ assert.match(a.html(),/ex-chunk">雨が<\/span><span class="ex-chunk">ふるから/,'the right sentence replaces the wrong one in the canvas');
+});
+
+test('after an answer the canvas marks the result itself: no drawer, the right answer as a note',()=>{
+ const a=app();
+ a.run(`S.words.forEach(w=>smUpdate(S.progress,w.id,4));S.ex={ids:[],wish:{},i:0,q:null,done:false,sel:-1,last:[],score:{ok:0,bad:0},fixed:[],errors:[],results:null}`);
+ const make=(type,i)=>a.run(`(()=>{const x=S.ex;x.done=false;x.hint=false;x.hinted=false;x.sel=-1;x.q=exMake('${type}',S.words[${i}],S.words);render();return !!x.q;})()`);
+ assert(make('kanji',0),'kanji tasks do not depend on the kanji list');
+ assert(make('rj',0));
+ assert.match(a.html(),/[\u4e00-\u9fff]/,'kanji are shown');
+ answer(a,true);
+ assert.match(a.html(),/quiz-q ok/);
+ assert.doesNotMatch(a.html(),/ex-fix|cv-drop|Правильно/,'a right answer is not repeated');
+ assert(make('rj',0));
+ answer(a,false);
+ assert.match(a.html(),/quiz-q bad/);
+ assert.match(a.html(),/ex-fix">Правильно: <b class="jp">傘<\/b> <span class="jp">かさ<\/span>/);
+ assert.doesNotMatch(a.html(),/cv-drop/);
+ assert(make('kanji',2));
+ answer(a,false);
+ assert.match(a.html(),/ex-fix">Показан правильный ответ/);
+ assert.doesNotMatch(a.html(),/ex-slot[^"]*bad/);
+});
+
+test('meanings show the first sense only, the rest on a long tap',()=>{
+ const a=app();
+ a.run(`S.words[0].meaning='зонт; зонтик от солнца; укрытие';S.words[0].translation='';S.words.forEach(w=>smUpdate(S.progress,w.id,4));
+  S.ex={ids:[],wish:{},i:0,q:null,done:false,sel:-1,last:[],score:{ok:0,bad:0},fixed:[],errors:[],results:null};
+  S.ex.q=exMake('rj',S.words[0],S.words);render();`);
+ assert.match(a.html(),/ex-prompt" data-more="зонт\nзонтик от солнца\nукрытие">зонт<i class="more-i"/);
+ a.run(`S.ex.q=exMake('jr',S.words[0],S.words);render();`);
+ assert.match(a.html(),/class="qopt [^>]*data-more="зонт\nзонтик от солнца\nукрытие"[^>]*>зонт<i class="more-i"/);
+});
+
+test('a word with several spellings and readings uses the first of each',()=>{
+ const a=app();
+ a.run(`S.words[0].kanji='格好いい, 格好良い';S.words[0].reading='かっこいい, かっこよい, カッコイイ';S.words[0].meaning='to come true (of a dream, wish, etc.), to be realized, to be fulfilled, to be granted';`);
+ assert.equal(a.run(`exKey(S.words[0])`),'格好いい|かっこいい');
+ assert.equal(a.run(`exShow(S.words[0])`),'格好いい');
+ assert(a.run(`exM(S.words[0]).length`)<=24,'the meaning sent to the server and shown is short');
+});
+
+test('words that wait for a server sentence are held back until it arrives',()=>{
+ const a=app();
+ a.run(`act('ex:start');const x=S.ex,ids=x.ids.slice(x.i+1);
+  ids.forEach(id=>x.wish[id]='jr');x.wish[ids[0]]='gap';
+  globalThis.K=exKey(S.words.find(w=>w.id===ids[0]));globalThis.FIRST=ids[0];EX.wait=new Set([K]);act('ex:skip')`);
+ assert.notEqual(a.run(`S.ex.ids[S.ex.i]`),a.run(`FIRST`),'a ready word goes first');
+ assert.equal(a.run(`S.ex.ids.length`),8);
+ a.run(`EX.wait.delete(K);const w=S.words.find(w=>w.id===FIRST);if(K==='傘|かさ')EX.content.set(K,${JSON.stringify(SERVER)});act('ex:skip')`);
+ assert.equal(a.run(`S.ex.ids[S.ex.i]`),a.run(`FIRST`),'and the held word comes right after the answer arrives');
 });
